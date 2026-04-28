@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 128 128">
+  <defs>
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#1a0a2e"/>
+      <stop offset="100%" style="stop-color:#0a0612"/>
+    </linearGradient>
+    <linearGradient id="link" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#8b5cf6"/>
+      <stop offset="100%" style="stop-color:#d946ef"/>
+    </linearGradient>
+    <linearGradient id="eye" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#a78bfa"/>
+      <stop offset="100%" style="stop-color:#e879f9"/>
+    </linearGradient>
+  </defs>
+  <rect width="128" height="128" rx="28" fill="url(#bg)"/>
+  <!-- Chain link 1 -->
+  <g transform="translate(64,64) rotate(-45) translate(-64,-64)">
+    <rect x="30" y="48" width="40" height="32" rx="16" fill="none" stroke="url(#link)" stroke-width="7"/>
+    <rect x="58" y="48" width="40" height="32" rx="16" fill="none" stroke="url(#link)" stroke-width="7"/>
+  </g>
+  <!-- Eye/spy dot -->
+  <circle cx="64" cy="64" r="6" fill="url(#eye)" opacity="0.9"/>
+  <!-- Scan ring -->
+  <circle cx="64" cy="64" r="42" fill="none" stroke="url(#eye)" stroke-width="2.5" stroke-dasharray="12 8" opacity="0.4"/>
+</svg>

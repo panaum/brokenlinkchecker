@@ -1,0 +1,240 @@
+/* ─────────────────────────────────────────────
+   LinkSpy — Popup Styles
+   Dark purple theme matching the panel design
+   ───────────────────────────────────────────── */
+
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  width: 260px;
+  background: #0a0612;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Poppins', sans-serif;
+  color: white;
+  overflow-x: hidden;
+}
+
+/* ───── Container ───── */
+.popup-container {
+  display: flex;
+  flex-direction: column;
+}
+
+/* ───── Header ───── */
+.popup-header {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 14px 16px 10px;
+  background: linear-gradient(132deg, rgb(65,0,153) 0%, rgb(86,16,96) 100%);
+}
+
+.popup-logo svg {
+  width: 20px;
+  height: 20px;
+  display: block;
+}
+
+.popup-title {
+  font-size: 16px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+}
+
+/* ───── Sections ───── */
+.popup-section {
+  padding: 10px 16px;
+  border-bottom: 0.5px solid rgba(255,255,255,0.06);
+}
+
+.section-label {
+  font-size: 10px;
+  text-transform: uppercase;
+  color: rgba(255,255,255,0.4);
+  letter-spacing: 0.08em;
+  margin-bottom: 8px;
+  font-weight: 500;
+}
+
+/* ───── Stats ───── */
+.popup-stat-row {
+  display: flex;
+  align-items: center;
+  padding: 3px 0;
+  font-size: 12px;
+  color: rgba(255,255,255,0.7);
+}
+
+.popup-dot {
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  margin-right: 8px;
+  flex-shrink: 0;
+}
+
+.popup-stat-label {
+  flex: 1;
+}
+
+.popup-stat-val {
+  font-weight: 600;
+  font-size: 13px;
+  color: white;
+  min-width: 20px;
+  text-align: right;
+}
+
+.popup-broken-row.has-broken {
+  background: rgba(248,113,113,0.08);
+  border-radius: 5px;
+  padding: 3px 6px;
+  margin: 1px -6px;
+}
+
+.popup-broken-val.has-broken {
+  color: #f87171;
+}
+
+/* ───── Scanning ───── */
+.popup-scanning {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 0;
+  font-size: 11px;
+  color: rgba(255,255,255,0.5);
+}
+
+.popup-spinner {
+  width: 12px;
+  height: 12px;
+  border: 2px solid rgba(255,255,255,0.15);
+  border-top: 2px solid #a855f7;
+  border-radius: 50%;
+  animation: popup-spin 0.7s linear infinite;
+  flex-shrink: 0;
+}
+
+@keyframes popup-spin {
+  0% { transform: rotate(0deg); }
+  100% { transform: rotate(360deg); }
+}
+
+.popup-empty-msg {
+  font-size: 12px;
+  color: rgba(255,255,255,0.35);
+  text-align: center;
+  padding: 12px 0;
+}
+
+/* ───── Buttons ───── */
+.popup-btn {
+  width: 100%;
+  padding: 7px 0;
+  font-size: 12px;
+  font-weight: 500;
+  font-family: inherit;
+  border-radius: 6px;
+  border: none;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  margin-bottom: 6px;
+  color: white;
+  background: linear-gradient(132deg, rgb(65,0,153) 0%, rgb(86,16,96) 100%);
+}
+
+.popup-btn:hover {
+  opacity: 0.9;
+  transform: translateY(-1px);
+}
+
+.popup-btn:active {
+  transform: translateY(0);
+}
+
+.popup-btn-ghost {
+  background: rgba(255,255,255,0.06);
+  border: 0.5px solid rgba(255,255,255,0.12);
+}
+
+.popup-btn-ghost:hover {
+  background: rgba(255,255,255,0.1);
+  opacity: 1;
+}
+
+.popup-btn:last-child {
+  margin-bottom: 0;
+}
+
+/* ───── Toggle Switches ───── */
+.popup-toggle-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 5px 0;
+  cursor: pointer;
+  user-select: none;
+}
+
+.popup-toggle-label {
+  font-size: 12px;
+  color: rgba(255,255,255,0.75);
+}
+
+.popup-toggle {
+  position: relative;
+  width: 28px;
+  height: 15px;
+  flex-shrink: 0;
+}
+
+.popup-toggle input {
+  opacity: 0;
+  width: 0;
+  height: 0;
+  position: absolute;
+}
+
+.popup-toggle-track {
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  border-radius: 999px;
+  background: rgba(255,255,255,0.15);
+  transition: background 0.2s ease;
+  cursor: pointer;
+}
+
+.popup-toggle-track::after {
+  content: '';
+  position: absolute;
+  width: 11px;
+  height: 11px;
+  border-radius: 50%;
+  background: white;
+  top: 2px;
+  left: 2px;
+  transition: left 0.2s ease;
+}
+
+.popup-toggle input:checked + .popup-toggle-track {
+  background: linear-gradient(132deg, rgb(65,0,153), rgb(138,26,155));
+}
+
+.popup-toggle input:checked + .popup-toggle-track::after {
+  left: 15px;
+}
+
+/* ───── Footer ───── */
+.popup-footer {
+  padding: 8px 16px;
+  text-align: center;
+  font-size: 10px;
+  color: rgba(255,255,255,0.2);
+}

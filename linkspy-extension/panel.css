@@ -1,0 +1,10 @@
+/* 
+ * LinkSpy — Panel CSS
+ * 
+ * NOTE: Panel styles are embedded directly in panel.js
+ * and injected into a Shadow DOM for complete isolation
+ * from host page styles. This file exists for reference
+ * and to match the expected file structure.
+ *
+ * See panel.js for the actual CSS used by the panel.
+ */

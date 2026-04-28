@@ -1,4 +1,3 @@
-import asyncio
 from playwright.sync_api import sync_playwright
 from bs4 import BeautifulSoup
 from urllib.parse import urljoin, urlparse
@@ -17,6 +16,7 @@ ZONE_SELECTORS = {
     ],
 }
 
+
 def _find_dead_ctas(soup, url: str) -> list[RawLink]:
     dead: list[RawLink] = []
     seen: set[str] = set()
@@ -27,23 +27,22 @@ def _find_dead_ctas(soup, url: str) -> list[RawLink]:
     ]
 
     def get_nearest_heading(tag) -> str:
-        """Walk up and sideways in DOM to find nearest heading above this element"""
-        # First check siblings and parents for nearby headings
         for parent in tag.parents:
-            # Look at previous siblings of each parent
             for sibling in parent.previous_siblings:
-                if hasattr(sibling, 'name'):
-                    if sibling.name in ['h1', 'h2', 'h3', 'h4']:
-                        text = sibling.get_text(strip=True)
-                        if text:
-                            return f"Near: {text[:60]}"
-                    # Also check headings inside siblings
-                    heading = sibling.find('h1') or sibling.find('h2') or sibling.find('h3') or sibling.find('h4')
-                    if heading:
-                        text = heading.get_text(strip=True)
-                        if text:
-                            return f"Near: {text[:60]}"
-            # Check if parent itself is a section/div with an id or aria-label
+                if not hasattr(sibling, 'name') or sibling.name is None:
+                    continue
+                if sibling.name in ['h1', 'h2', 'h3', 'h4']:
+                    text = sibling.get_text(strip=True)
+                    if text:
+                        return f"Near: {text[:60]}"
+                heading = (
+                    sibling.find('h1') or sibling.find('h2') or
+                    sibling.find('h3') or sibling.find('h4')
+                )
+                if heading:
+                    text = heading.get_text(strip=True)
+                    if text:
+                        return f"Near: {text[:60]}"
             if hasattr(parent, 'name') and parent.name in ['section', 'div']:
                 aria = parent.get('aria-label', '').strip()
                 if aria:
@@ -84,11 +83,16 @@ def _find_dead_ctas(soup, url: str) -> list[RawLink]:
 
     return dead
 
+
 def _scrape_sync(url: str) -> list[RawLink]:
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
         context = browser.new_context(
-            user_agent="Mozilla/5.0 (compatible; LinkCheckerBot/1.0)"
+            user_agent=(
+                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) "
+                "Chrome/124.0.0.0 Safari/537.36"
+            )
         )
         page = context.new_page()
         page.goto(url, wait_until="networkidle", timeout=30000)
@@ -133,5 +137,7 @@ def _scrape_sync(url: str) -> list[RawLink]:
     results.extend(dead_ctas)
     return results
 
+
 async def scrape_links(url: str) -> list[RawLink]:
+    import asyncio
     return await asyncio.to_thread(_scrape_sync, url)

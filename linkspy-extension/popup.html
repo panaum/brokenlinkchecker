@@ -1,0 +1,110 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=260">
+  <title>LinkSpy</title>
+  <link rel="stylesheet" href="popup.css">
+</head>
+<body>
+  <div class="popup-container">
+    <!-- Header -->
+    <div class="popup-header">
+      <div class="popup-logo">
+        <svg viewBox="0 0 16 16" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M6.5 9.5L9.5 6.5" stroke="url(#plg1)" stroke-width="1.5" stroke-linecap="round"/>
+          <path d="M9.17 7.17L10.83 5.5A2 2 0 1 0 8 2.67L6.33 4.33" stroke="url(#plg1)" stroke-width="1.5" stroke-linecap="round"/>
+          <path d="M6.83 8.83L5.17 10.5A2 2 0 1 0 8 13.33l1.67-1.67" stroke="url(#plg1)" stroke-width="1.5" stroke-linecap="round"/>
+          <defs>
+            <linearGradient id="plg1" x1="2" y1="2" x2="14" y2="14">
+              <stop stop-color="#c084fc"/><stop offset="1" stop-color="#e879f9"/>
+            </linearGradient>
+          </defs>
+        </svg>
+      </div>
+      <span class="popup-title">LinkSpy</span>
+    </div>
+
+    <!-- Stats Section -->
+    <div class="popup-section" id="popup-stats-section">
+      <div class="section-label">Current Page</div>
+      <div id="popup-stats">
+        <div class="popup-stat-row">
+          <span class="popup-stat-label">Total links</span>
+          <span class="popup-stat-val" id="popup-total">—</span>
+        </div>
+        <div class="popup-stat-row">
+          <span class="popup-dot" style="background:#4ade80"></span>
+          <span class="popup-stat-label">Working</span>
+          <span class="popup-stat-val" id="popup-ok">—</span>
+        </div>
+        <div class="popup-stat-row">
+          <span class="popup-dot" style="background:#fb923c"></span>
+          <span class="popup-stat-label">Redirected</span>
+          <span class="popup-stat-val" id="popup-redirect">—</span>
+        </div>
+        <div class="popup-stat-row popup-broken-row" id="popup-broken-row">
+          <span class="popup-dot" style="background:#f87171"></span>
+          <span class="popup-stat-label">Broken</span>
+          <span class="popup-stat-val popup-broken-val" id="popup-broken">—</span>
+        </div>
+        <div class="popup-stat-row">
+          <span class="popup-dot" style="background:#e879f9"></span>
+          <span class="popup-stat-label">Can't verify</span>
+          <span class="popup-stat-val" id="popup-blocked">—</span>
+        </div>
+      </div>
+      <div id="popup-scanning-msg" class="popup-scanning" style="display:none">
+        <div class="popup-spinner"></div>
+        <span>Scanning in progress...</span>
+      </div>
+      <div id="popup-no-page" style="display:none">
+        <p class="popup-empty-msg">Open a webpage to start scanning</p>
+      </div>
+    </div>
+
+    <!-- Actions -->
+    <div class="popup-section" id="popup-actions">
+      <button class="popup-btn" id="popup-scan-btn">⟳ Scan this page</button>
+      <button class="popup-btn popup-btn-ghost" id="popup-scroll-broken">View broken links ↗</button>
+      <button class="popup-btn popup-btn-ghost" id="popup-show-panel">Show panel on page</button>
+    </div>
+
+    <!-- Settings -->
+    <div class="popup-section">
+      <div class="section-label">Settings</div>
+
+      <label class="popup-toggle-row" for="toggle-autoscan">
+        <span class="popup-toggle-label">Auto-scan on page load</span>
+        <div class="popup-toggle">
+          <input type="checkbox" id="toggle-autoscan" checked>
+          <span class="popup-toggle-track"></span>
+        </div>
+      </label>
+
+      <label class="popup-toggle-row" for="toggle-badges">
+        <span class="popup-toggle-label">Show badges on links</span>
+        <div class="popup-toggle">
+          <input type="checkbox" id="toggle-badges" checked>
+          <span class="popup-toggle-track"></span>
+        </div>
+      </label>
+
+      <label class="popup-toggle-row" for="toggle-highlight-ok">
+        <span class="popup-toggle-label">Highlight working links</span>
+        <div class="popup-toggle">
+          <input type="checkbox" id="toggle-highlight-ok">
+          <span class="popup-toggle-track"></span>
+        </div>
+      </label>
+    </div>
+
+    <!-- Footer -->
+    <div class="popup-footer">
+      <span>v1.0.0</span>
+    </div>
+  </div>
+
+  <script src="popup.js"></script>
+</body>
+</html>

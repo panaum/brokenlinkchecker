@@ -47,7 +47,7 @@ async def scan(url: str = Query(..., description="URL to scan")):
                 pct = 30 + int((i / total) * 65)
                 yield f"data: {json.dumps({'type': 'progress', 'message': f'Checked {i}/{total} links...', 'percent': pct})}\n\n"
 
-            yield f"data: {json.dumps({'type': 'result', 'data': [r.model_dump() for r in results]})}\n\n"
+            yield f"data: {json.dumps({'type': 'result', 'data': [r.dict() for r in results]})}\n\n"
 
         except Exception as e:
             yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"

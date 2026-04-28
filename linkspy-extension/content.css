@@ -1,0 +1,161 @@
+/* ─────────────────────────────────────────────
+   LinkSpy — Content.css
+   Underline highlights & badge styles
+   ───────────────────────────────────────────── */
+
+/* ───── Underline styles ───── */
+a.linkspy-ok {
+  text-decoration: underline !important;
+  text-decoration-color: #4ade80 !important;
+  text-decoration-thickness: 2px !important;
+  text-underline-offset: 3px !important;
+}
+
+a.linkspy-broken {
+  text-decoration: underline !important;
+  text-decoration-color: #f87171 !important;
+  text-decoration-thickness: 2px !important;
+  text-underline-offset: 3px !important;
+}
+
+a.linkspy-redirect {
+  text-decoration: underline !important;
+  text-decoration-color: #fb923c !important;
+  text-decoration-thickness: 2px !important;
+  text-underline-offset: 3px !important;
+}
+
+a.linkspy-blocked {
+  text-decoration: underline !important;
+  text-decoration-color: #e879f9 !important;
+  text-decoration-thickness: 2px !important;
+  text-underline-offset: 3px !important;
+  text-decoration-style: dashed !important;
+}
+
+a.linkspy-timeout {
+  text-decoration: underline !important;
+  text-decoration-color: #94a3b8 !important;
+  text-decoration-thickness: 2px !important;
+  text-underline-offset: 3px !important;
+  text-decoration-style: dotted !important;
+}
+
+a.linkspy-error {
+  text-decoration: underline !important;
+  text-decoration-color: #fbbf24 !important;
+  text-decoration-thickness: 2px !important;
+  text-underline-offset: 3px !important;
+  text-decoration-style: wavy !important;
+}
+
+/* ───── Badge base ───── */
+.linkspy-badge {
+  display: inline-flex !important;
+  align-items: center !important;
+  font-size: 10px !important;
+  font-weight: 700 !important;
+  padding: 1px 5px !important;
+  border-radius: 4px !important;
+  margin-left: 4px !important;
+  vertical-align: middle !important;
+  line-height: 1.4 !important;
+  cursor: default !important;
+  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif !important;
+  position: relative !important;
+  z-index: 999999 !important;
+  white-space: nowrap !important;
+  text-decoration: none !important;
+  letter-spacing: 0 !important;
+  text-transform: none !important;
+  box-sizing: border-box !important;
+}
+
+/* ───── Badge variants ───── */
+.linkspy-badge-broken {
+  background: rgba(248,113,113,0.15) !important;
+  color: #f87171 !important;
+  border: 0.5px solid rgba(248,113,113,0.4) !important;
+}
+
+.linkspy-badge-redirect {
+  background: rgba(251,146,60,0.15) !important;
+  color: #fb923c !important;
+  border: 0.5px solid rgba(251,146,60,0.4) !important;
+}
+
+.linkspy-badge-blocked {
+  background: rgba(232,121,249,0.15) !important;
+  color: #e879f9 !important;
+  border: 0.5px solid rgba(232,121,249,0.4) !important;
+}
+
+.linkspy-badge-timeout {
+  background: rgba(148,163,184,0.15) !important;
+  color: #94a3b8 !important;
+  border: 0.5px solid rgba(148,163,184,0.4) !important;
+}
+
+.linkspy-badge-error {
+  background: rgba(251,191,36,0.15) !important;
+  color: #fbbf24 !important;
+  border: 0.5px solid rgba(251,191,36,0.4) !important;
+}
+
+/* ───── Badge tooltip ───── */
+.linkspy-badge::after {
+  content: attr(data-tooltip) !important;
+  display: none !important;
+  position: absolute !important;
+  bottom: calc(100% + 6px) !important;
+  left: 50% !important;
+  transform: translateX(-50%) !important;
+  background: #1a1025 !important;
+  color: rgba(255,255,255,0.9) !important;
+  font-size: 11px !important;
+  font-weight: 400 !important;
+  padding: 5px 9px !important;
+  border-radius: 6px !important;
+  border: 0.5px solid rgba(255,255,255,0.15) !important;
+  white-space: nowrap !important;
+  pointer-events: none !important;
+  z-index: 9999999 !important;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.4) !important;
+}
+
+.linkspy-badge:hover::after {
+  display: block !important;
+}
+
+/* ───── Badge dismiss button ───── */
+.linkspy-badge-dismiss {
+  margin-left: 3px !important;
+  opacity: 0.5 !important;
+  cursor: pointer !important;
+  font-size: 9px !important;
+  line-height: 1 !important;
+  padding: 0 !important;
+  background: none !important;
+  border: none !important;
+  color: inherit !important;
+  font-family: inherit !important;
+}
+
+.linkspy-badge-dismiss:hover {
+  opacity: 1 !important;
+}
+
+/* ───── Animation for scanning ───── */
+@keyframes linkspy-pulse {
+  0%, 100% { opacity: 0.4; }
+  50% { opacity: 1; }
+}
+
+a.linkspy-scanning {
+  text-decoration: underline !important;
+  text-decoration-color: rgba(168, 85, 247, 0.4) !important;
+  text-decoration-thickness: 2px !important;
+  text-underline-offset: 3px !important;
+  text-decoration-style: dotted !important;
+  animation: linkspy-pulse 1.5s ease-in-out infinite !important;
+}

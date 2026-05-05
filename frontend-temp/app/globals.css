@@ -1,0 +1,155 @@
+@import "tailwindcss";
+
+@theme {
+  --font-sans: "Poppins", sans-serif;
+  --color-brand-purple-dark: #410099;
+  --color-brand-purple-mid: #8a1a9b;
+  --color-brand-purple-deep: #231e46;
+  --color-brand-purple-dark2: #560060;
+}
+
+@layer base {
+  * {
+    box-sizing: border-box;
+  }
+  body {
+    background: #0a0612;
+    color: #ffffff;
+    font-family: "Poppins", sans-serif;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+  }
+  ::-webkit-scrollbar {
+    width: 6px;
+  }
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+  ::-webkit-scrollbar-thumb {
+    background: rgba(255, 255, 255, 0.15);
+    border-radius: 3px;
+  }
+}
+
+/* Gradient utility classes */
+.bg-gradient-1 {
+  background: linear-gradient(
+    132deg,
+    rgb(65, 0, 153) 0%,
+    rgb(138, 26, 155) 100%
+  );
+}
+.bg-gradient-2 {
+  background: linear-gradient(
+    132deg,
+    rgb(65, 0, 153) 0%,
+    rgb(86, 16, 96) 100%
+  );
+}
+.bg-gradient-3 {
+  background: linear-gradient(
+    132deg,
+    rgb(138, 26, 155) 0%,
+    rgb(35, 30, 70) 100%
+  );
+}
+
+/* Glass card */
+.glass-card {
+  background: rgba(255, 255, 255, 0.05);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 16px;
+}
+
+/* Gradient text */
+.gradient-text {
+  background: linear-gradient(
+    132deg,
+    rgb(138, 26, 155) 0%,
+    rgb(200, 100, 255) 100%
+  );
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* Animated gradient border */
+@keyframes gradient-rotate {
+  0% {
+    background-position: 0% 50%;
+  }
+  50% {
+    background-position: 100% 50%;
+  }
+  100% {
+    background-position: 0% 50%;
+  }
+}
+
+.animated-border {
+  position: relative;
+  z-index: 0;
+}
+
+.animated-border::before {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: -2px;
+  border-radius: 18px;
+  background: linear-gradient(
+    132deg,
+    rgb(65, 0, 153),
+    rgb(138, 26, 155),
+    rgb(86, 16, 96),
+    rgb(65, 0, 153)
+  );
+  background-size: 300% 300%;
+  animation: gradient-rotate 4s ease infinite;
+  opacity: 0.6;
+}
+
+.animated-border::after {
+  content: "";
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  border-radius: 16px;
+  background: rgba(10, 6, 18, 0.95);
+}
+
+/* Noise texture overlay */
+.noise-overlay::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  opacity: 0.03;
+  pointer-events: none;
+  z-index: 1;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+  background-size: 256px 256px;
+}
+
+/* Pulse animation for green dot */
+@keyframes pulse-dot {
+  0%,
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.5;
+    transform: scale(1.5);
+  }
+}
+.animate-pulse-dot {
+  animation: pulse-dot 2s ease-in-out infinite;
+}
+
+/* Progress bar transition */
+.progress-fill {
+  transition: width 0.5s ease;
+}

@@ -1,6 +1,13 @@
 node_modules/
 .next/
+venv/
 __pycache__/
 *.pyc
-.env.local
 .env
+.env.local
+.env.production
+out/
+build/
+*.log
+.DS_Store
+Thumbs.db

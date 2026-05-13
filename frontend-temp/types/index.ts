@@ -8,6 +8,18 @@ export type LinkLabel =
   | 'error'
   | 'dead_cta'
 
+export type LinkPriority = 'critical' | 'high' | 'medium' | 'low'
+
+export interface LinkSuggestion {
+  suggested_url: string | null
+  confidence: number
+  reasoning: string
+  intent: string
+  wayback_existed: boolean
+  wayback_last_seen: string | null
+  can_auto_fix: boolean
+}
+
 export interface LinkResult {
   url: string
   source_element: string
@@ -20,6 +32,8 @@ export interface LinkResult {
   response_ms: number
   error?: string
   found_on?: string
+  priority?: LinkPriority
+  suggestion?: LinkSuggestion | null
 }
 
 export type ZoneFilter =

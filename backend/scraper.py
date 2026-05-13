@@ -3,6 +3,18 @@ from bs4 import BeautifulSoup
 from urllib.parse import urljoin, urlparse
 from models import RawLink
 
+# Priority mapping based on page zone
+ZONE_PRIORITY = {
+    "Navigation": "critical",
+    "Header": "critical",
+    "CTA": "high",
+    "Hero": "high",
+    "Body text": "medium",
+    "Footer": "medium",
+    "Other": "low",
+    "Dead CTA": "medium",
+}
+
 ZONE_SELECTORS = {
     "Navigation": ["nav a[href]", "[role='navigation'] a[href]"],
     "Header": ["header a[href]"],
@@ -214,6 +226,7 @@ def _scrape_sync(url: str) -> list[RawLink]:
                     anchor_text=(tag.get_text(strip=True) or "")[:80],
                     category=zone,
                     is_external=urlparse(absolute).netloc != urlparse(url).netloc,
+                    priority=ZONE_PRIORITY.get(zone, "low"),
                 ))
 
     for tag in soup.find_all("a", href=True):
@@ -226,6 +239,7 @@ def _scrape_sync(url: str) -> list[RawLink]:
                 anchor_text=(tag.get_text(strip=True) or "")[:80],
                 category="Other",
                 is_external=urlparse(href).netloc != urlparse(url).netloc,
+                priority="low",
             ))
 
     dead_ctas = _find_dead_ctas(soup, url)

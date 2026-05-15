@@ -30,7 +30,7 @@ async def check_wayback(url: str) -> dict:
     """
     api_url = f"https://archive.org/wayback/available?url={url}"
     try:
-        async with httpx.AsyncClient(timeout=httpx.Timeout(8.0)) as client:
+        async with httpx.AsyncClient(timeout=httpx.Timeout(3.0)) as client:
             r = await client.get(api_url)
             if r.status_code != 200:
                 return {"existed": False, "last_seen": None, "redirect_url": None}
@@ -196,11 +196,36 @@ async def get_suggestion(
     status_code: Optional[int],
     all_working_urls: list[str],
     all_working_titles: list[str],
+    label: str = "broken",
 ) -> Optional[dict]:
     """
     Generate a suggestion for a broken link.
     Returns a suggestion dict if confidence >= 60, else None.
     """
+    # Handle dead CTAs
+    if label == "dead_cta":
+        return {
+            "suggested_url": None,
+            "confidence": 100,
+            "reasoning": "This button has no destination URL. Add a link to make it clickable.",
+            "intent": "dead_cta",
+            "wayback_existed": False,
+            "wayback_last_seen": None,
+            "can_auto_fix": False,
+        }
+
+    # Handle blocked links (999, 403, 429)
+    if label == "blocked":
+        return {
+            "suggested_url": None,
+            "confidence": 100,
+            "reasoning": "This site blocked our automated check. Manually verify this link works in a real browser.",
+            "intent": "blocked",
+            "wayback_existed": False,
+            "wayback_last_seen": None,
+            "can_auto_fix": False,
+        }
+
     # Check Wayback Machine
     wayback = await check_wayback(broken_url)
 
@@ -316,7 +341,7 @@ async def process_suggestions(results: list) -> list:
     # Find broken links that need suggestions
     broken_indices = [
         i for i, r in enumerate(results)
-        if r.label == "broken"
+        if r.label in ["broken", "dead_cta", "blocked"]
     ]
 
     if not broken_indices:
@@ -330,6 +355,7 @@ async def process_suggestions(results: list) -> list:
             status_code=r.status_code,
             all_working_urls=working_urls,
             all_working_titles=working_titles,
+            label=r.label,
         )
         if suggestion:
             results[idx].suggestion = suggestion

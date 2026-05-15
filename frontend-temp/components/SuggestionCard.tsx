@@ -1,11 +1,13 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import { ExternalLink, Copy, Check, Lightbulb, AlertTriangle, HelpCircle } from "lucide-react";
+import { ExternalLink, Copy, Check, Lightbulb, AlertTriangle, HelpCircle, Search, Trash2 } from "lucide-react";
+import { motion } from "framer-motion";
 import { LinkSuggestion } from "@/types";
 
 interface SuggestionCardProps {
   suggestion: LinkSuggestion;
+  url?: string;
 }
 
 function PreviewTooltip({ url }: { url: string }) {
@@ -73,9 +75,57 @@ function PreviewTooltip({ url }: { url: string }) {
   );
 }
 
-export default function SuggestionCard({ suggestion }: SuggestionCardProps) {
+/* ─── Shared card wrapper with glass styling + framer-motion ─────────────── */
+function GlassCard({
+  borderColor,
+  children,
+}: {
+  borderColor: string;
+  children: React.ReactNode;
+}) {
+  return (
+    <motion.div
+      initial={{ opacity: 0, x: -8 }}
+      animate={{ opacity: 1, x: 0 }}
+      transition={{ duration: 0.2 }}
+      style={{
+        background: "rgba(255,255,255,0.04)",
+        borderRadius: 8,
+        padding: "12px 14px",
+        marginTop: 8,
+        borderLeft: `3px solid ${borderColor}`,
+      }}
+    >
+      {children}
+    </motion.div>
+  );
+}
+
+/* ─── Shared button style ────────────────────────────────────────────────── */
+const btnBase: React.CSSProperties = {
+  display: "inline-flex",
+  alignItems: "center",
+  gap: 6,
+  padding: "6px 12px",
+  borderRadius: 8,
+  cursor: "pointer",
+  background: "rgba(255,255,255,0.06)",
+  border: "1px solid rgba(255,255,255,0.1)",
+  fontSize: "11px",
+  color: "rgba(255,255,255,0.6)",
+  fontFamily: "var(--font-poppins), Poppins, sans-serif",
+  fontWeight: 500,
+  textDecoration: "none",
+  transition: "background 0.15s ease",
+};
+
+const fontPoppins = "var(--font-poppins), Poppins, sans-serif";
+
+export default function SuggestionCard({ suggestion, url }: SuggestionCardProps) {
   const [copied, setCopied] = useState(false);
   const [showPreview, setShowPreview] = useState(false);
+  const [ctaInput, setCtaInput] = useState("");
+  const [ctaCopied, setCtaCopied] = useState(false);
   const hoverRef = useRef<HTMLAnchorElement>(null);
 
   const doCopy = async (text: string) => {
@@ -84,55 +134,213 @@ export default function SuggestionCard({ suggestion }: SuggestionCardProps) {
     setTimeout(() => setCopied(false), 1500);
   };
 
-  // Intent: intentionally_deleted
+  const doCopyCtaTemplate = async () => {
+    const toCopy = ctaInput.trim() || "https://example.com/page";
+    await navigator.clipboard.writeText(toCopy);
+    setCtaCopied(true);
+    setTimeout(() => setCtaCopied(false), 1500);
+  };
+
+  // ─── TYPE 2: Dead CTA ────────────────────────────────────────────────────
+  if (suggestion.intent === "dead_cta") {
+    return (
+      <GlassCard borderColor="#fbbf24">
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+          <AlertTriangle size={14} style={{ color: "#fbbf24", flexShrink: 0 }} />
+          <span
+            style={{
+              fontSize: "12px",
+              fontWeight: 600,
+              color: "#fbbf24",
+              fontFamily: fontPoppins,
+            }}
+          >
+            ⚠️ Dead Button Detected
+          </span>
+        </div>
+        <div
+          style={{
+            fontSize: "12px",
+            color: "rgba(255,255,255,0.6)",
+            fontFamily: fontPoppins,
+            lineHeight: 1.5,
+          }}
+        >
+          This button has no destination URL.
+          <br />
+          Add a link to make it functional.
+        </div>
+        <div style={{ marginTop: 10 }}>
+          <input
+            type="text"
+            value={ctaInput}
+            onChange={(e) => setCtaInput(e.target.value)}
+            placeholder="https://example.com/page"
+            onClick={(e) => e.stopPropagation()}
+            style={{
+              width: "100%",
+              padding: "8px 10px",
+              borderRadius: 6,
+              border: "1px solid rgba(251,191,36,0.25)",
+              background: "rgba(255,255,255,0.04)",
+              color: "rgba(255,255,255,0.8)",
+              fontSize: "12px",
+              fontFamily: "monospace",
+              outline: "none",
+              boxSizing: "border-box",
+            }}
+          />
+        </div>
+        <div style={{ marginTop: 8 }}>
+          <button
+            onClick={(e) => { e.stopPropagation(); doCopyCtaTemplate(); }}
+            style={btnBase}
+          >
+            {ctaCopied ? <Check size={12} style={{ color: "#4ade80" }} /> : <Copy size={12} />}
+            {ctaCopied ? "Copied!" : "Copy URL template"}
+          </button>
+        </div>
+      </GlassCard>
+    );
+  }
+
+  // ─── TYPE 3: Blocked ─────────────────────────────────────────────────────
+  if (suggestion.intent === "blocked") {
+    return (
+      <GlassCard borderColor="#e879f9">
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+          <Search size={14} style={{ color: "#e879f9", flexShrink: 0 }} />
+          <span
+            style={{
+              fontSize: "12px",
+              fontWeight: 600,
+              color: "#e879f9",
+              fontFamily: fontPoppins,
+            }}
+          >
+            🔍 Manual Verification Required
+          </span>
+        </div>
+        <div
+          style={{
+            fontSize: "12px",
+            color: "rgba(255,255,255,0.6)",
+            fontFamily: fontPoppins,
+            lineHeight: 1.5,
+          }}
+        >
+          This site blocked our automated check.
+          <br />
+          Click below to verify it works manually.
+        </div>
+        {url && (
+          <div style={{ marginTop: 10 }}>
+            <a
+              href={url}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={(e) => e.stopPropagation()}
+              style={{
+                ...btnBase,
+                color: "#e879f9",
+                border: "1px solid rgba(232,121,249,0.25)",
+              }}
+            >
+              <ExternalLink size={12} />
+              Open in browser →
+            </a>
+          </div>
+        )}
+      </GlassCard>
+    );
+  }
+
+  // ─── TYPE 4: Intentionally Deleted ────────────────────────────────────────
   if (suggestion.intent === "intentionally_deleted") {
     return (
-      <div
-        className="flex items-start gap-2 mt-2 rounded-lg px-3 py-3"
-        style={{
-          background: "rgba(248,113,113,0.06)",
-          border: "1px solid rgba(248,113,113,0.25)",
-        }}
-      >
-        <AlertTriangle size={14} style={{ color: "#f87171", marginTop: 2, flexShrink: 0 }} />
-        <div>
-          <span style={{ fontSize: "12px", color: "#f87171", fontFamily: "var(--font-poppins), Poppins, sans-serif", fontWeight: 600 }}>
-            ⚠️ This page appears to have been deliberately removed. Do not replace.
+      <GlassCard borderColor="#f87171">
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+          <Trash2 size={14} style={{ color: "#f87171", flexShrink: 0 }} />
+          <span
+            style={{
+              fontSize: "12px",
+              fontWeight: 600,
+              color: "#f87171",
+              fontFamily: fontPoppins,
+            }}
+          >
+            🗑️ Page Was Removed
           </span>
-          {suggestion.wayback_last_seen && (
-            <div style={{ fontSize: "11px", color: "rgba(255,255,255,0.35)", marginTop: 4, fontFamily: "var(--font-poppins), Poppins, sans-serif" }}>
-              Last seen in Wayback Machine: {suggestion.wayback_last_seen}
-            </div>
-          )}
         </div>
-      </div>
+        <div
+          style={{
+            fontSize: "12px",
+            color: "rgba(255,255,255,0.6)",
+            fontFamily: fontPoppins,
+            lineHeight: 1.5,
+          }}
+        >
+          This page was deliberately deleted (HTTP 410).
+          <br />
+          Do not replace — remove this link instead.
+        </div>
+        {suggestion.wayback_last_seen && (
+          <div
+            style={{
+              fontSize: "11px",
+              color: "rgba(255,255,255,0.35)",
+              marginTop: 8,
+              fontFamily: fontPoppins,
+            }}
+          >
+            Last seen in Wayback Machine: {suggestion.wayback_last_seen}
+          </div>
+        )}
+      </GlassCard>
     );
   }
 
-  // Intent: never_existed
+  // ─── TYPE 5: Never Existed ────────────────────────────────────────────────
   if (suggestion.intent === "never_existed" && !suggestion.suggested_url) {
     return (
-      <div
-        className="flex items-start gap-2 mt-2 rounded-lg px-3 py-3"
-        style={{
-          background: "rgba(251,191,36,0.06)",
-          border: "1px solid rgba(251,191,36,0.2)",
-        }}
-      >
-        <HelpCircle size={14} style={{ color: "#fbbf24", marginTop: 2, flexShrink: 0 }} />
-        <span style={{ fontSize: "12px", color: "rgba(255,255,255,0.6)", fontFamily: "var(--font-poppins), Poppins, sans-serif" }}>
-          This URL never existed — likely a typo when the link was created.
-        </span>
-      </div>
+      <GlassCard borderColor="#94a3b8">
+        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
+          <HelpCircle size={14} style={{ color: "#94a3b8", flexShrink: 0 }} />
+          <span
+            style={{
+              fontSize: "12px",
+              fontWeight: 600,
+              color: "#94a3b8",
+              fontFamily: fontPoppins,
+            }}
+          >
+            ❓ URL Never Existed
+          </span>
+        </div>
+        <div
+          style={{
+            fontSize: "12px",
+            color: "rgba(255,255,255,0.6)",
+            fontFamily: fontPoppins,
+            lineHeight: 1.5,
+          }}
+        >
+          This URL was never a real page.
+          <br />
+          It was likely a typo when the link was created.
+          <br />
+          Check the URL spelling carefully.
+        </div>
+      </GlassCard>
     );
   }
 
-  // No suggestion URL or confidence too low
+  // ─── No suggestion URL or confidence too low ─────────────────────────────
   if (!suggestion.suggested_url || suggestion.confidence < 60) {
     return null;
   }
 
-  // Confidence-based border color
+  // ─── TYPE 1: Broken Link with suggested replacement ──────────────────────
   let borderColor = "#fbbf24"; // 60-69 yellow
   let borderLabel = "Use with caution";
   if (suggestion.confidence >= 90) {
@@ -144,21 +352,28 @@ export default function SuggestionCard({ suggestion }: SuggestionCardProps) {
   }
 
   return (
-    <div
-      className="mt-2 rounded-lg px-4 py-3"
-      style={{
-        background: "rgba(255,255,255,0.03)",
-        border: `1px solid ${borderColor}40`,
-        borderLeft: `3px solid ${borderColor}`,
-      }}
-    >
+    <GlassCard borderColor={borderColor}>
       {/* Header */}
-      <div className="flex items-center gap-2 mb-2">
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
         <Lightbulb size={14} style={{ color: borderColor }} />
-        <span style={{ fontSize: "12px", fontWeight: 600, color: borderColor, fontFamily: "var(--font-poppins), Poppins, sans-serif" }}>
-          Suggested Replacement
+        <span
+          style={{
+            fontSize: "12px",
+            fontWeight: 600,
+            color: borderColor,
+            fontFamily: fontPoppins,
+          }}
+        >
+          💡 Suggested Replacement
         </span>
-        <span style={{ fontSize: "10px", color: "rgba(255,255,255,0.3)", fontFamily: "var(--font-poppins), Poppins, sans-serif", marginLeft: "auto" }}>
+        <span
+          style={{
+            fontSize: "10px",
+            color: "rgba(255,255,255,0.3)",
+            fontFamily: fontPoppins,
+            marginLeft: "auto",
+          }}
+        >
           {borderLabel}
         </span>
       </div>
@@ -191,28 +406,20 @@ export default function SuggestionCard({ suggestion }: SuggestionCardProps) {
       </div>
 
       {/* Confidence + reasoning */}
-      <div className="flex items-center gap-3 mt-2">
-        <span style={{ fontSize: "11px", color: "rgba(255,255,255,0.5)", fontFamily: "var(--font-poppins), Poppins, sans-serif" }}>
+      <div style={{ display: "flex", alignItems: "center", gap: 12, marginTop: 8 }}>
+        <span style={{ fontSize: "11px", color: "rgba(255,255,255,0.5)", fontFamily: fontPoppins }}>
           Confidence: <strong style={{ color: borderColor }}>{suggestion.confidence}%</strong>
         </span>
       </div>
-      <div style={{ fontSize: "11px", color: "rgba(255,255,255,0.4)", fontFamily: "var(--font-poppins), Poppins, sans-serif", marginTop: 4 }}>
+      <div style={{ fontSize: "11px", color: "rgba(255,255,255,0.4)", fontFamily: fontPoppins, marginTop: 4 }}>
         {suggestion.reasoning}
       </div>
 
       {/* Action buttons */}
-      <div className="flex items-center gap-2 mt-3">
+      <div style={{ display: "flex", alignItems: "center", gap: 8, marginTop: 12 }}>
         <button
           onClick={(e) => { e.stopPropagation(); doCopy(suggestion.suggested_url!); }}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg cursor-pointer transition-colors"
-          style={{
-            background: "rgba(255,255,255,0.06)",
-            border: "1px solid rgba(255,255,255,0.1)",
-            fontSize: "11px",
-            color: "rgba(255,255,255,0.6)",
-            fontFamily: "var(--font-poppins), Poppins, sans-serif",
-            fontWeight: 500,
-          }}
+          style={btnBase}
         >
           {copied ? <Check size={12} style={{ color: "#4ade80" }} /> : <Copy size={12} />}
           {copied ? "Copied!" : "Copy URL"}
@@ -222,16 +429,7 @@ export default function SuggestionCard({ suggestion }: SuggestionCardProps) {
           target="_blank"
           rel="noopener noreferrer"
           onClick={(e) => e.stopPropagation()}
-          className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-colors"
-          style={{
-            background: "rgba(255,255,255,0.06)",
-            border: "1px solid rgba(255,255,255,0.1)",
-            fontSize: "11px",
-            color: "rgba(255,255,255,0.6)",
-            fontFamily: "var(--font-poppins), Poppins, sans-serif",
-            fontWeight: 500,
-            textDecoration: "none",
-          }}
+          style={btnBase}
         >
           <ExternalLink size={12} />
           Open Page
@@ -239,13 +437,11 @@ export default function SuggestionCard({ suggestion }: SuggestionCardProps) {
         {suggestion.can_auto_fix && (
           <button
             onClick={(e) => { e.stopPropagation(); doCopy(suggestion.suggested_url!); }}
-            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg cursor-pointer transition-colors"
             style={{
+              ...btnBase,
               background: "rgba(74,222,128,0.12)",
               border: "1px solid rgba(74,222,128,0.25)",
-              fontSize: "11px",
               color: "#4ade80",
-              fontFamily: "var(--font-poppins), Poppins, sans-serif",
               fontWeight: 600,
             }}
           >
@@ -254,6 +450,6 @@ export default function SuggestionCard({ suggestion }: SuggestionCardProps) {
           </button>
         )}
       </div>
-    </div>
+    </GlassCard>
   );
 }

@@ -58,9 +58,9 @@ async def scan(url: str = Query(..., description="URL to scan")):
                 yield f"data: {json.dumps({'type': 'progress', 'message': f'Checked {i}/{total} links...', 'percent': pct})}\n\n"
 
             # Run suggestion engine for broken links
-            broken_count = sum(1 for r in results if r.label == "broken")
-            if broken_count > 0:
-                yield f"data: {json.dumps({'type': 'progress', 'message': f'Analyzing {broken_count} broken links for suggestions...', 'percent': 90})}\n\n"
+            actionable_count = sum(1 for r in results if r.label in ["broken", "dead_cta", "blocked"])
+            if actionable_count > 0:
+                yield f"data: {json.dumps({'type': 'progress', 'message': f'Analyzing {actionable_count} links for suggestions...', 'percent': 90})}\n\n"
                 await asyncio.sleep(0.1)
                 results = await process_suggestions(results)
 

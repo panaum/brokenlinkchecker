@@ -203,7 +203,7 @@ function RowDetail({ result }: { result: LinkResult }) {
 
           {/* AI Suggestion Card (Upgrade 3) */}
           {result.suggestion && (
-            <SuggestionCard suggestion={result.suggestion} />
+            <SuggestionCard suggestion={result.suggestion} url={result.url} />
           )}
 
           {/* Basic suggestion fallback */}

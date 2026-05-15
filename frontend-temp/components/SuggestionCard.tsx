@@ -144,114 +144,99 @@ export default function SuggestionCard({ suggestion, url }: SuggestionCardProps)
   // ─── TYPE 2: Dead CTA ────────────────────────────────────────────────────
   if (suggestion.intent === "dead_cta") {
     return (
-      <GlassCard borderColor="#fbbf24">
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-          <AlertTriangle size={14} style={{ color: "#fbbf24", flexShrink: 0 }} />
+      <div
+        className="mt-2 rounded-lg px-4 py-3"
+        style={{
+          background: "rgba(251,191,36,0.04)",
+          borderLeft: "3px solid #fbbf24",
+          border: "1px solid rgba(251,191,36,0.15)",
+          borderRadius: "8px",
+        }}
+      >
+        <div className="flex items-center gap-2 mb-2">
+          <AlertTriangle size={14} style={{ color: "#fbbf24" }} />
           <span
             style={{
               fontSize: "12px",
               fontWeight: 600,
               color: "#fbbf24",
-              fontFamily: fontPoppins,
+              fontFamily: "var(--font-poppins), Poppins, sans-serif",
             }}
           >
-            ⚠️ Dead Button Detected
+            Dead Button Detected
           </span>
         </div>
         <div
           style={{
-            fontSize: "12px",
-            color: "rgba(255,255,255,0.6)",
-            fontFamily: fontPoppins,
+            fontSize: "11px",
+            color: "rgba(255,255,255,0.5)",
+            fontFamily: "var(--font-poppins), Poppins, sans-serif",
             lineHeight: 1.5,
           }}
         >
-          This button has no destination URL.
-          <br />
-          Add a link to make it functional.
+          {suggestion.reasoning}
         </div>
-        <div style={{ marginTop: 10 }}>
-          <input
-            type="text"
-            value={ctaInput}
-            onChange={(e) => setCtaInput(e.target.value)}
-            placeholder="https://example.com/page"
-            onClick={(e) => e.stopPropagation()}
-            style={{
-              width: "100%",
-              padding: "8px 10px",
-              borderRadius: 6,
-              border: "1px solid rgba(251,191,36,0.25)",
-              background: "rgba(255,255,255,0.04)",
-              color: "rgba(255,255,255,0.8)",
-              fontSize: "12px",
-              fontFamily: "monospace",
-              outline: "none",
-              boxSizing: "border-box",
-            }}
-          />
-        </div>
-        <div style={{ marginTop: 8 }}>
-          <button
-            onClick={(e) => { e.stopPropagation(); doCopyCtaTemplate(); }}
-            style={btnBase}
-          >
-            {ctaCopied ? <Check size={12} style={{ color: "#4ade80" }} /> : <Copy size={12} />}
-            {ctaCopied ? "Copied!" : "Copy URL template"}
-          </button>
-        </div>
-      </GlassCard>
+      </div>
     );
   }
 
   // ─── TYPE 3: Blocked ─────────────────────────────────────────────────────
   if (suggestion.intent === "blocked") {
     return (
-      <GlassCard borderColor="#e879f9">
-        <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 8 }}>
-          <Search size={14} style={{ color: "#e879f9", flexShrink: 0 }} />
+      <div
+        className="mt-2 rounded-lg px-4 py-3"
+        style={{
+          background: "rgba(232,121,249,0.04)",
+          borderLeft: "3px solid #e879f9",
+          border: "1px solid rgba(232,121,249,0.15)",
+          borderRadius: "8px",
+        }}
+      >
+        <div className="flex items-center gap-2 mb-2">
+          <AlertTriangle size={14} style={{ color: "#e879f9" }} />
           <span
             style={{
               fontSize: "12px",
               fontWeight: 600,
               color: "#e879f9",
-              fontFamily: fontPoppins,
+              fontFamily: "var(--font-poppins), Poppins, sans-serif",
             }}
           >
-            🔍 Manual Verification Required
+            Manual Verification Required
           </span>
         </div>
         <div
           style={{
-            fontSize: "12px",
-            color: "rgba(255,255,255,0.6)",
-            fontFamily: fontPoppins,
+            fontSize: "11px",
+            color: "rgba(255,255,255,0.5)",
+            fontFamily: "var(--font-poppins), Poppins, sans-serif",
             lineHeight: 1.5,
           }}
         >
-          This site blocked our automated check.
-          <br />
-          Click below to verify it works manually.
+          {suggestion.reasoning}
         </div>
-        {url && (
-          <div style={{ marginTop: 10 }}>
-            <a
-              href={url}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={(e) => e.stopPropagation()}
-              style={{
-                ...btnBase,
-                color: "#e879f9",
-                border: "1px solid rgba(232,121,249,0.25)",
-              }}
-            >
-              <ExternalLink size={12} />
-              Open in browser →
-            </a>
-          </div>
-        )}
-      </GlassCard>
+        <div className="flex items-center gap-2 mt-3">
+          <a
+            href={suggestion.suggested_url || "#"}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={(e) => e.stopPropagation()}
+            className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg"
+            style={{
+              background: "rgba(232,121,249,0.12)",
+              border: "1px solid rgba(232,121,249,0.25)",
+              fontSize: "11px",
+              color: "#e879f9",
+              fontFamily: "var(--font-poppins), Poppins, sans-serif",
+              fontWeight: 500,
+              textDecoration: "none",
+            }}
+          >
+            <ExternalLink size={12} />
+            Open in browser
+          </a>
+        </div>
+      </div>
     );
   }
 

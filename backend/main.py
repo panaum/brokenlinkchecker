@@ -1,18 +1,21 @@
 import asyncio
 import sys
-
-if sys.platform == "win32":
-    asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
+import json
+import time
+import base64
 
 from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse, JSONResponse
+
+# Custom module imports
 from scraper import scrape_links
 from checker import check_all_links
 from suggester import process_suggestions
-import json
-import time
-import base64
+
+# Windows-specific event loop policy
+if sys.platform == "win32":
+    asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
 
 app = FastAPI(title="Broken Link Checker API")
 
@@ -20,14 +23,13 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=[
         "http://localhost:3000",
-        "https://your-production-domain.com",
+        "https://brokenlinkchecker-olive.vercel.app",
     ],
     allow_methods=["*"],
     allow_headers=["*"],
 )
 
 # ─── Screenshot cache for /preview endpoint ─────────────────────────────────
-# Cache format: { url: (base64_png, timestamp) }
 _preview_cache: dict[str, tuple[str, float]] = {}
 _PREVIEW_CACHE_TTL = 600  # 10 minutes
 
@@ -55,7 +57,7 @@ async def scan(url: str = Query(..., description="URL to scan")):
                 pct = 30 + int((i / total) * 55)
                 yield f"data: {json.dumps({'type': 'progress', 'message': f'Checked {i}/{total} links...', 'percent': pct})}\n\n"
 
-            # Run suggestion engine for broken links (AFTER checking completes)
+            # Run suggestion engine for broken links
             broken_count = sum(1 for r in results if r.label == "broken")
             if broken_count > 0:
                 yield f"data: {json.dumps({'type': 'progress', 'message': f'Analyzing {broken_count} broken links for suggestions...', 'percent': 90})}\n\n"
@@ -72,11 +74,6 @@ async def scan(url: str = Query(..., description="URL to scan")):
 
 @app.get("/preview")
 async def preview(url: str = Query(..., description="URL to screenshot")):
-    """
-    Capture a screenshot of the given URL using Playwright.
-    Returns a JSON response with base64-encoded PNG.
-    Cached in memory for 10 minutes.
-    """
     now = time.time()
 
     # Check cache
@@ -89,12 +86,12 @@ async def preview(url: str = Query(..., description="URL to screenshot")):
                 "cached": True,
             })
 
-    # Capture screenshot using Playwright in a thread
     try:
+        # Run synchronous Playwright in a thread to avoid blocking the event loop
         b64_png = await asyncio.to_thread(_capture_screenshot, url)
         _preview_cache[url] = (b64_png, now)
 
-        # Evict expired entries
+        # Cleanup expired entries
         expired = [k for k, (_, t) in _preview_cache.items() if now - t >= _PREVIEW_CACHE_TTL]
         for k in expired:
             del _preview_cache[k]
@@ -112,34 +109,33 @@ async def preview(url: str = Query(..., description="URL to screenshot")):
 
 
 def _capture_screenshot(url: str) -> str:
-    """Synchronous Playwright screenshot capture, run in a thread."""
+    """Synchronous Playwright screenshot capture."""
     from playwright.sync_api import sync_playwright
 
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
-        context = browser.new_context(
-            viewport={"width": 1280, "height": 720},
-            user_agent=(
-                "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
-                "AppleWebKit/537.36 (KHTML, like Gecko) "
-                "Chrome/124.0.0.0 Safari/537.36"
-            ),
-        )
-        page = context.new_page()
         try:
-            page.goto(url, wait_until="networkidle", timeout=15000)
-        except Exception:
-            # Fall back to domcontentloaded if networkidle times out
+            context = browser.new_context(
+                viewport={"width": 1280, "height": 720},
+                user_agent=(
+                    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+                    "AppleWebKit/537.36 (KHTML, like Gecko) "
+                    "Chrome/124.0.0.0 Safari/537.36"
+                ),
+            )
+            page = context.new_page()
+            
+            # Navigation attempt
             try:
-                page.goto(url, wait_until="domcontentloaded", timeout=10000)
+                page.goto(url, wait_until="networkidle", timeout=15000)
             except Exception:
-                browser.close()
-                raise
+                # Fallback
+                page.goto(url, wait_until="domcontentloaded", timeout=10000)
 
-        screenshot_bytes = page.screenshot(type="png")
-        browser.close()
-
-    return base64.b64encode(screenshot_bytes).decode("utf-8")
+            screenshot_bytes = page.screenshot(type="png")
+            return base64.b64encode(screenshot_bytes).decode("utf-8")
+        finally:
+            browser.close()
 
 
 @app.get("/health")

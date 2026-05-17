@@ -1,5 +1,9 @@
 import asyncio
 import sys
+
+if sys.platform == "win32":
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+
 import json
 import time
 import base64
@@ -8,14 +12,10 @@ from fastapi import FastAPI, Query
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse, JSONResponse
 
-# Custom module imports
 from scraper import scrape_links
 from checker import check_all_links
 from suggester import process_suggestions
-
-# Windows-specific event loop policy
-if sys.platform == "win32":
-    asyncio.set_event_loop_policy(asyncio.WindowsProactorEventLoopPolicy())
+from database import save_scan
 
 app = FastAPI(title="Broken Link Checker API")
 
@@ -29,13 +29,28 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-# ─── Screenshot cache for /preview endpoint ─────────────────────────────────
+# ─── Screenshot cache ─────────────────────────────────────────────────────────
 _preview_cache: dict[str, tuple[str, float]] = {}
 _PREVIEW_CACHE_TTL = 600  # 10 minutes
 
 
+def _calculate_health_score(results: list) -> int:
+    total = len(results)
+    if total == 0:
+        return 100
+    ok = sum(1 for r in results if r.label == "ok")
+    broken_penalty = sum(3 for r in results if r.label == "broken")
+    dead_cta_penalty = sum(2 for r in results if r.label == "dead_cta")
+    timeout_penalty = sum(1 for r in results if r.label == "timeout")
+    score = round((ok / total) * 100) - broken_penalty - dead_cta_penalty - timeout_penalty
+    return max(0, min(100, score))
+
+
 @app.get("/scan")
-async def scan(url: str = Query(..., description="URL to scan")):
+async def scan(
+    url: str = Query(..., description="URL to scan"),
+    email: str = Query(default="anonymous", description="User email for monitoring"),
+):
     async def event_stream():
         try:
             yield f"data: {json.dumps({'type': 'progress', 'message': 'Launching headless browser...', 'percent': 5})}\n\n"
@@ -49,7 +64,7 @@ async def scan(url: str = Query(..., description="URL to scan")):
             total = len(links)
 
             if total == 0:
-                yield f"data: {json.dumps({'type': 'result', 'data': []})}\n\n"
+                yield f"data: {json.dumps({'type': 'result', 'data': [], 'health_score': 100})}\n\n"
                 return
 
             async for i, result in check_all_links(links):
@@ -57,14 +72,28 @@ async def scan(url: str = Query(..., description="URL to scan")):
                 pct = 30 + int((i / total) * 55)
                 yield f"data: {json.dumps({'type': 'progress', 'message': f'Checked {i}/{total} links...', 'percent': pct})}\n\n"
 
-            # Run suggestion engine for broken links
+            # Run suggestion engine
             actionable_count = sum(1 for r in results if r.label in ["broken", "dead_cta", "blocked"])
             if actionable_count > 0:
                 yield f"data: {json.dumps({'type': 'progress', 'message': f'Analyzing {actionable_count} links for suggestions...', 'percent': 90})}\n\n"
                 await asyncio.sleep(0.1)
                 results = await process_suggestions(results)
 
-            yield f"data: {json.dumps({'type': 'result', 'data': [r.dict() for r in results]})}\n\n"
+            # Calculate health score
+            health_score = _calculate_health_score(results)
+
+            # Save to Supabase (non-blocking — never fail the scan)
+            try:
+                await save_scan(
+                    site_url=url,
+                    user_email=email,
+                    results=results,
+                    health_score=health_score,
+                )
+            except Exception as db_err:
+                print(f"[DB] Save failed (non-critical): {db_err}")
+
+            yield f"data: {json.dumps({'type': 'result', 'data': [r.dict() for r in results], 'health_score': health_score})}\n\n"
 
         except Exception as e:
             yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
@@ -72,11 +101,24 @@ async def scan(url: str = Query(..., description="URL to scan")):
     return StreamingResponse(event_stream(), media_type="text/event-stream")
 
 
+@app.get("/history")
+async def history(
+    url: str = Query(..., description="Site URL"),
+    email: str = Query(default="anonymous", description="User email"),
+):
+    """Get scan history for a site."""
+    try:
+        from database import get_site_history
+        data = await get_site_history(url, email)
+        return {"url": url, "history": data}
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+
 @app.get("/preview")
 async def preview(url: str = Query(..., description="URL to screenshot")):
     now = time.time()
 
-    # Check cache
     if url in _preview_cache:
         cached_b64, cached_at = _preview_cache[url]
         if now - cached_at < _PREVIEW_CACHE_TTL:
@@ -87,12 +129,13 @@ async def preview(url: str = Query(..., description="URL to screenshot")):
             })
 
     try:
-        # Run synchronous Playwright in a thread to avoid blocking the event loop
         b64_png = await asyncio.to_thread(_capture_screenshot, url)
         _preview_cache[url] = (b64_png, now)
 
-        # Cleanup expired entries
-        expired = [k for k, (_, t) in _preview_cache.items() if now - t >= _PREVIEW_CACHE_TTL]
+        expired = [
+            k for k, (_, t) in _preview_cache.items()
+            if now - t >= _PREVIEW_CACHE_TTL
+        ]
         for k in expired:
             del _preview_cache[k]
 
@@ -102,14 +145,10 @@ async def preview(url: str = Query(..., description="URL to screenshot")):
             "cached": False,
         })
     except Exception as e:
-        return JSONResponse(
-            {"url": url, "error": str(e)},
-            status_code=500,
-        )
+        return JSONResponse({"url": url, "error": str(e)}, status_code=500)
 
 
 def _capture_screenshot(url: str) -> str:
-    """Synchronous Playwright screenshot capture."""
     from playwright.sync_api import sync_playwright
 
     with sync_playwright() as p:
@@ -124,14 +163,10 @@ def _capture_screenshot(url: str) -> str:
                 ),
             )
             page = context.new_page()
-            
-            # Navigation attempt
             try:
                 page.goto(url, wait_until="networkidle", timeout=15000)
             except Exception:
-                # Fallback
                 page.goto(url, wait_until="domcontentloaded", timeout=10000)
-
             screenshot_bytes = page.screenshot(type="png")
             return base64.b64encode(screenshot_bytes).decode("utf-8")
         finally:

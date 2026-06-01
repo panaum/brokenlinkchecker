@@ -158,3 +158,22 @@ async def get_site_history(site_url, user_email):
         return resp.data
     import asyncio
     return await asyncio.to_thread(_get)
+
+
+def _add_site_sync(url: str, name: str, client_name: str, freq: str, user_email: str):
+    client = _get_client()
+    # upsert the site. We ignore errors if columns don't exist yet via try/except if needed,
+    # but the user will run the SQL to add the columns.
+    resp = client.table("sites").upsert({
+        "url": url,
+        "name": name,
+        "client": client_name,
+        "freq": freq,
+        "user_email": user_email,
+        # last_scanned_at will be null initially for a new site, or omitted so it takes default
+    }, on_conflict="url,user_email").execute()
+    return resp.data
+
+async def add_site(url: str, name: str, client_name: str, freq: str, user_email: str):
+    import asyncio
+    return await asyncio.to_thread(_add_site_sync, url, name, client_name, freq, user_email)

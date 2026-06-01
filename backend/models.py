@@ -21,3 +21,11 @@ class LinkResult(RawLink):
     impact: Optional[dict] = None
     first_seen_at: Optional[str] = None
     days_broken: Optional[int] = None
+
+
+class SiteCreate(BaseModel):
+    url: str
+    name: str
+    client: str
+    freq: str
+    user_email: str

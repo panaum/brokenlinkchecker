@@ -80,6 +80,9 @@ export interface DashboardScan {
 export interface DashboardSite {
   id: string
   url: string
+  name?: string
+  client?: string
+  freq?: string
   user_email: string
   last_scanned_at: string
   scans: DashboardScan[]

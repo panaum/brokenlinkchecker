@@ -9,6 +9,7 @@ import time
 import base64
 
 from fastapi import FastAPI, Query
+from models import LinkResult, SiteCreate
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse, JSONResponse
 
@@ -247,6 +248,15 @@ async def dashboard_data():
     try:
         data = await _asyncio.to_thread(_get_dashboard)
         return {"sites": data}
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+@app.post("/sites")
+async def add_site_endpoint(site: SiteCreate):
+    try:
+        from database import add_site
+        await add_site(site.url, site.name, site.client, site.freq, site.user_email)
+        return {"status": "success"}
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=500)
 

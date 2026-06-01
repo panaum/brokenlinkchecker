@@ -88,7 +88,7 @@ export default function DashboardPage() {
            const isGood = latest.health_score >= 90;
            return {
              id: s.id + latest.id,
-             type: isGood ? "success" : "broken",
+             type: isGood ? "success" as const : "broken" as const,
              siteName: s.name || s.url,
              description: isGood ? "Scan completed successfully" : `Found ${latest.broken_count} broken links`,
              context: isGood ? `${latest.total_links} links checked` : "Review results to fix",

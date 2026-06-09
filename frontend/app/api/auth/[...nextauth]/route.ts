@@ -11,6 +11,7 @@ export const authOptions: NextAuthOptions = {
   callbacks: {
     async session({ session, token }) {
       if (session.user && token.sub) {
+        // @ts-expect-error NextAuth doesn't include 'id' on user by default
         session.user.id = token.sub
       }
       return session

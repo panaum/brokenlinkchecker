@@ -4,6 +4,7 @@ import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { Link2, LayoutDashboard } from "lucide-react";
+import AuthButton from "@/components/AuthButton";
 
 const NAV_ITEMS = [
   { href: "/", label: "Scanner", icon: Link2 },
@@ -54,44 +55,48 @@ export default function NavBar() {
         </Link>
 
         {/* Nav links */}
-        <div className="flex items-center gap-1">
-          {NAV_ITEMS.map((item) => {
-            const isActive =
-              item.href === "/"
-                ? pathname === "/"
-                : pathname.startsWith(item.href);
-            const Icon = item.icon;
+        <div className="flex items-center gap-6">
+          <div className="flex items-center gap-1">
+            {NAV_ITEMS.map((item) => {
+              const isActive =
+                item.href === "/"
+                  ? pathname === "/"
+                  : pathname.startsWith(item.href);
+              const Icon = item.icon;
 
-            return (
-              <Link
-                key={item.href}
-                href={item.href}
-                className="relative flex items-center gap-2 px-4 py-2 rounded-lg no-underline transition-colors"
-                style={{
-                  fontFamily: "var(--font-poppins), Poppins, sans-serif",
-                  fontWeight: 500,
-                  fontSize: "13px",
-                  color: isActive ? "#fff" : "rgba(255,255,255,0.45)",
-                  background: isActive ? "rgba(255,255,255,0.06)" : "transparent",
-                }}
-              >
-                <Icon size={15} />
-                {item.label}
-                {isActive && (
-                  <motion.div
-                    layoutId="nav-indicator"
-                    className="absolute bottom-0 left-3 right-3"
-                    style={{
-                      height: 2,
-                      borderRadius: 1,
-                      background: "linear-gradient(90deg, rgb(138,26,155), rgb(200,100,255))",
-                    }}
-                    transition={{ type: "spring", stiffness: 400, damping: 30 }}
-                  />
-                )}
-              </Link>
-            );
-          })}
+              return (
+                <Link
+                  key={item.href}
+                  href={item.href}
+                  className="relative flex items-center gap-2 px-4 py-2 rounded-lg no-underline transition-colors"
+                  style={{
+                    fontFamily: "var(--font-poppins), Poppins, sans-serif",
+                    fontWeight: 500,
+                    fontSize: "13px",
+                    color: isActive ? "#fff" : "rgba(255,255,255,0.45)",
+                    background: isActive ? "rgba(255,255,255,0.06)" : "transparent",
+                  }}
+                >
+                  <Icon size={15} />
+                  {item.label}
+                  {isActive && (
+                    <motion.div
+                      layoutId="nav-indicator"
+                      className="absolute bottom-0 left-3 right-3"
+                      style={{
+                        height: 2,
+                        borderRadius: 1,
+                        background: "linear-gradient(90deg, rgb(138,26,155), rgb(200,100,255))",
+                      }}
+                      transition={{ type: "spring", stiffness: 400, damping: 30 }}
+                    />
+                  )}
+                </Link>
+              );
+            })}
+          </div>
+
+          <AuthButton />
         </div>
       </div>
     </nav>

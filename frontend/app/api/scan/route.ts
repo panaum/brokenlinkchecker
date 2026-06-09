@@ -1,4 +1,6 @@
 import { NextRequest } from "next/server";
+import { getServerSession } from "next-auth/next";
+import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 
 export async function GET(req: NextRequest) {
   const url = req.nextUrl.searchParams.get("url");
@@ -10,9 +12,12 @@ export async function GET(req: NextRequest) {
     );
   }
 
+  const session = await getServerSession(authOptions);
+  const email = session?.user?.email || "anonymous";
+
   const backendUrl = `${
     process.env.BACKEND_URL || "http://localhost:8000"
-  }/scan?url=${encodeURIComponent(url)}`;
+  }/scan?url=${encodeURIComponent(url)}&email=${encodeURIComponent(email)}`;
 
   try {
     const upstream = await fetch(backendUrl, {

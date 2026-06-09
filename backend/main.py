@@ -45,110 +45,128 @@ async def send_slack_notification(
     webhook_url = os.getenv("SLACK_WEBHOOK_URL")
     if not webhook_url:
         return
-    
+
     total = len(results)
-    broken = sum(1 for r in results if r.label == "broken")
-    dead_cta = sum(1 for r in results if r.label == "dead_cta")
+    working = sum(1 for r in results if r.label == "ok")
+    broken = [r for r in results if r.label == "broken"]
+    dead_cta = [r for r in results if r.label == "dead_cta"]
+    redirects = sum(1 for r in results if r.label == "redirect")
     blocked = sum(1 for r in results if r.label == "blocked")
-    
-    # Health score emoji
+
     if health_score >= 90:
-        emoji = "✅"
-        color = "#2eb886"
+        score_emoji = "✅"
     elif health_score >= 70:
-        emoji = "⚠️"
-        color = "#e6a817"
+        score_emoji = "⚠️"
     else:
-        emoji = "🔴"
-        color = "#cc0000"
-    
-    # Build broken links list
-    broken_links = [r for r in results if r.label == "broken"]
+        score_emoji = "🔴"
+
+    # Build broken links text
     broken_text = ""
-    if broken_links:
-        broken_text = "\n".join([
-            f"• <{r.url}|{r.anchor_text or r.url[:50]}> — {r.category}"
-            for r in broken_links[:5]
-        ])
-        if len(broken_links) > 5:
-            broken_text += f"\n• ...and {len(broken_links) - 5} more"
-    
-    payload = {
-        "attachments": [
+    if broken:
+        lines = []
+        for r in broken[:5]:
+            path = r.url.replace("https://", "").replace("http://", "")
+            path = "/" + "/".join(path.split("/")[1:]) if "/" in path else path
+            lines.append(f"• `{path[:50]}` — {r.category}")
+        if len(broken) > 5:
+            lines.append(f"• ...and {len(broken) - 5} more")
+        broken_text = "\n".join(lines)
+
+    # Build dead CTAs text
+    cta_text = ""
+    if dead_cta:
+        lines = []
+        for r in dead_cta[:3]:
+            anchor = r.anchor_text or "[no text]"
+            source = r.source_element or "Unknown location"
+            lines.append(f"• \"{anchor[:30]}\" — {source[:40]}")
+        if len(dead_cta) > 3:
+            lines.append(f"• ...and {len(dead_cta) - 3} more")
+        cta_text = "\n".join(lines)
+
+    # Build message blocks
+    blocks = [
+        {
+            "type": "header",
+            "text": {
+                "type": "plain_text",
+                "text": "🔍 LinkSpy Scan Complete"
+            }
+        },
+        {
+            "type": "section",
+            "fields": [
+                {
+                    "type": "mrkdwn",
+                    "text": f"*Site:*\n{url}"
+                },
+                {
+                    "type": "mrkdwn",
+                    "text": f"*Health Score:*\n{health_score}/100 {score_emoji}"
+                }
+            ]
+        },
+        {
+            "type": "section",
+            "text": {
+                "type": "mrkdwn",
+                "text": (
+                    f"*Summary:*\n"
+                    f"• Total links: {total}\n"
+                    f"• ✅ Working: {working}\n"
+                    f"• ❌ Broken: {len(broken)}\n"
+                    f"• ⚠️ Dead CTAs: {len(dead_cta)}\n"
+                    f"• 🔄 Redirects: {redirects}\n"
+                    f"• 🔍 Can't verify: {blocked}"
+                )
+            }
+        }
+    ]
+
+    if broken_text:
+        blocks.append({
+            "type": "section",
+            "text": {
+                "type": "mrkdwn",
+                "text": f"*❌ Broken Links:*\n{broken_text}"
+            }
+        })
+
+    if cta_text:
+        blocks.append({
+            "type": "section",
+            "text": {
+                "type": "mrkdwn",
+                "text": f"*⚠️ Dead CTAs:*\n{cta_text}"
+            }
+        })
+
+    blocks.append({
+        "type": "actions",
+        "elements": [
             {
-                "color": color,
-                "blocks": [
-                    {
-                        "type": "header",
-                        "text": {
-                            "type": "plain_text",
-                            "text": f"{emoji} LinkSpy Scan Report"
-                        }
-                    },
-                    {
-                        "type": "section",
-                        "fields": [
-                            {
-                                "type": "mrkdwn",
-                                "text": f"*Site:*\n<{url}|{url}>"
-                            },
-                            {
-                                "type": "mrkdwn",
-                                "text": f"*Health Score:*\n{health_score}/100"
-                            },
-                            {
-                                "type": "mrkdwn",
-                                "text": f"*Total Links:*\n{total}"
-                            },
-                            {
-                                "type": "mrkdwn",
-                                "text": f"*Broken Links:*\n{broken}"
-                            },
-                            {
-                                "type": "mrkdwn",
-                                "text": f"*Dead CTAs:*\n{dead_cta}"
-                            },
-                            {
-                                "type": "mrkdwn",
-                                "text": f"*Can't Verify:*\n{blocked}"
-                            }
-                        ]
-                    },
-                    *(
-                        [
-                            {
-                                "type": "section",
-                                "text": {
-                                    "type": "mrkdwn",
-                                    "text": f"*Broken Links Found:*\n{broken_text}"
-                                }
-                            }
-                        ] if broken_text else []
-                    ),
-                    {
-                        "type": "actions",
-                        "elements": [
-                            {
-                                "type": "button",
-                                "text": {
-                                    "type": "plain_text",
-                                    "text": "View Full Report"
-                                },
-                                "url": f"https://brokenlinkchecker-olive.vercel.app?url={url}",
-                                "style": "primary"
-                            }
-                        ]
-                    }
-                ]
+                "type": "button",
+                "text": {
+                    "type": "plain_text",
+                    "text": "View Full Report →"
+                },
+                "url": f"https://brokenlinkchecker-olive.vercel.app?url={url}",
+                "style": "primary"
             }
         ]
-    }
-    
+    })
+
+    payload = {"blocks": blocks}
+
     try:
         async with httpx.AsyncClient() as client:
-            await client.post(webhook_url, json=payload, timeout=5.0)
+            await client.post(
+                webhook_url, 
+                json=payload, 
+                timeout=5.0
+            )
     except Exception as e:
-        print(f"[Slack] Failed to send notification: {e}")
+        print(f"[Slack] Failed: {e}")
 
 
 def _calculate_health_score(results: list) -> int:

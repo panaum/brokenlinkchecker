@@ -73,6 +73,11 @@ export default function DashboardPage() {
   const [newSiteEmail, setNewSiteEmail] = useState("");
   const [newSiteFreq, setNewSiteFreq] = useState("Daily");
 
+  // Issues modal state
+  const [issuesModalSite, setIssuesModalSite] = useState<{url: string, name: string} | null>(null);
+  const [siteIssues, setSiteIssues] = useState<any[]>([]);
+  const [loadingIssues, setLoadingIssues] = useState(false);
+
   const fetchDashboard = async () => {
     try {
       const res = await fetch("/api/dashboard");
@@ -183,6 +188,25 @@ export default function DashboardPage() {
       await fetchDashboard();
     } catch (e) {
       console.error(e);
+    }
+  };
+
+  const handleViewIssues = async (siteUrl: string, siteName: string) => {
+    setIssuesModalSite({ url: siteUrl, name: siteName });
+    setLoadingIssues(true);
+    try {
+      const res = await fetch(`/api/issues?url=${encodeURIComponent(siteUrl)}`);
+      if (res.ok) {
+        const data = await res.json();
+        setSiteIssues(data.issues || []);
+      } else {
+        setSiteIssues([]);
+      }
+    } catch (err) {
+      console.error("Failed to fetch issues", err);
+      setSiteIssues([]);
+    } finally {
+      setLoadingIssues(false);
     }
   };
 
@@ -318,19 +342,29 @@ export default function DashboardPage() {
                   {/* Issue Pills */}
                   <div className="mt-6 flex flex-wrap gap-2">
                     <button
-                      className="px-2.5 py-1 text-xs font-medium border border-transparent transition-opacity hover:opacity-80"
+                      onClick={() => {
+                        if ((latestScan?.broken_count ?? 0) > 0) {
+                          handleViewIssues(site.url, site.name || site.url);
+                        }
+                      }}
+                      className={`px-2.5 py-1 text-xs font-medium border border-transparent transition-opacity ${(latestScan?.broken_count ?? 0) > 0 ? "hover:opacity-80 cursor-pointer" : "cursor-default"}`}
                       style={{ backgroundColor: PILL_COLORS.red.bg, color: PILL_COLORS.red.text }}
                     >
                       {latestScan?.broken_count ?? 0} Broken
                     </button>
                     <button
-                      className="px-2.5 py-1 text-xs font-medium border border-transparent transition-opacity hover:opacity-80"
+                      onClick={() => {
+                        if ((latestScan?.dead_cta_count ?? 0) > 0) {
+                          handleViewIssues(site.url, site.name || site.url);
+                        }
+                      }}
+                      className={`px-2.5 py-1 text-xs font-medium border border-transparent transition-opacity ${(latestScan?.dead_cta_count ?? 0) > 0 ? "hover:opacity-80 cursor-pointer" : "cursor-default"}`}
                       style={{ backgroundColor: PILL_COLORS.amber.bg, color: PILL_COLORS.amber.text }}
                     >
                       {latestScan?.dead_cta_count ?? 0} Dead CTAs
                     </button>
                     <button
-                      className="px-2.5 py-1 text-xs font-medium border border-transparent transition-opacity hover:opacity-80"
+                      className="px-2.5 py-1 text-xs font-medium border border-transparent transition-opacity cursor-default"
                       style={{ backgroundColor: PILL_COLORS.gray.bg, color: PILL_COLORS.gray.text }}
                     >
                       {latestScan?.total_links ?? 0} Total
@@ -510,6 +544,70 @@ export default function DashboardPage() {
                 </button>
               </div>
             </form>
+          </div>
+        </div>
+      )}
+
+      {/* Issues Modal */}
+      {issuesModalSite && (
+        <div className="fixed inset-0 bg-black/40 flex items-center justify-center p-4 z-50">
+          <div className="bg-white border border-gray-200 p-6 w-full max-w-3xl max-h-[85vh] flex flex-col">
+            <div className="flex items-center justify-between mb-6 shrink-0">
+              <div>
+                <h3 className="text-lg font-bold text-gray-900">Current Issues</h3>
+                <p className="text-sm text-gray-500">{issuesModalSite.name}</p>
+              </div>
+              <button onClick={() => setIssuesModalSite(null)} className="text-gray-400 hover:text-gray-900">
+                <X size={20} />
+              </button>
+            </div>
+            
+            <div className="flex-1 overflow-y-auto">
+              {loadingIssues ? (
+                <div className="flex justify-center items-center py-12">
+                  <Loader2 className="animate-spin text-gray-400" size={32} />
+                </div>
+              ) : siteIssues.length === 0 ? (
+                <div className="text-center py-12 text-gray-500 text-sm">
+                  No open issues found for this site.
+                </div>
+              ) : (
+                <div className="space-y-3">
+                  {siteIssues.map((issue, i) => (
+                    <div key={i} className="flex flex-col sm:flex-row gap-4 p-4 border border-gray-100 bg-gray-50 hover:bg-gray-100 transition-colors">
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-center gap-2 mb-1.5">
+                          <span className={`px-2 py-0.5 text-[10px] font-bold uppercase tracking-wider ${
+                            issue.label === 'dead_cta' ? 'bg-[#FAEEDA] text-[#633806]' : 
+                            issue.label === 'broken' ? 'bg-[#FCEBEB] text-[#791F1F]' : 'bg-gray-200 text-gray-800'
+                          }`}>
+                            {issue.label.replace('_', ' ')}
+                          </span>
+                          <span className="text-xs text-gray-500 font-medium bg-white border border-gray-200 px-2 py-0.5">
+                            {issue.category}
+                          </span>
+                        </div>
+                        <p className="text-sm font-medium text-gray-900 break-all mb-1.5">
+                          <a href={issue.url} target="_blank" rel="noreferrer" className="hover:underline">
+                            {issue.url}
+                          </a>
+                        </p>
+                        {issue.anchor_text && (
+                          <p className="text-xs text-gray-600 bg-white inline-block px-2 py-1 border border-gray-200">
+                            &quot;{issue.anchor_text}&quot;
+                          </p>
+                        )}
+                      </div>
+                      <div className="text-left sm:text-right shrink-0 flex flex-col justify-between pt-1">
+                        <span className="text-[11px] text-gray-400">
+                          First seen: {new Date(issue.first_seen_at).toLocaleDateString()}
+                        </span>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}

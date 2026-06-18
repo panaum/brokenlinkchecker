@@ -36,7 +36,9 @@ export async function GET(req: NextRequest) {
       headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-cache", Connection: "keep-alive" },
     });
   } catch (err) {
-    const message = err instanceof Error ? err.message : "Failed to connect to backend";
+    const message = err instanceof Error 
+      ? `${err.message} (Target: ${backendUrl})` 
+      : `Failed to connect to backend (Target: ${backendUrl})`;
     return new Response(
       `data: ${JSON.stringify({ type: "error", message })}\n\n`,
       { status: 200, headers: { "Content-Type": "text/event-stream", "Cache-Control": "no-cache", Connection: "keep-alive" } }

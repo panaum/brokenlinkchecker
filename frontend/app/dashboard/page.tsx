@@ -71,7 +71,7 @@ export default function DashboardPage() {
   const [newSiteUrl, setNewSiteUrl] = useState("");
   const [newSiteName, setNewSiteName] = useState("");
   const [newSiteEmail, setNewSiteEmail] = useState("");
-  const [newSiteFreq, setNewSiteFreq] = useState("Daily");
+  const [newSiteFreq, setNewSiteFreq] = useState("Every Hour");
 
   // Issues modal state
   const [issuesModalSite, setIssuesModalSite] = useState<{url: string, name: string} | null>(null);
@@ -184,7 +184,7 @@ export default function DashboardPage() {
       setNewSiteUrl("");
       setNewSiteName("");
       setNewSiteEmail("");
-      setNewSiteFreq("Daily");
+      setNewSiteFreq("Every Hour");
       await fetchDashboard();
     } catch (e) {
       console.error(e);
@@ -522,12 +522,15 @@ export default function DashboardPage() {
                   onChange={(e) => setNewSiteFreq(e.target.value)}
                   className="w-full border border-gray-300 px-3 py-2 text-sm focus:outline-none focus:border-gray-900 bg-white text-gray-900"
                 >
+                  <option>Every Hour</option>
+                  <option>Every 2 Hours</option>
                   <option>Daily</option>
                   <option>Weekly</option>
                   <option>Monthly</option>
                   <option>On Demand</option>
                 </select>
               </div>
+
               <div className="pt-4 flex justify-end gap-3">
                 <button
                   type="button"

@@ -42,6 +42,8 @@ export async function POST(req: NextRequest) {
         const lastScanned = new Date(site.last_scanned_at).getTime();
         const diffHours = (now - lastScanned) / (1000 * 60 * 60);
 
+        if (freq === "Every Hour" && diffHours >= 1) shouldScan = true;
+        if (freq === "Every 2 Hours" && diffHours >= 2) shouldScan = true;
         if (freq === "Daily" && diffHours >= 24) shouldScan = true;
         if (freq === "Weekly" && diffHours >= 168) shouldScan = true; // 7 days
         if (freq === "Monthly" && diffHours >= 720) shouldScan = true; // 30 days

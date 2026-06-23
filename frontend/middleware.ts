@@ -26,6 +26,6 @@ export const config = {
      *  - /api/slack (Slack webhook)
      *  - Next.js internals (_next, favicon, etc.)
      */
-    "/((?!login|api/auth|api/slack|_next/static|_next/image|favicon.ico).*)",
+    "/((?!login|api/auth|api/slack|_next/static|_next/image|favicon.ico|icon\\.png|opengraph-image\\.png).*)",
   ],
 }

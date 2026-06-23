@@ -14,6 +14,20 @@ export const metadata: Metadata = {
   title: "LinkSpy — Broken Link Checker",
   description:
     "Instantly scan any webpage for broken links across nav, header, footer, CTAs, and body text.",
+  openGraph: {
+    title: "LinkSpy — Broken Link Checker",
+    description:
+      "Instantly scan any webpage for broken links across nav, header, footer, CTAs, and body text.",
+    type: "website",
+    locale: "en_US",
+    siteName: "LinkSpy",
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: "LinkSpy — Broken Link Checker",
+    description:
+      "Instantly scan any webpage for broken links across nav, header, footer, CTAs, and body text.",
+  },
 };
 
 export default function RootLayout({

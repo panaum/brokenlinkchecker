@@ -3,7 +3,8 @@
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { Link2, LayoutDashboard } from "lucide-react";
+import { LayoutDashboard, Link2 } from "lucide-react";
+import Image from "next/image";
 import AuthButton from "@/components/AuthButton";
 
 const NAV_ITEMS = [
@@ -34,14 +35,7 @@ export default function NavBar() {
       >
         {/* Logo */}
         <Link href="/" className="flex items-center gap-2 no-underline">
-          <div
-            className="w-8 h-8 rounded-lg flex items-center justify-center"
-            style={{
-              background: "linear-gradient(132deg, rgb(65,0,153), rgb(138,26,155))",
-            }}
-          >
-            <Link2 size={16} style={{ color: "#fff" }} />
-          </div>
+          <Image src="/icon.png" alt="LinkSpy logo" width={30} height={30} style={{ borderRadius: 8 }} />
           <span
             style={{
               fontFamily: "var(--font-poppins), Poppins, sans-serif",

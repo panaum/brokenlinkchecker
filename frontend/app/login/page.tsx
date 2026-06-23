@@ -3,7 +3,7 @@
 import { signIn } from "next-auth/react";
 import { useSearchParams } from "next/navigation";
 import { Suspense } from "react";
-import { Link2 } from "lucide-react";
+
 
 function LoginContent() {
   const searchParams = useSearchParams();
@@ -43,14 +43,13 @@ function LoginContent() {
       >
         {/* Logo */}
         <div className="flex items-center justify-center gap-2 mb-6">
-          <div
-            className="w-10 h-10 rounded-lg flex items-center justify-center"
-            style={{
-              background: "linear-gradient(132deg, rgb(65,0,153), rgb(138,26,155))",
-            }}
-          >
-            <Link2 size={20} style={{ color: "#fff" }} />
-          </div>
+          <img
+            src="/icon.png"
+            alt="LinkSpy logo"
+            width={40}
+            height={40}
+            style={{ borderRadius: 10 }}
+          />
           <span
             style={{
               fontFamily: "var(--font-poppins), Poppins, sans-serif",

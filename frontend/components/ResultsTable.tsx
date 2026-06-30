@@ -381,6 +381,39 @@ function RowDetail({ result }: { result: LinkResult }) {
             </div>
           )}
 
+          {/* Found on pages list */}
+          {result.found_on_pages && result.found_on_pages.length > 0 && (
+            <div className="flex flex-col gap-1 mt-1">
+              <span
+                style={{
+                  fontSize: "11px",
+                  color: "rgba(255,255,255,0.35)",
+                  fontFamily: "var(--font-poppins), Poppins, sans-serif",
+                }}
+              >
+                Found on {result.found_on_pages.length} page{result.found_on_pages.length !== 1 ? "s" : ""}:
+              </span>
+              <div className="flex flex-wrap gap-1.5 mt-1">
+                {result.found_on_pages.map((p, idx) => (
+                  <span
+                    key={idx}
+                    style={{
+                      fontFamily: "monospace",
+                      fontSize: "11px",
+                      color: "#a78bfa",
+                      background: "rgba(167,139,250,0.1)",
+                      border: "1px solid rgba(167,139,250,0.15)",
+                      borderRadius: "4px",
+                      padding: "2px 6px",
+                    }}
+                  >
+                    {p}
+                  </span>
+                ))}
+              </div>
+            </div>
+          )}
+
           {/* Business Impact Card */}
           {result.impact && (
             <ImpactDetailCard
@@ -889,29 +922,46 @@ export default function ResultsTable({
                               </div>
                             </td>
 
-                            {/* Zone badge */}
                             <td style={{ padding: "10px 16px", verticalAlign: "middle" }}>
-                              <span
-                                className="inline-flex items-center gap-1.5"
-                                style={{
-                                  fontFamily:
-                                    "var(--font-poppins), Poppins, sans-serif",
-                                  fontSize: "11px",
-                                  fontWeight: 500,
-                                  color: "rgba(255,255,255,0.5)",
-                                  background: "rgba(255,255,255,0.05)",
-                                  border: "1px solid rgba(255,255,255,0.08)",
-                                  borderRadius: "6px",
-                                  padding: "3px 8px",
-                                  whiteSpace: "nowrap",
-                                }}
-                              >
+                              <div className="flex flex-col gap-1 items-start">
                                 <span
-                                  className="w-1.5 h-1.5 rounded-full shrink-0"
-                                  style={{ background: dotColor }}
-                                />
-                                {zone}
-                              </span>
+                                  className="inline-flex items-center gap-1.5"
+                                  style={{
+                                    fontFamily:
+                                      "var(--font-poppins), Poppins, sans-serif",
+                                    fontSize: "11px",
+                                    fontWeight: 500,
+                                    color: "rgba(255,255,255,0.5)",
+                                    background: "rgba(255,255,255,0.05)",
+                                    border: "1px solid rgba(255,255,255,0.08)",
+                                    borderRadius: "6px",
+                                    padding: "3px 8px",
+                                    whiteSpace: "nowrap",
+                                  }}
+                                >
+                                  <span
+                                    className="w-1.5 h-1.5 rounded-full shrink-0"
+                                    style={{ background: dotColor }}
+                                  />
+                                  {zone}
+                                </span>
+                                {result.found_on_pages && result.found_on_pages.length > 1 && (
+                                  <span
+                                    style={{
+                                      fontFamily: "var(--font-poppins), Poppins, sans-serif",
+                                      fontSize: "10px",
+                                      fontWeight: 500,
+                                      color: "#c084fc",
+                                      background: "rgba(192,132,252,0.1)",
+                                      borderRadius: "4px",
+                                      padding: "1px 5px",
+                                      border: "1px solid rgba(192,132,252,0.2)",
+                                    }}
+                                  >
+                                    {result.found_on_pages.length} pages
+                                  </span>
+                                )}
+                              </div>
                             </td>
 
                             {/* Response time */}

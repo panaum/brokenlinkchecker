@@ -88,6 +88,7 @@ export default function HomePage() {
   const [error, setError] = useState<string | null>(null);
   const [scanComplete, setScanComplete] = useState(false);
   const [scanMeta, setScanMeta] = useState<ScanMeta | null>(null);
+  const [scanMode, setScanMode] = useState<"single" | "site">("single");
   const eventSourceRef = useRef<EventSource | null>(null);
   const scanningRef = useRef(false);
 
@@ -145,7 +146,8 @@ export default function HomePage() {
       // Close any existing connection
       eventSourceRef.current?.close();
 
-      const es = new EventSource(`/api/scan?url=${encodeURIComponent(scanUrl)}`);
+      const apiRoute = scanMode === "site" ? "/api/scan-site" : "/api/scan";
+      const es = new EventSource(`${apiRoute}?url=${encodeURIComponent(scanUrl)}`);
       eventSourceRef.current = es;
 
       es.onmessage = (event: MessageEvent) => {
@@ -155,8 +157,8 @@ export default function HomePage() {
           if (data.type === "progress") {
             setProgress({ message: data.message as string, percent: data.percent as number });
 
-            // Parse checked/total out of messages like "Checked 5 of 32 links"
-            const match = (data.message as string).match(/(\d+)\s+of\s+(\d+)/);
+            // Parse checked/total out of messages like "Checked 5 of 32 links" or "Scanning page 4/37: /about"
+            const match = (data.message as string).match(/(\d+)\s+of\s+(\d+)/) || (data.message as string).match(/(\d+)\/(\d+)/);
             if (match) {
               setCheckedCount(parseInt(match[1], 10));
               setTotalCount(parseInt(match[2], 10));
@@ -195,7 +197,7 @@ export default function HomePage() {
         es.close();
       };
     },
-    [url]
+    [url, scanMode]
   );
 
   // ─── Filtering ─────────────────────────────────────────────────────────────
@@ -347,6 +349,8 @@ export default function HomePage() {
           onScan={startScan}
           scanning={scanning}
           error={error}
+          scanMode={scanMode}
+          onScanModeChange={setScanMode}
         />
       </section>
 

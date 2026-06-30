@@ -9,6 +9,8 @@ interface UrlInputProps {
   onScan: () => void;
   scanning: boolean;
   error: string | null;
+  scanMode?: "single" | "site";
+  onScanModeChange?: (mode: "single" | "site") => void;
 }
 
 function isValidUrl(value: string): boolean {
@@ -37,6 +39,8 @@ export default function UrlInput({
   onScan,
   scanning,
   error,
+  scanMode = "single",
+  onScanModeChange,
 }: UrlInputProps) {
   const [dots, setDots] = useState("");
   const [inlineError, setInlineError] = useState<string | null>(null);
@@ -79,6 +83,38 @@ export default function UrlInput({
   return (
     <div className="w-full max-w-3xl mx-auto mt-10">
       <div className="animated-border glass-card p-6">
+        {/* Scan Mode Tabs */}
+        {onScanModeChange && (
+          <div className="flex justify-start gap-2 mb-4">
+            <button
+              type="button"
+              disabled={scanning}
+              onClick={() => onScanModeChange("single")}
+              className={`px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition-all cursor-pointer ${
+                scanMode === "single"
+                  ? "bg-purple-600/30 text-purple-200 border border-purple-500/50 shadow-[0_0_15px_rgba(168,85,247,0.15)]"
+                  : "text-white/60 hover:text-white/80 hover:bg-white/5 border border-transparent"
+              }`}
+              style={{ fontFamily: "var(--font-poppins), Poppins, sans-serif" }}
+            >
+              Single Page
+            </button>
+            <button
+              type="button"
+              disabled={scanning}
+              onClick={() => onScanModeChange("site")}
+              className={`px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition-all cursor-pointer ${
+                scanMode === "site"
+                  ? "bg-purple-600/30 text-purple-200 border border-purple-500/50 shadow-[0_0_15px_rgba(168,85,247,0.15)]"
+                  : "text-white/60 hover:text-white/80 hover:bg-white/5 border border-transparent"
+              }`}
+              style={{ fontFamily: "var(--font-poppins), Poppins, sans-serif" }}
+            >
+              Full Website (Sitemap/Crawl)
+            </button>
+          </div>
+        )}
+
         <div className="flex flex-col sm:flex-row gap-3">
           <input
             id="url-input"
@@ -110,7 +146,7 @@ export default function UrlInput({
             ) : (
               <>
                 <Search size={18} />
-                Scan Page
+                {scanMode === "site" ? "Scan Website" : "Scan Page"}
               </>
             )}
           </button>

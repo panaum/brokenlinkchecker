@@ -32,6 +32,7 @@ export interface LinkResult {
   response_ms: number
   error?: string
   found_on?: string
+  found_on_pages?: string[]
   priority?: LinkPriority
   suggestion?: LinkSuggestion | null
   impact?: BusinessImpact

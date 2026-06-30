@@ -19,6 +19,7 @@ from scraper import scrape_links
 from checker import check_all_links
 from suggester import process_suggestions
 from database import save_scan
+from sitemap import discover_site_urls
 
 app = FastAPI(title="Broken Link Checker API")
 
@@ -173,10 +174,12 @@ def _calculate_health_score(results: list) -> int:
     total = len(results)
     if total == 0:
         return 100
-    ok = sum(1 for r in results if r.label == "ok")
-    broken_penalty = sum(3 for r in results if r.label == "broken")
-    dead_cta_penalty = sum(2 for r in results if r.label == "dead_cta")
-    timeout_penalty = sum(1 for r in results if r.label == "timeout")
+    def get_label(r):
+        return r.get("label") if isinstance(r, dict) else getattr(r, "label", None)
+    ok = sum(1 for r in results if get_label(r) == "ok")
+    broken_penalty = sum(3 for r in results if get_label(r) == "broken")
+    dead_cta_penalty = sum(2 for r in results if get_label(r) == "dead_cta")
+    timeout_penalty = sum(1 for r in results if get_label(r) == "timeout")
     score = round((ok / total) * 100) - broken_penalty - dead_cta_penalty - timeout_penalty
     return max(0, min(100, score))
 
@@ -310,6 +313,155 @@ async def scan(
             await send_slack_notification(url, health_score, results)
 
             yield f"data: {json.dumps({'type': 'result', 'data': [r.dict() for r in results], 'health_score': health_score})}\n\n"
+
+        except Exception as e:
+            yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
+
+    return StreamingResponse(event_stream(), media_type="text/event-stream")
+
+
+@app.get("/scan-site")
+async def scan_site(
+    url: str = Query(..., description="Base site URL to scan, e.g. https://example.com"),
+    email: str = Query(default="anonymous"),
+    max_pages: int = Query(default=50, le=200),
+):
+    async def event_stream():
+        try:
+            yield f"data: {json.dumps({'type': 'progress', 'message': 'Discovering pages via sitemap or crawl...', 'percent': 5})}\n\n"
+            await asyncio.sleep(0.1)
+
+            discovered_pages = await discover_site_urls(url, max_pages)
+            if not discovered_pages:
+                yield f"data: {json.dumps({'type': 'progress', 'message': 'No pages discovered. Scraping homepage...', 'percent': 10})}\n\n"
+                discovered_pages = [url]
+
+            total_pages = len(discovered_pages)
+            yield f"data: {json.dumps({'type': 'progress', 'message': f'Discovered {total_pages} pages. Starting scan...', 'percent': 15})}\n\n"
+            await asyncio.sleep(0.1)
+
+            sem = asyncio.Semaphore(5)
+            queue = asyncio.Queue()
+            completed_pages = 0
+            all_results = []
+
+            async def scan_page_worker(page_url: str):
+                nonlocal completed_pages
+                async with sem:
+                    # Emit status update: starting scan
+                    from urllib.parse import urlparse
+                    path_to_show = urlparse(page_url).path or "/"
+                    await queue.put({
+                        "type": "progress",
+                        "message": f"Scanning page {completed_pages + 1}/{total_pages}: {path_to_show}"
+                    })
+                    try:
+                        links = await scrape_links(page_url)
+                        page_results = []
+                        if links:
+                            async for i, res in check_all_links(links):
+                                page_results.append(res)
+
+                            actionable_count = sum(1 for r in page_results if r.label in ["broken", "dead_cta", "blocked"])
+                            if actionable_count > 0:
+                                page_results = await process_suggestions(page_results)
+
+                        # Convert and enrich
+                        serialized = []
+                        for r in page_results:
+                            rd = r.dict()
+                            rd["found_on_page"] = page_url
+                            if r.label in ["broken", "dead_cta", "error"]:
+                                rd["impact"] = calculate_business_impact(
+                                    label=r.label,
+                                    category=r.category,
+                                    days_broken=0,
+                                )
+                            serialized.append(rd)
+
+                        completed_pages += 1
+                        pct = 15 + int((completed_pages / total_pages) * 75)
+                        await queue.put({
+                            "type": "progress",
+                            "message": f"Scanned page {completed_pages}/{total_pages}: {path_to_show}",
+                            "percent": pct
+                        })
+                        await queue.put({"type": "data", "results": serialized})
+                    except Exception as page_err:
+                        print(f"[ScanSite] Error scanning page {page_url}: {page_err}")
+                        completed_pages += 1
+                        pct = 15 + int((completed_pages / total_pages) * 75)
+                        await queue.put({
+                            "type": "progress",
+                            "message": f"Failed page {completed_pages}/{total_pages}: {path_to_show}",
+                            "percent": pct
+                        })
+
+            # Launch all workers
+            tasks = [asyncio.create_task(scan_page_worker(p)) for p in discovered_pages]
+
+            # Read from the queue and stream progress/data
+            from urllib.parse import urlparse
+            while completed_pages < total_pages or not queue.empty():
+                try:
+                    # Non-blocking check to retrieve queued events
+                    msg = await asyncio.wait_for(queue.get(), timeout=0.1)
+                    if msg["type"] == "progress":
+                        yield f"data: {json.dumps({'type': 'progress', 'message': msg['message'], 'percent': msg.get('percent', 15)})}\n\n"
+                    elif msg["type"] == "data":
+                        all_results.extend(msg["results"])
+                except asyncio.TimeoutError:
+                    if completed_pages >= total_pages and queue.empty():
+                        break
+                    await asyncio.sleep(0.05)
+
+            # Ensure all workers are joined
+            await asyncio.gather(*tasks, return_exceptions=True)
+
+            # Deduplicate results at target URL level
+            # Store all found_on_pages
+            deduped = {}
+            for r in all_results:
+                r_url = r["url"]
+                found_page = r.get("found_on_page") or url
+                
+                # Normalize path for readability in found_on_pages
+                parsed_found = urlparse(found_page)
+                page_path = parsed_found.path or "/"
+                if parsed_found.query:
+                    page_path += f"?{parsed_found.query}"
+
+                if r_url not in deduped:
+                    r["found_on_pages"] = [page_path]
+                    deduped[r_url] = r
+                else:
+                    if page_path not in deduped[r_url]["found_on_pages"]:
+                        deduped[r_url]["found_on_pages"].append(page_path)
+
+            final_results = list(deduped.values())
+            health_score = _calculate_health_score(final_results)
+
+            # Save full site scan to Supabase (non-blocking)
+            try:
+                await save_scan(
+                    site_url=url,
+                    user_email=email,
+                    results=final_results,
+                    health_score=health_score,
+                    pages_scanned=total_pages,
+                )
+            except Exception as db_err:
+                print(f"[DB] Save site scan failed (non-critical): {db_err}")
+
+            # Send Slack notification
+            class SimpleNamespace:
+                def __init__(self, **kwargs):
+                    self.__dict__.update(kwargs)
+            slack_results = [SimpleNamespace(**r) for r in final_results]
+            await send_slack_notification(url, health_score, slack_results)
+
+            # Yield final result event
+            yield f"data: {json.dumps({'type': 'result', 'data': final_results, 'health_score': health_score, 'pages_scanned': total_pages})}\n\n"
 
         except Exception as e:
             yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"

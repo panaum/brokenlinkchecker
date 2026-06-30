@@ -17,14 +17,17 @@ def _get_client():
     return create_client(url, key)
 
 
-def _save_scan_sync(site_url, user_email, results, health_score):
+def _save_scan_sync(site_url, user_email, results, health_score, pages_scanned=1):
     client = _get_client()
     
+    def get_val(r, key):
+        return r.get(key) if isinstance(r, dict) else getattr(r, key, None)
+    
     total = len(results)
-    broken = sum(1 for r in results if r.label == "broken")
-    dead_cta = sum(1 for r in results if r.label == "dead_cta")
-    redirect = sum(1 for r in results if r.label == "redirect")
-    blocked = sum(1 for r in results if r.label == "blocked")
+    broken = sum(1 for r in results if get_val(r, "label") == "broken")
+    dead_cta = sum(1 for r in results if get_val(r, "label") == "dead_cta")
+    redirect = sum(1 for r in results if get_val(r, "label") == "redirect")
+    blocked = sum(1 for r in results if get_val(r, "label") == "blocked")
 
     # Insert site
     site_resp = client.table("sites").upsert({
@@ -36,7 +39,7 @@ def _save_scan_sync(site_url, user_email, results, health_score):
     site_id = site_resp.data[0]["id"]
 
     # Save scan
-    scan_resp = client.table("scans").insert({
+    scan_payload = {
         "site_id": site_id,
         "total_links": total,
         "broken_count": broken,
@@ -44,19 +47,28 @@ def _save_scan_sync(site_url, user_email, results, health_score):
         "redirect_count": redirect,
         "blocked_count": blocked,
         "health_score": health_score,
-        "results_json": [r.dict() for r in results],
-    }).execute()
+        "results_json": [r if isinstance(r, dict) else r.dict() for r in results],
+    }
+    
+    # Try adding pages_scanned if table schema has it
+    try:
+        scan_payload["pages_scanned"] = pages_scanned
+    except Exception:
+        pass
 
+    scan_resp = client.table("scans").insert(scan_payload).execute()
     scan_id = scan_resp.data[0]["id"]
 
     # Save issues with uptime tracking
     for r in results:
-        if r.label in ["broken", "dead_cta", "error"]:
+        label = get_val(r, "label")
+        r_url = get_val(r, "url")
+        if label in ["broken", "dead_cta", "error"]:
             # Check if already exists
             existing = client.table("link_issues")\
                 .select("id")\
                 .eq("site_id", site_id)\
-                .eq("url", r.url)\
+                .eq("url", r_url)\
                 .is_("resolved_at", "null")\
                 .execute()
 
@@ -71,18 +83,18 @@ def _save_scan_sync(site_url, user_email, results, health_score):
                 client.table("link_issues").insert({
                     "site_id": site_id,
                     "scan_id": scan_id,
-                    "url": r.url,
-                    "label": r.label,
-                    "category": r.category,
-                    "anchor_text": r.anchor_text,
-                    "status_code": r.status_code,
+                    "url": r_url,
+                    "label": label,
+                    "category": get_val(r, "category"),
+                    "anchor_text": get_val(r, "anchor_text"),
+                    "status_code": get_val(r, "status_code"),
                     "is_new": True,
                 }).execute()
 
     # Mark resolved issues
     all_current_broken = {
-        r.url for r in results
-        if r.label in ["broken", "dead_cta", "error"]
+        get_val(r, "url") for r in results
+        if get_val(r, "label") in ["broken", "dead_cta", "error"]
     }
     open_issues = client.table("link_issues")\
         .select("id, url")\
@@ -101,7 +113,7 @@ def _save_scan_sync(site_url, user_email, results, health_score):
     return {"site_id": site_id, "scan_id": scan_id}
 
 
-def save_scan_threaded(site_url, user_email, results, health_score):
+def save_scan_threaded(site_url, user_email, results, health_score, pages_scanned=1):
     """Run in a completely separate thread — no asyncio involvement."""
     result_container = {}
     error_container = {}
@@ -109,7 +121,7 @@ def save_scan_threaded(site_url, user_email, results, health_score):
     def run():
         try:
             result_container["data"] = _save_scan_sync(
-                site_url, user_email, results, health_score
+                site_url, user_email, results, health_score, pages_scanned
             )
         except Exception as e:
             error_container["err"] = e
@@ -124,11 +136,11 @@ def save_scan_threaded(site_url, user_email, results, health_score):
     return result_container.get("data", {})
 
 
-async def save_scan(site_url, user_email, results, health_score):
+async def save_scan(site_url, user_email, results, health_score, pages_scanned=1):
     """Async wrapper that runs DB save in a real thread."""
     import asyncio
     return await asyncio.to_thread(
-        save_scan_threaded, site_url, user_email, results, health_score
+        save_scan_threaded, site_url, user_email, results, health_score, pages_scanned
     )
 
 

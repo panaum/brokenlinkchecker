@@ -12,7 +12,6 @@ import ResultsTable from "@/components/ResultsTable";
 import HealthScore from "@/components/HealthScore";
 import SummaryBanner from "@/components/SummaryBanner";
 import PagePreviewCard from "@/components/PagePreviewCard";
-import ScanHistoryPanel from "@/components/ScanHistoryPanel";
 import WhatChangedCard from "@/components/WhatChangedCard";
 import TrackingBanner from "@/components/TrackingBanner";
 import NavBar from "@/components/NavBar";
@@ -447,13 +446,6 @@ export default function HomePage() {
               onScrollToHistory={scrollToHistory}
             />
           </section>
-
-          {/* Scan History Panel */}
-          <ScanHistoryPanel
-            ref={historyPanelRef}
-            history={history}
-            loading={historyLoading}
-          />
         </>
       )}
 

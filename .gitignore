@@ -13,3 +13,6 @@ build/
 Thumbs.db
 .vercel
 .env*
+
+# Build artifacts
+*.tsbuildinfo

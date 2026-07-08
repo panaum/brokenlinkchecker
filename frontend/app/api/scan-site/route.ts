@@ -2,6 +2,13 @@ import { NextRequest } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 
+// Full-site scans stream for a long time. Keep the proxy function alive as long
+// as the plan allows. The browser also connects directly to the backend when
+// NEXT_PUBLIC_BACKEND_URL is set (see app/page.tsx), which avoids this limit
+// entirely — this remains a fallback for local dev / same-origin requests.
+export const runtime = "nodejs";
+export const maxDuration = 300;
+
 export async function GET(req: NextRequest) {
   const url = req.nextUrl.searchParams.get("url");
 

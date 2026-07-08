@@ -2,6 +2,13 @@ import { NextRequest } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
 
+// Scans stream over SSE; keep the proxy function alive as long as the plan
+// allows. The browser connects directly to the backend when
+// NEXT_PUBLIC_BACKEND_URL is set (see app/page.tsx), avoiding this limit; this
+// proxy remains a fallback for local dev / same-origin requests.
+export const runtime = "nodejs";
+export const maxDuration = 300;
+
 export async function GET(req: NextRequest) {
   const url = req.nextUrl.searchParams.get("url");
 

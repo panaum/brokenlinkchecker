@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect, useRef, useMemo } from "react";
+import { useSession } from "next-auth/react";
 import { AnimatePresence } from "framer-motion";
 import { LinkResult, FilterType, SortOption, ScanMeta } from "@/types";
 import UrlInput from "@/components/UrlInput";
@@ -75,6 +76,7 @@ function ParticleBg() {
 }
 
 export default function HomePage() {
+  const { data: session } = useSession();
   const [url, setUrl] = useState("");
   const [scanning, setScanning] = useState(false);
   const [progress, setProgress] = useState({ message: "", percent: 0 });
@@ -146,8 +148,19 @@ export default function HomePage() {
       // Close any existing connection
       eventSourceRef.current?.close();
 
-      const apiRoute = scanMode === "site" ? "/api/scan-site" : "/api/scan";
-      const es = new EventSource(`${apiRoute}?url=${encodeURIComponent(scanUrl)}`);
+      // Connect the SSE stream directly to the backend when its public URL is
+      // configured. This bypasses Vercel's serverless function timeout, which
+      // would otherwise kill long-running full-site scans mid-stream. Falls back
+      // to the same-origin Next.js proxy routes for local dev.
+      const backendBase = process.env.NEXT_PUBLIC_BACKEND_URL;
+      const endpoint = scanMode === "site" ? "scan-site" : "scan";
+      const email = session?.user?.email;
+      const scanSrc = backendBase
+        ? `${backendBase.replace(/\/$/, "")}/${endpoint}?url=${encodeURIComponent(scanUrl)}${
+            email ? `&email=${encodeURIComponent(email)}` : ""
+          }`
+        : `/api/${endpoint}?url=${encodeURIComponent(scanUrl)}`;
+      const es = new EventSource(scanSrc);
       eventSourceRef.current = es;
 
       es.onmessage = (event: MessageEvent) => {
@@ -197,7 +210,7 @@ export default function HomePage() {
         es.close();
       };
     },
-    [url, scanMode]
+    [url, scanMode, session]
   );
 
   // ─── Filtering ─────────────────────────────────────────────────────────────

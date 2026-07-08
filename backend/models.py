@@ -9,6 +9,8 @@ class RawLink(BaseModel):
     category: str
     is_external: bool
     priority: str = "low"  # "critical" | "high" | "medium" | "low"
+    confidence: str = "high"  # "high" | "medium" | "low"
+    reason: str = ""          # human-readable explanation for the flag
 
 
 class LinkResult(RawLink):

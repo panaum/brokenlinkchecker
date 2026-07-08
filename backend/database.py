@@ -193,3 +193,17 @@ def _add_site_sync(url: str, name: str, client_name: str, freq: str, user_email:
 async def add_site(url: str, name: str, client_name: str, freq: str, user_email: str):
     import asyncio
     return await asyncio.to_thread(_add_site_sync, url, name, client_name, freq, user_email)
+
+
+def _delete_site_sync(site_id: str):
+    client = _get_client()
+    # Remove dependent rows first in case the schema has no ON DELETE CASCADE.
+    client.table("link_issues").delete().eq("site_id", site_id).execute()
+    client.table("scans").delete().eq("site_id", site_id).execute()
+    resp = client.table("sites").delete().eq("id", site_id).execute()
+    return resp.data
+
+
+async def delete_site(site_id: str):
+    import asyncio
+    return await asyncio.to_thread(_delete_site_sync, site_id)

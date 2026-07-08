@@ -10,6 +10,7 @@ import {
   Trophy,
   X,
   Link2,
+  Trash2,
 } from "lucide-react";
 import { DashboardSite } from "@/types";
 import NavBar from "@/components/NavBar";
@@ -76,6 +77,10 @@ export default function DashboardPage() {
   const [issuesModalSite, setIssuesModalSite] = useState<{ url: string; name: string } | null>(null);
   const [siteIssues, setSiteIssues] = useState<any[]>([]);
   const [loadingIssues, setLoadingIssues] = useState(false);
+
+  // Delete-site state
+  const [confirmDelete, setConfirmDelete] = useState<{ id: string; name: string } | null>(null);
+  const [deletingId, setDeletingId] = useState<string | null>(null);
 
   const fetchDashboard = async () => {
     try {
@@ -206,6 +211,23 @@ export default function DashboardPage() {
       setSiteIssues([]);
     } finally {
       setLoadingIssues(false);
+    }
+  };
+
+  const handleDeleteSite = async (id: string) => {
+    setDeletingId(id);
+    try {
+      const res = await fetch(`/api/sites?id=${encodeURIComponent(id)}`, {
+        method: "DELETE",
+      });
+      if (res.ok) {
+        setSites((prev) => prev.filter((s) => s.id !== id));
+        setConfirmDelete(null);
+      }
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setDeletingId(null);
     }
   };
 
@@ -414,6 +436,14 @@ export default function DashboardPage() {
                     </span>
                   </div>
                   <div className="flex gap-2">
+                    <button
+                      onClick={() => setConfirmDelete({ id: site.id, name: site.name || site.url })}
+                      title="Delete site"
+                      className="flex items-center justify-center px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors hover:!border-red-400/40"
+                      style={{ background: "rgba(248,113,113,0.06)", borderColor: "rgba(255,255,255,0.1)", color: "#fca5a5" }}
+                    >
+                      <Trash2 size={14} />
+                    </button>
                     <Link
                       href={`/?url=${encodeURIComponent(site.url)}`}
                       className="flex items-center justify-center px-3 py-1.5 rounded-lg border text-xs font-medium transition-colors"
@@ -502,6 +532,46 @@ export default function DashboardPage() {
           </div>
         </div>
       </div>
+
+      {/* Delete Confirmation Modal */}
+      {confirmDelete && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4 z-50">
+          <div className="glass-card p-6 w-full max-w-sm">
+            <div className="flex items-center gap-3 mb-4">
+              <div className="w-10 h-10 rounded-full flex items-center justify-center shrink-0" style={{ background: "rgba(248,113,113,0.12)" }}>
+                <Trash2 size={18} style={{ color: "#fca5a5" }} />
+              </div>
+              <h3 className="text-lg font-bold text-white">Delete site?</h3>
+            </div>
+            <p className="text-sm text-white/60 mb-6">
+              This permanently removes <span className="text-white font-medium">{confirmDelete.name}</span> and all its scan history. This can&apos;t be undone.
+            </p>
+            <div className="flex justify-end gap-3">
+              <button
+                onClick={() => setConfirmDelete(null)}
+                disabled={deletingId === confirmDelete.id}
+                className="px-4 py-2 text-sm font-medium text-white/60 hover:text-white transition-colors disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => handleDeleteSite(confirmDelete.id)}
+                disabled={deletingId === confirmDelete.id}
+                className="px-4 py-2 text-sm font-medium rounded-xl text-white transition-opacity hover:opacity-90 flex items-center gap-2 disabled:opacity-60"
+                style={{ background: "#b91c1c" }}
+              >
+                {deletingId === confirmDelete.id ? (
+                  <>
+                    <Loader2 size={14} className="animate-spin" /> Deleting…
+                  </>
+                ) : (
+                  "Delete"
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Add Site Modal */}
       {showModal && (

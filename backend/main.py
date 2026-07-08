@@ -549,6 +549,16 @@ async def add_site_endpoint(site: SiteCreate):
         return JSONResponse({"error": str(e)}, status_code=500)
 
 
+@app.delete("/sites/{site_id}")
+async def delete_site_endpoint(site_id: str):
+    try:
+        from database import delete_site
+        await delete_site(site_id)
+        return {"status": "success"}
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+
 @app.get("/preview")
 async def preview(url: str = Query(..., description="URL to screenshot")):
     now = time.time()

@@ -4,7 +4,7 @@ import time
 import random
 from urllib.parse import urlparse
 from models import RawLink, LinkResult
-from typing import AsyncIterator
+from typing import AsyncIterator, Optional
 
 SEMAPHORE = asyncio.Semaphore(20)
 TIMEOUT = httpx.Timeout(10.0)
@@ -19,18 +19,24 @@ _CHROME_UA = (
     "Chrome/124.0.0.0 Safari/537.36"
 )
 
-# Known bot-blocking response patterns in body/headers
+# Precise challenge-page phrases only — generic words like "robot"/"automated"/
+# "captcha" match ordinary marketing copy and <meta name="robots">, mislabeling
+# healthy 200 pages as blocked.
 _BOT_BLOCK_PHRASES = (
-    "captcha",
-    "cf-ray",          # Cloudflare ray id header
+    "just a moment",
+    "attention required",
+    "verify you are human",
+    "verifying you are human",
+    "enable javascript and cookies to continue",
     "access denied",
-    "blocked",
-    "robot",
-    "automated",
-    "bot detected",
     "ddos-guard",
-    "just a moment",   # Cloudflare challenge page title
+    "px-captcha",
+    "request unsuccessful. incapsula",
 )
+
+# Statuses where sniffing the body for a challenge page is meaningful. A 200 with
+# marketing copy must never be treated as blocked.
+_SNIFF_STATUSES = {401, 403, 405, 406, 409, 429, 503}
 
 
 def _browser_headers(url: str) -> dict[str, str]:
@@ -54,13 +60,16 @@ def _browser_headers(url: str) -> dict[str, str]:
 
 def _is_bot_blocked(response: httpx.Response) -> bool:
     """Detect Cloudflare / WAF bot-blocking from headers or body snippet."""
-    # Check response headers for Cloudflare markers
+    # Header markers are authoritative regardless of status code.
     if "cf-mitigated" in response.headers:
         return True
     server = response.headers.get("server", "").lower()
     if "cloudflare" in server and response.status_code in (403, 503):
         return True
-    # Check a small slice of the body text
+    # Only sniff the body for challenge phrases on statuses that plausibly
+    # indicate blocking — never on a healthy 200.
+    if response.status_code not in _SNIFF_STATUSES:
+        return False
     try:
         body_snip = response.text[:2000].lower()
         return any(phrase in body_snip for phrase in _BOT_BLOCK_PHRASES)
@@ -68,15 +77,17 @@ def _is_bot_blocked(response: httpx.Response) -> bool:
         return False
 
 
-def classify(status: int | None) -> str:
+def classify(status: Optional[int]) -> str:
     if status is None:          return "timeout"
     if 200 <= status < 300:     return "ok"
     if 300 <= status < 400:     return "redirect"
     if status == 401:           return "blocked"   # auth required — not truly broken
     if status == 403:           return "blocked"   # forbidden — not truly broken
+    if status == 405:           return "blocked"   # method not allowed — anti-bot
     if status == 404:           return "broken"
     if status == 410:           return "broken"
     if status == 429:           return "blocked"   # rate limited — not truly broken
+    if status == 999:           return "blocked"   # LinkedIn anti-bot status
     if 500 <= status < 600:     return "error"
     if status >= 400:           return "broken"
     return "unknown"

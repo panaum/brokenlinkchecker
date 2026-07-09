@@ -14,7 +14,14 @@ jobs:
         with:
           python-version: "3.12"
       - name: Install dependencies
-        run: pip install pytest httpx pydantic beautifulsoup4 lxml
+        # Install the app's real requirements rather than a hand-picked subset.
+        # tests/contract/ imports main, which transitively pulls in playwright,
+        # rank_bm25, fastapi and python-dotenv; a curated list silently rots
+        # every time a module grows an import. Browsers are NOT installed —
+        # the crawler is stubbed in tests, only the `playwright` package is
+        # needed to satisfy scraper.py's import.
+        working-directory: backend
+        run: pip install -r requirements.txt pytest
       - name: Run tests
         working-directory: backend
         run: pytest tests/ -v

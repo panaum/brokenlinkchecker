@@ -48,7 +48,8 @@ export interface LinkResult {
   error?: string
   found_on?: string
   found_on_pages?: string[]
-  priority?: LinkPriority
+  /** null on working links — priority only triages flagged items. */
+  priority?: LinkPriority | null
   suggestion?: LinkSuggestion | null
   impact?: BusinessImpact
   first_seen_at?: string

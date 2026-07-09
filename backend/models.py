@@ -20,7 +20,10 @@ class RawLink(BaseModel):
     link_kind: str = "http"
     # For link_kind == "anchor"/"http": the #fragment part, if any.
     fragment: str = ""
-    priority: str = "low"  # "critical" | "high" | "medium" | "low"
+    # "critical" | "high" | "medium" | "low", or None for a working link.
+    # Priority is a triage signal, so it is only meaningful for flagged items;
+    # the checker clears it once a link comes back healthy (bucket == "ok").
+    priority: Optional[str] = "low"
     confidence: str = "high"  # "high" | "medium" | "low"
     reason: str = ""          # human-readable explanation for the flag
     # "broken"       = provable failure (404/410/5xx, DNS, connection refused)

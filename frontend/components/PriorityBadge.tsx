@@ -3,7 +3,8 @@
 import { LinkPriority } from "@/types";
 
 interface PriorityBadgeProps {
-  priority?: LinkPriority;
+  /** Absent/null on working links — they have nothing to triage. */
+  priority?: LinkPriority | null;
 }
 
 const PRIORITY_CONFIG: Record<string, { label: string; color: string; bg: string; emoji: string }> = {
@@ -14,7 +15,12 @@ const PRIORITY_CONFIG: Record<string, { label: string; color: string; bg: string
 };
 
 export default function PriorityBadge({ priority }: PriorityBadgeProps) {
-  const cfg = PRIORITY_CONFIG[priority ?? "low"] ?? PRIORITY_CONFIG.low;
+  // A working link carries no priority. Render nothing rather than defaulting
+  // to a "Low" chip, which reads as a finding.
+  if (!priority) return null;
+
+  const cfg = PRIORITY_CONFIG[priority];
+  if (!cfg) return null;
 
   return (
     <span

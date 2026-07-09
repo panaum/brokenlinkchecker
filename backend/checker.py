@@ -295,6 +295,10 @@ async def check_single(client: httpx.AsyncClient, link: RawLink) -> LinkResult:
         """Build a LinkResult, overriding the RawLink's placeholder bucket."""
         fields = link.dict()
         fields["bucket"] = bucket or bucket_for_label(label)
+        # Priority triages *flagged* items. A working link has nothing to
+        # triage, so it carries no priority and the UI renders no chip.
+        if fields["bucket"] == "ok":
+            fields["priority"] = None
         return LinkResult(**fields, label=label, **kwargs)
 
     if link.category == "Dead CTA":
@@ -389,8 +393,11 @@ async def check_single(client: httpx.AsyncClient, link: RawLink) -> LinkResult:
 
                         # The target may build the section with JavaScript, so a
                         # missing id proves nothing. Soft warning, never red.
+                        # Pass the bucket up front: it is a flagged item, so it
+                        # must keep its priority.
                         result = _result(
                             "ok",
+                            bucket="unverifiable",
                             status_code=r.status_code,
                             final_url=final_url,
                             response_ms=elapsed,
@@ -399,7 +406,6 @@ async def check_single(client: httpx.AsyncClient, link: RawLink) -> LinkResult:
                                 "it may be rendered by JavaScript. Please check manually."
                             ),
                         )
-                        result.bucket = "unverifiable"
                         result.confidence = "low"
                         result.reason = (
                             f"Section #{link.fragment} is not in the HTML of {target_page}; "

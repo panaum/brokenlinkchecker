@@ -1,4 +1,4 @@
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from typing import Optional
 
 
@@ -6,8 +6,20 @@ class RawLink(BaseModel):
     url: str
     source_element: str
     anchor_text: str
+    # Primary (highest-priority) zone this URL was found in. A URL linked from
+    # several zones — the classic nav + footer pair — is checked once; `zones`
+    # keeps the full list so the footer occurrence is not lost.
     category: str
     is_external: bool
+    zones: list[str] = Field(default_factory=list)
+    occurrences: int = 1
+    # "http"    — fetched over the network
+    # "anchor"  — in-page #fragment, resolved against the rendered DOM
+    # "contact" — mailto:/tel:/sms:, syntax-checked but never fetched
+    # "dead_cta"— flagged by the detector, has no destination to check
+    link_kind: str = "http"
+    # For link_kind == "anchor"/"http": the #fragment part, if any.
+    fragment: str = ""
     priority: str = "low"  # "critical" | "high" | "medium" | "low"
     confidence: str = "high"  # "high" | "medium" | "low"
     reason: str = ""          # human-readable explanation for the flag

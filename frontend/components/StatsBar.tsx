@@ -3,7 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { LinkResult } from "@/types";
-import { countBuckets } from "@/lib/buckets";
+import { bucketOf, countBuckets } from "@/lib/buckets";
 
 interface StatsBarProps {
   results: LinkResult[];
@@ -46,7 +46,9 @@ interface StatCard {
 
 export default function StatsBar({ results }: StatsBarProps) {
   const totalLinks = results.length;
-  const working = results.filter((r) => r.label === "ok").length;
+  // A link can be HTTP-ok yet unverifiable (e.g. its #section may be rendered by
+  // JavaScript on the target page). Such a row belongs in Unverifiable only.
+  const working = results.filter((r) => r.label === "ok" && bucketOf(r) === "ok").length;
   const redirects = results.filter((r) => r.label === "redirect").length;
 
   // Counted by bucket, not label: a low-confidence dead-CTA candidate is

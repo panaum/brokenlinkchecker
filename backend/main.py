@@ -79,8 +79,11 @@ async def send_slack_notification(
         lines = []
         for r in dead_cta[:3]:
             anchor = r.anchor_text or "[no text]"
-            source = r.source_element or "Unknown location"
-            lines.append(f"• \"{anchor[:30]}\" — {source[:40]}")
+            # `zones` names the page regions the link sits in; source_element is
+            # just the tag name and says nothing useful on its own.
+            zones = getattr(r, "zones", None) or []
+            where = ", ".join(zones) or getattr(r, "category", "") or "Unknown location"
+            lines.append(f"• \"{anchor[:30]}\" — {where[:40]}")
         if len(dead_cta) > 3:
             lines.append(f"• ...and {len(dead_cta) - 3} more")
         cta_text = "\n".join(lines)
@@ -178,7 +181,12 @@ def _calculate_health_score(results: list) -> int:
     def get(r, field):
         return r.get(field) if isinstance(r, dict) else getattr(r, field, None)
 
-    ok = sum(1 for r in results if get(r, "label") == "ok")
+    # HTTP-ok but unverifiable (e.g. a #section we could not confirm) is not
+    # a working link — it must not inflate the numerator.
+    ok = sum(
+        1 for r in results
+        if get(r, "label") == "ok" and (get(r, "bucket") or "ok") == "ok"
+    )
     broken_penalty = sum(3 for r in results if get(r, "label") == "broken")
     # Only high/medium-confidence dead CTAs cost health. Low-confidence
     # candidates land in the "unverifiable" bucket and must not be scored as
@@ -320,7 +328,11 @@ async def scan(
 
             await send_slack_notification(url, health_score, results)
 
-            yield f"data: {json.dumps({'type': 'result', 'data': [r.dict() for r in results], 'health_score': health_score, 'detected_builders': detected_builders})}\n\n"
+            # "14 unique links across 47 placements" — the same URL linked from
+            # nav and footer is fetched once but counted in both places.
+            total_placements = sum(getattr(r, "occurrences", 1) or 1 for r in results)
+
+            yield f"data: {json.dumps({'type': 'result', 'data': [r.dict() for r in results], 'health_score': health_score, 'detected_builders': detected_builders, 'total_links': len(results), 'total_placements': total_placements})}\n\n"
 
         except Exception as e:
             yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
@@ -474,7 +486,9 @@ async def scan_site(
             await send_slack_notification(url, health_score, slack_results)
 
             # Yield final result event
-            yield f"data: {json.dumps({'type': 'result', 'data': final_results, 'health_score': health_score, 'pages_scanned': total_pages, 'detected_builders': site_builders})}\n\n"
+            total_placements = sum(r.get("occurrences", 1) or 1 for r in final_results)
+
+            yield f"data: {json.dumps({'type': 'result', 'data': final_results, 'health_score': health_score, 'pages_scanned': total_pages, 'detected_builders': site_builders, 'total_links': len(final_results), 'total_placements': total_placements})}\n\n"
 
         except Exception as e:
             yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"

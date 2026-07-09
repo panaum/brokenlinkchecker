@@ -15,7 +15,7 @@ interface HealthScoreProps {
 function calcScore(results: LinkResult[]): number {
   if (results.length === 0) return 100;
   const total = results.length;
-  const okCount = results.filter((r) => r.label === "ok").length;
+  const okCount = results.filter((r) => r.label === "ok" && bucketOf(r) === "ok").length;
   const brokenCount = results.filter((r) => r.label === "broken").length;
   const deadCtaCount = results.filter(
     (r) => r.label === "dead_cta" && bucketOf(r) === "dead_cta"
@@ -45,7 +45,7 @@ export default function HealthScore({ results }: HealthScoreProps) {
   const [animScore, setAnimScore] = useState(0);
   const finalScore = calcScore(results);
   const total = results.length;
-  const okCount = results.filter((r) => r.label === "ok").length;
+  const okCount = results.filter((r) => r.label === "ok" && bucketOf(r) === "ok").length;
   const brokenCount = results.filter((r) => r.label === "broken").length;
   const deadCtaCount = results.filter(
     (r) => r.label === "dead_cta" && bucketOf(r) === "dead_cta"

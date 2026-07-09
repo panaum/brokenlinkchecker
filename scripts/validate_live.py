@@ -87,30 +87,27 @@ def _check_links(links):
 def scan(url: str, skip_http: bool) -> dict:
     """Full Playwright scrape + detection (+ optional HTTP check) for one URL."""
     links, builders = _scrape_sync(url)
+    placements = sum(l.occurrences for l in links)
 
-    dead_cta_links = [l for l in links if l.category == "Dead CTA"]
-    high = [l for l in dead_cta_links if l.bucket == "dead_cta" and l.confidence == "high"]
-    medium = [l for l in dead_cta_links if l.bucket == "dead_cta" and l.confidence == "medium"]
-    unverifiable = [l for l in dead_cta_links if l.bucket == "unverifiable"]
+    # With HTTP on, classify from the checked results: that folds in both the
+    # detector's dead CTAs and links whose #fragment is missing on the target
+    # page. With HTTP off, only the detector's verdict is available.
+    rows = links if skip_http else _check_links(links)
 
-    broken = []
-    http_unverifiable = []
-    if not skip_http:
-        checkable = [l for l in links if l.category != "Dead CTA"]
-        for r in _check_links(checkable):
-            if r.bucket == "broken":
-                broken.append(r)
-            elif r.bucket == "unverifiable":
-                http_unverifiable.append(r)
+    high = [r for r in rows if r.bucket == "dead_cta" and r.confidence == "high"]
+    medium = [r for r in rows if r.bucket == "dead_cta" and r.confidence == "medium"]
+    unverifiable = [r for r in rows if r.bucket == "unverifiable"]
+    broken = [r for r in rows if r.bucket == "broken"] if not skip_http else []
 
     return {
         "url": url,
         "builders": builders,
         "total_links": len(links),
+        "placements": placements,
         "broken": broken,
         "high": high,
         "medium": medium,
-        "unverifiable": unverifiable + http_unverifiable,
+        "unverifiable": unverifiable,
         "skip_http": skip_http,
         "error": None,
     }
@@ -150,11 +147,13 @@ def print_details(rows: list) -> None:
         flagged = r["high"] + r["medium"] + r["broken"]
         if not flagged:
             continue
-        print(f"\n── {r['url']}  ({r['total_links']} links scanned)")
+        print(f"\n── {r['url']}  ({r['total_links']} unique links, {r['placements']} placements)")
         for l in r["high"]:
-            print(f"   [HIGH  dead_cta] {_truncate(l.anchor_text, 40):<42} {_truncate(l.reason, 90)}")
+            why = l.reason or getattr(l, "error", "") or ""
+            print(f"   [HIGH  dead_cta] {_truncate(l.anchor_text, 40):<42} {_truncate(why, 90)}")
         for l in r["medium"]:
-            print(f"   [MED   dead_cta] {_truncate(l.anchor_text, 40):<42} {_truncate(l.reason, 90)}")
+            why = l.reason or getattr(l, "error", "") or ""
+            print(f"   [MED   dead_cta] {_truncate(l.anchor_text, 40):<42} {_truncate(why, 90)}")
         for l in r["broken"][:MAX_BROKEN_SHOWN]:
             status = l.status_code if l.status_code is not None else "—"
             print(f"   [BROKEN {str(status):>3}   ] {_truncate(l.anchor_text, 40):<42} {_truncate(l.url, 90)}")
@@ -206,7 +205,8 @@ def evaluate(rows: list, expectations: dict) -> bool:
         tag = "!! FLOOD" if flood else "review"
         print(f"   {tag}: {r['url']} -> {n} high-confidence flag(s)")
         for l in r["high"]:
-            print(f"        - {_truncate(l.anchor_text, 40):<42} {_truncate(l.reason, 88)}")
+            why = l.reason or getattr(l, "error", "") or ""
+            print(f"        - {_truncate(l.anchor_text, 40):<42} {_truncate(why, 88)}")
         if flood:
             print(f"        ^ >{FLOOD_THRESHOLD} high-confidence flags. Treat as a bug: add the")
             print("          offending pattern as a fixture + test, extend the profile hints.")

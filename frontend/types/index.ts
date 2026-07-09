@@ -59,7 +59,23 @@ export interface LinkResult {
   confidence?: Confidence
   /** Human-readable explanation for the flag, e.g. why a CTA looks dead. */
   reason?: string
+  /** Every page zone this destination is linked from, not just the primary one. */
+  zones?: string[]
+  /** How many times this destination is linked on the page. */
+  occurrences?: number
+  /** What kind of link this is — `contact` and `anchor` are never fetched. */
+  link_kind?: LinkKind
+  /** The `#fragment` part of the href, if any. */
+  fragment?: string
 }
+
+/**
+ * `http`     — fetched over the network
+ * `anchor`   — in-page #fragment, resolved against the rendered DOM
+ * `contact`  — mailto:/tel:/sms:, syntax-checked but never fetched
+ * `dead_cta` — flagged by the detector; has no destination to check
+ */
+export type LinkKind = 'http' | 'anchor' | 'contact' | 'dead_cta'
 
 /** Payload of the `result` SSE event from /scan and /scan-site. */
 export interface ScanResultPayload {
@@ -68,6 +84,10 @@ export interface ScanResultPayload {
   health_score: number
   detected_builders?: string[]
   pages_scanned?: number
+  /** Unique destinations (rows). */
+  total_links?: number
+  /** Sum of occurrences — the number a human counts by eye on the page. */
+  total_placements?: number
 }
 
 export interface BusinessImpact {

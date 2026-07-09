@@ -1,19 +1,20 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { LinkResult } from "@/types";
+import { LinkResult, ScanDiff } from "@/types";
 import { countBuckets, countPlacements } from "@/lib/buckets";
 
 interface ReportHeaderProps {
   results: LinkResult[];
   detectedBuilders: string[];
+  diff?: ScanDiff | null;
 }
 
 /**
  * Report header:
  *   🏗️ Built with: Elementor · 47 links scanned · 2 broken · 1 dead CTA · 3 unverifiable
  */
-export default function ReportHeader({ results, detectedBuilders }: ReportHeaderProps) {
+export default function ReportHeader({ results, detectedBuilders, diff }: ReportHeaderProps) {
   if (results.length === 0) return null;
 
   const { broken, dead_cta, unverifiable } = countBuckets(results);
@@ -40,6 +41,16 @@ export default function ReportHeader({ results, detectedBuilders }: ReportHeader
       transition={{ duration: 0.4 }}
       className="w-full max-w-5xl mx-auto mt-8 px-4"
     >
+      {/* Every report leads with the diff. */}
+      {diff?.summary && (
+        <div
+          className="mb-2 text-sm font-medium"
+          style={{ color: diff.has_baseline ? "#e2e8f0" : "rgba(255,255,255,0.45)" }}
+        >
+          {diff.summary}
+        </div>
+      )}
+
       <div className="glass-card px-5 py-4 flex flex-wrap items-center gap-x-3 gap-y-2 text-sm">
         {detectedBuilders.length > 0 && (
           <span

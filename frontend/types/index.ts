@@ -48,7 +48,8 @@ export interface LinkResult {
   error?: string
   found_on?: string
   found_on_pages?: string[]
-  priority?: LinkPriority
+  /** null on working links — priority only triages flagged items. */
+  priority?: LinkPriority | null
   suggestion?: LinkSuggestion | null
   impact?: BusinessImpact
   first_seen_at?: string
@@ -67,6 +68,50 @@ export interface LinkResult {
   link_kind?: LinkKind
   /** The `#fragment` part of the href, if any. */
   fragment?: string
+  /** Stable identity across scans. Present on every scanned link. */
+  fingerprint?: string
+  /** Flagged items only. A working link is not a finding. */
+  diff_status?: DiffStatus | null
+  /** Days since this finding was first observed. */
+  age_days?: number | null
+}
+
+/** Where a finding sits relative to the previous scan. */
+export type DiffStatus = 'new' | 'recurring'
+
+/** A flagged item, tracked across scans by its fingerprint. */
+export interface Finding {
+  fingerprint: string
+  bucket: Bucket
+  confidence: Confidence
+  url: string
+  anchor_text: string
+  zone: string
+  reason: string
+  first_seen_at: string | null
+  resolved_at: string | null
+  status: 'open' | 'resolved' | 'verified_fixed'
+  age_days: number
+}
+
+/**
+ * Comparison against the previous snapshot.
+ *
+ * `has_baseline: false` means this is the site's first scan (or the baseline
+ * could not be read). Render new/removed link counts as "n/a" — they are null,
+ * not zero, because zero would claim we compared and found nothing.
+ */
+export interface ScanDiff {
+  has_baseline: boolean
+  /** "3 new · 1 fixed · 7 still open" — leads every report and email. */
+  summary: string
+  new: number
+  fixed: number
+  recurring: number
+  new_links: number | null
+  removed_links: number | null
+  /** Fixed findings are absent from `data` — they live here. */
+  fixed_findings: Finding[]
 }
 
 /**
@@ -88,7 +133,11 @@ export interface ScanResultPayload {
   total_links?: number
   /** Sum of occurrences — the number a human counts by eye on the page. */
   total_placements?: number
+  diff?: ScanDiff
 }
+
+/** Diff filter in the results toolbar, alongside the bucket filters. */
+export type DiffFilter = 'all' | 'new' | 'recurring' | 'fixed'
 
 export interface BusinessImpact {
   score: number

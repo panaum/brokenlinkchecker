@@ -1,10 +1,13 @@
 """
 Bot-block detection + status classification tests.
 """
+import asyncio
+
 import httpx
 import pytest
 
-from checker import _is_bot_blocked, classify
+from checker import _is_bot_blocked, bucket_for_label, check_single, classify
+from models import RawLink
 
 
 def _resp(status=200, body="", headers=None):
@@ -74,3 +77,97 @@ def test_px_captcha_403_blocked():
 ])
 def test_classify(status, expected):
     assert classify(status) == expected
+
+
+# ─── Part D bucket mapping ───────────────────────────────────────────────────
+# Provable failures are "broken"; anything we cannot judge is "unverifiable".
+@pytest.mark.parametrize("status,expected_bucket", [
+    # provable failures
+    (404, "broken"),
+    (410, "broken"),
+    (500, "broken"),
+    (502, "broken"),
+    (503, "broken"),
+    # cannot judge from here — never a red bucket
+    (401, "unverifiable"),
+    (403, "unverifiable"),
+    (405, "unverifiable"),
+    (429, "unverifiable"),
+    (999, "unverifiable"),
+    (None, "unverifiable"),   # timeout
+    # healthy links belong to no issue bucket
+    (200, "ok"),
+    (301, "ok"),
+])
+def test_status_maps_to_bucket(status, expected_bucket):
+    assert bucket_for_label(classify(status)) == expected_bucket
+
+
+def test_dns_and_connection_errors_are_broken():
+    """Transport-level failures surface as label 'error' -> provable breakage."""
+    assert bucket_for_label("error") == "broken"
+
+
+def test_bot_blocked_is_unverifiable():
+    assert bucket_for_label("blocked") == "unverifiable"
+
+
+def test_unknown_label_defaults_to_unverifiable():
+    """When the tool is not sure, the item must not land in a red bucket."""
+    assert bucket_for_label("something-new") == "unverifiable"
+
+
+# ─── check_single end-to-end: the LinkResult must carry the right bucket ─────
+def _raw(**over) -> RawLink:
+    fields = dict(
+        url="https://acme.test/page",
+        source_element="a",
+        anchor_text="Link",
+        category="Body text",
+        is_external=False,
+    )
+    fields.update(over)
+    return RawLink(**fields)
+
+
+def _check(link: RawLink, status: int = 200) -> "object":
+    async def run():
+        transport = httpx.MockTransport(lambda req: httpx.Response(status))
+        async with httpx.AsyncClient(transport=transport) as client:
+            return await check_single(client, link)
+    return asyncio.run(run())
+
+
+def test_check_single_sets_broken_bucket_on_404():
+    r = _check(_raw(), status=404)
+    assert r.label == "broken"
+    assert r.bucket == "broken"
+
+
+def test_check_single_sets_unverifiable_bucket_on_429():
+    r = _check(_raw(), status=429)
+    assert r.label == "blocked"
+    assert r.bucket == "unverifiable"
+
+
+def test_check_single_healthy_link_is_not_in_an_issue_bucket():
+    r = _check(_raw(), status=200)
+    assert r.label == "ok"
+    assert r.bucket == "ok"
+
+
+def test_check_single_preserves_detector_bucket_for_dead_ctas():
+    """A low-confidence dead CTA stays 'unverifiable' — the checker must not
+    overwrite the detector's own judgement from the 'dead_cta' label."""
+    link = _raw(category="Dead CTA", confidence="low", bucket="unverifiable",
+                reason="Button has no static handler")
+    r = _check(link)
+    assert r.label == "dead_cta"
+    assert r.bucket == "unverifiable"
+    assert r.reason == "Button has no static handler"
+
+
+def test_check_single_keeps_high_confidence_dead_cta_bucket():
+    link = _raw(category="Dead CTA", confidence="high", bucket="dead_cta")
+    r = _check(link)
+    assert r.bucket == "dead_cta"

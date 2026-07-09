@@ -174,12 +174,20 @@ def _calculate_health_score(results: list) -> int:
     total = len(results)
     if total == 0:
         return 100
-    def get_label(r):
-        return r.get("label") if isinstance(r, dict) else getattr(r, "label", None)
-    ok = sum(1 for r in results if get_label(r) == "ok")
-    broken_penalty = sum(3 for r in results if get_label(r) == "broken")
-    dead_cta_penalty = sum(2 for r in results if get_label(r) == "dead_cta")
-    timeout_penalty = sum(1 for r in results if get_label(r) == "timeout")
+
+    def get(r, field):
+        return r.get(field) if isinstance(r, dict) else getattr(r, field, None)
+
+    ok = sum(1 for r in results if get(r, "label") == "ok")
+    broken_penalty = sum(3 for r in results if get(r, "label") == "broken")
+    # Only high/medium-confidence dead CTAs cost health. Low-confidence
+    # candidates land in the "unverifiable" bucket and must not be scored as
+    # defects — we cannot prove they are broken.
+    dead_cta_penalty = sum(
+        2 for r in results
+        if get(r, "label") == "dead_cta" and get(r, "bucket") == "dead_cta"
+    )
+    timeout_penalty = sum(1 for r in results if get(r, "label") == "timeout")
     score = round((ok / total) * 100) - broken_penalty - dead_cta_penalty - timeout_penalty
     return max(0, min(100, score))
 
@@ -264,7 +272,7 @@ async def scan(
             yield f"data: {json.dumps({'type': 'progress', 'message': 'Launching headless browser...', 'percent': 5})}\n\n"
             await asyncio.sleep(0.1)
 
-            links = await scrape_links(url)
+            links, detected_builders = await scrape_links(url)
             yield f"data: {json.dumps({'type': 'progress', 'message': f'Found {len(links)} links. Checking each one...', 'percent': 30})}\n\n"
             await asyncio.sleep(0.1)
 
@@ -272,7 +280,7 @@ async def scan(
             total = len(links)
 
             if total == 0:
-                yield f"data: {json.dumps({'type': 'result', 'data': [], 'health_score': 100})}\n\n"
+                yield f"data: {json.dumps({'type': 'result', 'data': [], 'health_score': 100, 'detected_builders': detected_builders})}\n\n"
                 return
 
             async for i, result in check_all_links(links):
@@ -312,7 +320,7 @@ async def scan(
 
             await send_slack_notification(url, health_score, results)
 
-            yield f"data: {json.dumps({'type': 'result', 'data': [r.dict() for r in results], 'health_score': health_score})}\n\n"
+            yield f"data: {json.dumps({'type': 'result', 'data': [r.dict() for r in results], 'health_score': health_score, 'detected_builders': detected_builders})}\n\n"
 
         except Exception as e:
             yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
@@ -344,6 +352,8 @@ async def scan_site(
             queue = asyncio.Queue()
             completed_pages = 0
             all_results = []
+            # Builders seen anywhere on the site, in first-seen order.
+            site_builders: list[str] = []
 
             async def scan_page_worker(page_url: str):
                 nonlocal completed_pages
@@ -356,7 +366,10 @@ async def scan_site(
                         "message": f"Scanning page {completed_pages + 1}/{total_pages}: {path_to_show}"
                     })
                     try:
-                        links = await scrape_links(page_url)
+                        links, page_builders = await scrape_links(page_url)
+                        for b in page_builders:
+                            if b not in site_builders:
+                                site_builders.append(b)
                         page_results = []
                         if links:
                             async for i, res in check_all_links(links):
@@ -461,7 +474,7 @@ async def scan_site(
             await send_slack_notification(url, health_score, slack_results)
 
             # Yield final result event
-            yield f"data: {json.dumps({'type': 'result', 'data': final_results, 'health_score': health_score, 'pages_scanned': total_pages})}\n\n"
+            yield f"data: {json.dumps({'type': 'result', 'data': final_results, 'health_score': health_score, 'pages_scanned': total_pages, 'detected_builders': site_builders})}\n\n"
 
         except Exception as e:
             yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"

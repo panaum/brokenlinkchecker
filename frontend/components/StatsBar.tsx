@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { LinkResult } from "@/types";
+import { countBuckets } from "@/lib/buckets";
 
 interface StatsBarProps {
   results: LinkResult[];
@@ -46,15 +47,11 @@ interface StatCard {
 export default function StatsBar({ results }: StatsBarProps) {
   const totalLinks = results.length;
   const working = results.filter((r) => r.label === "ok").length;
-  const broken = results.filter((r) => r.label === "broken").length;
-  const deadCta = results.filter((r) => r.label === "dead_cta").length;
   const redirects = results.filter((r) => r.label === "redirect").length;
-  const cantVerify = results.filter(
-    (r) => r.label === "blocked" || r.label === "forbidden"
-  ).length;
-  const timeouts = results.filter(
-    (r) => r.label === "timeout" || r.label === "error"
-  ).length;
+
+  // Counted by bucket, not label: a low-confidence dead-CTA candidate is
+  // "unverifiable", and must not be reported to a client as a dead button.
+  const { broken, dead_cta: deadCta, unverifiable: cantVerify } = countBuckets(results);
 
   const stats: StatCard[] = [
     {
@@ -81,10 +78,10 @@ export default function StatsBar({ results }: StatsBarProps) {
     ...(deadCta > 0
       ? [
           {
-            label: "Dead Buttons",
+            label: "Dead CTAs",
             rawValue: deadCta,
-            color: "#fbbf24",
-            bg: "rgba(251,191,36,0.10)",
+            color: "#fb923c",
+            bg: "rgba(251,146,60,0.10)",
             delay: 300,
           },
         ]
@@ -92,29 +89,20 @@ export default function StatsBar({ results }: StatsBarProps) {
     {
       label: "Redirects",
       rawValue: redirects,
-      color: "#fb923c",
-      bg: "rgba(251,146,60,0.10)",
+      color: "#e879f9",
+      bg: "rgba(232,121,249,0.10)",
       delay: 400,
     },
+    // Timeouts and bot-blocked responses both live here now — they are things
+    // we could not verify, not things we proved were broken.
     ...(cantVerify > 0
       ? [
           {
-            label: "Can't Verify",
+            label: "Unverifiable",
             rawValue: cantVerify,
-            color: "#e879f9",
-            bg: "rgba(232,121,249,0.10)",
+            color: "#fbbf24",
+            bg: "rgba(251,191,36,0.10)",
             delay: 500,
-          },
-        ]
-      : []),
-    ...(timeouts > 0
-      ? [
-          {
-            label: "Timeouts",
-            rawValue: timeouts,
-            color: "#94a3b8",
-            bg: "rgba(148,163,184,0.10)",
-            delay: 600,
           },
         ]
       : []),

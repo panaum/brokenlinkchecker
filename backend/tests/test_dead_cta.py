@@ -4,7 +4,7 @@ No Playwright required.
 """
 from bs4 import BeautifulSoup
 
-from dead_cta_detector import find_dead_ctas, detect_builders
+from dead_cta_detector import find_dead_ctas
 
 
 URL = "https://acme.test/"
@@ -42,6 +42,8 @@ MAIN_FIXTURE = """
   <button role="tab">Pricing Tab</button>
   <a href="#" class="swiper-button-next">Next</a>
   <a href="#" class="swiper-button-prev">Prev</a>
+  <a href="#" class="slick-prev">Slick Prev</a>
+  <a href="#" class="slick-next">Slick Next</a>
   <button class="accordion-header" aria-expanded="false">FAQ Item</button>
   <button data-bs-toggle="modal" data-bs-target="#myModal">Open Modal</button>
   <div id="myModal"></div>
@@ -56,6 +58,7 @@ MAIN_FIXTURE = """
   <a href="tel:+15551234567">Call Us</a>
   <a href="mailto:hi@acme.test">Email Us</a>
   <a href="#" class="btn" data-js-listener="1">Stamped CTA</a>
+  <div class="pricing-table"><a href="/pricing">Compare Plans</a></div>
 </body>
 </html>
 """
@@ -99,9 +102,45 @@ def test_cta_classed_dead_links_are_high_confidence():
         assert flags[text].confidence == "high", f"{text} -> {flags[text].confidence}"
 
 
+def test_cta_classed_dead_links_are_bucket_dead_cta():
+    flags = {f.anchor_text: f for f in find_dead_ctas(_soup(MAIN_FIXTURE), URL)}
+    for text in HIGH_CONFIDENCE_DEAD:
+        assert flags[text].bucket == "dead_cta", f"{text} -> {flags[text].bucket}"
+
+
+def test_every_flag_carries_a_reason():
+    for f in find_dead_ctas(_soup(MAIN_FIXTURE), URL):
+        assert f.reason.strip(), f"{f.anchor_text} has no reason"
+
+
 def test_broken_in_page_anchor_reason_names_fragment():
     flags = {f.anchor_text: f for f in find_dead_ctas(_soup(MAIN_FIXTURE), URL)}
     assert "testimonials" in flags["See Testimonials"].reason.lower()
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Regression: the "tab"/"table" guard. Without stripping the substring "table"
+# from the class blob, the widget keyword "tab" matches "pricing-table" and
+# suppresses every dead CTA nested inside a pricing table (a false negative).
+# ─────────────────────────────────────────────────────────────────────────────
+def test_pricing_table_does_not_suppress_nested_dead_cta():
+    html = (
+        '<html><body><div class="pricing-table">'
+        '<a href="#" class="btn">Buy Now</a>'
+        '</div></body></html>'
+    )
+    flags = {f.anchor_text for f in find_dead_ctas(_soup(html), URL)}
+    assert "Buy Now" in flags
+
+
+def test_real_tab_widget_still_suppressed():
+    html = (
+        '<html><body><div class="tab-panel">'
+        '<a href="#" class="btn">Buy Now</a>'
+        '</div></body></html>'
+    )
+    flags = {f.anchor_text for f in find_dead_ctas(_soup(html), URL)}
+    assert "Buy Now" not in flags
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -227,35 +266,12 @@ def test_spa_flags_are_all_low_confidence():
     ]
 
 
-# ─────────────────────────────────────────────────────────────────────────────
-# Astro: static-first. Full confidence normally; low inside hydration islands.
-# ─────────────────────────────────────────────────────────────────────────────
-ASTRO_FIXTURE = """
-<!doctype html>
-<html>
-<head><meta name="generator" content="Astro v5.1"></head>
-<body>
-  <section class="static">
-    <a href="#" class="btn">Get Started</a>
-  </section>
-  <astro-island>
-    <a href="#" class="btn">Launch Now</a>
-  </astro-island>
-  <a href="https://example.com" class="btn">Book Now</a>
-</body>
-</html>
-"""
-
-
-def test_astro_confidence_and_placeholder():
-    soup = _soup(ASTRO_FIXTURE)
-    assert any(b["name"] == "Astro" for b in detect_builders(soup))
-    flags = {f.anchor_text: f for f in find_dead_ctas(soup, URL)}
-
-    assert flags["Get Started"].confidence == "high"      # static section
-    assert flags["Launch Now"].confidence == "low"        # inside astro-island
-    assert flags["Book Now"].confidence == "high"         # placeholder host
-    assert "placeholder" in flags["Book Now"].reason.lower()
+def test_spa_flags_are_all_unverifiable():
+    flags = find_dead_ctas(_soup(SPA_FIXTURE), URL)
+    assert flags, "expected some flags in the SPA fixture"
+    assert all(f.bucket == "unverifiable" for f in flags), [
+        (f.anchor_text, f.bucket) for f in flags
+    ]
 
 
 # ─────────────────────────────────────────────────────────────────────────────

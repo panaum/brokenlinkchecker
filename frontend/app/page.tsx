@@ -7,6 +7,8 @@ import { LinkResult, FilterType, SortOption, ScanMeta } from "@/types";
 import UrlInput from "@/components/UrlInput";
 import ScanProgress from "@/components/ScanProgress";
 import StatsBar from "@/components/StatsBar";
+import ReportHeader from "@/components/ReportHeader";
+import IssueSections from "@/components/IssueSections";
 import FilterBar from "@/components/FilterBar";
 import ResultsTable from "@/components/ResultsTable";
 import HealthScore from "@/components/HealthScore";
@@ -82,6 +84,7 @@ export default function HomePage() {
   const [checkedCount, setCheckedCount] = useState(0);
   const [totalCount, setTotalCount] = useState(0);
   const [results, setResults] = useState<LinkResult[]>([]);
+  const [detectedBuilders, setDetectedBuilders] = useState<string[]>([]);
   const [filter, setFilter] = useState<FilterType>("all");
   const [sortOption, setSortOption] = useState<SortOption>("status");
   const [search, setSearch] = useState("");
@@ -132,6 +135,7 @@ export default function HomePage() {
       // Reset state
       setError(null);
       setResults([]);
+      setDetectedBuilders([]);
       setScanComplete(false);
       setScanning(true);
       scanningRef.current = true;
@@ -178,6 +182,7 @@ export default function HomePage() {
           } else if (data.type === "result") {
             const linkResults = data.data as LinkResult[];
             setResults(linkResults);
+            setDetectedBuilders((data.detected_builders as string[]) ?? []);
             setScanComplete(true);
             setScanning(false);
             scanningRef.current = false;
@@ -397,6 +402,11 @@ export default function HomePage() {
             />
           )}
 
+          {/* Report header: builder badge + bucket counts */}
+          <section className="relative z-10">
+            <ReportHeader results={results} detectedBuilders={detectedBuilders} />
+          </section>
+
           {/* Health score */}
           <section className="relative z-10">
             <HealthScore results={results} />
@@ -418,6 +428,11 @@ export default function HomePage() {
           {/* Stats bar */}
           <section className="relative z-10">
             <StatsBar results={results} />
+          </section>
+
+          {/* Triage: broken / dead CTA / unverifiable */}
+          <section className="relative z-10">
+            <IssueSections results={results} />
           </section>
 
           {/* Filter bar */}

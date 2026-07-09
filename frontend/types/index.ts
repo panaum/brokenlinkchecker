@@ -10,6 +10,21 @@ export type LinkLabel =
 
 export type LinkPriority = 'critical' | 'high' | 'medium' | 'low'
 
+/** How sure the backend is about a dead-CTA flag. */
+export type Confidence = 'high' | 'medium' | 'low'
+
+/**
+ * Three-bucket triage taxonomy.
+ *  - `broken`       provable failure (404/410/5xx, DNS, connection refused)
+ *  - `dead_cta`     CTA-styled element that leads nowhere useful
+ *  - `unverifiable` cannot be judged automatically (401/403/429/999, timeouts,
+ *                   JS-hydrated subtrees, low-confidence candidates)
+ *  - `ok`           healthy link — belongs to no issue bucket
+ *
+ * When the backend is unsure it emits `unverifiable`, never a red bucket.
+ */
+export type Bucket = 'broken' | 'dead_cta' | 'unverifiable' | 'ok'
+
 export interface LinkSuggestion {
   suggested_url: string | null
   confidence: number
@@ -38,6 +53,21 @@ export interface LinkResult {
   impact?: BusinessImpact
   first_seen_at?: string
   days_broken?: number
+  /** Triage bucket. Older scans predate this field — treat as undefined. */
+  bucket?: Bucket
+  /** Confidence in a dead-CTA flag. */
+  confidence?: Confidence
+  /** Human-readable explanation for the flag, e.g. why a CTA looks dead. */
+  reason?: string
+}
+
+/** Payload of the `result` SSE event from /scan and /scan-site. */
+export interface ScanResultPayload {
+  type: 'result'
+  data: LinkResult[]
+  health_score: number
+  detected_builders?: string[]
+  pages_scanned?: number
 }
 
 export interface BusinessImpact {

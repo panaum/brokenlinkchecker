@@ -77,6 +77,26 @@ def _is_bot_blocked(response: httpx.Response) -> bool:
         return False
 
 
+# Three-bucket taxonomy. "broken" is a provable failure; "unverifiable" is an
+# honest "can't judge from here". Anything we are not sure about lands in
+# "unverifiable" — for a client-facing QA tool a false alarm is worse than a
+# soft warning. "ok" is the sentinel for healthy links, which belong to no
+# issue bucket at all.
+_LABEL_BUCKETS = {
+    "ok": "ok",
+    "redirect": "ok",
+    "broken": "broken",     # 404 / 410 / other 4xx
+    "error": "broken",      # 5xx, DNS failure, connection refused
+    "blocked": "unverifiable",   # 401/403/405/429/999, bot-blocked
+    "timeout": "unverifiable",
+    "dead_cta": "dead_cta",
+}
+
+
+def bucket_for_label(label: str) -> str:
+    return _LABEL_BUCKETS.get(label, "unverifiable")
+
+
 def classify(status: Optional[int]) -> str:
     if status is None:          return "timeout"
     if 200 <= status < 300:     return "ok"
@@ -109,7 +129,15 @@ async def _domain_delay(domain: str) -> None:
 
 
 async def check_single(client: httpx.AsyncClient, link: RawLink) -> LinkResult:
+    def _result(label: str, **kwargs) -> LinkResult:
+        """Build a LinkResult, overriding the RawLink's placeholder bucket."""
+        fields = link.dict()
+        fields["bucket"] = bucket_for_label(label)
+        return LinkResult(**fields, label=label, **kwargs)
+
     if link.category == "Dead CTA":
+        # The detector already assigned dead_cta vs unverifiable from its own
+        # confidence; preserve that rather than deriving it from the label.
         return LinkResult(
             **link.dict(),
             status_code=None,
@@ -138,19 +166,17 @@ async def check_single(client: httpx.AsyncClient, link: RawLink) -> LinkResult:
 
                 # Detect bot-blocking independent of status code
                 if r.status_code == 403 or _is_bot_blocked(r):
-                    return LinkResult(
-                        **link.dict(),
+                    return _result(
+                        "blocked",
                         status_code=r.status_code,
-                        label="blocked",
                         final_url=str(r.url) if str(r.url) != link.url else None,
                         response_ms=elapsed,
                         error="Could not verify — server blocked automated request",
                     )
 
-                return LinkResult(
-                    **link.dict(),
+                return _result(
+                    classify(r.status_code),
                     status_code=r.status_code,
-                    label=classify(r.status_code),
                     final_url=str(r.url) if str(r.url) != link.url else None,
                     response_ms=elapsed,
                 )
@@ -159,10 +185,9 @@ async def check_single(client: httpx.AsyncClient, link: RawLink) -> LinkResult:
                     await asyncio.sleep(1)
                     continue
                 elapsed = int((time.monotonic() - start) * 1000)
-                return LinkResult(
-                    **link.dict(),
+                return _result(
+                    "timeout",
                     status_code=None,
-                    label="timeout",
                     final_url=None,
                     response_ms=elapsed,
                 )
@@ -170,19 +195,17 @@ async def check_single(client: httpx.AsyncClient, link: RawLink) -> LinkResult:
                 if attempt == 0:
                     await asyncio.sleep(1)
                     continue
-                return LinkResult(
-                    **link.dict(),
+                return _result(
+                    "error",
                     status_code=None,
-                    label="error",
                     final_url=None,
                     response_ms=0,
                     error=str(e),
                 )
 
-        return LinkResult(
-            **link.dict(),
+        return _result(
+            "error",
             status_code=None,
-            label="error",
             final_url=None,
             response_ms=0,
             error="Max retries exceeded",

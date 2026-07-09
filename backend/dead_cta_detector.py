@@ -14,6 +14,7 @@ Public API:
     LISTENER_PROBE_JS         -> str   (Playwright init script)
 """
 
+import re
 from urllib.parse import urlparse, unquote
 from models import RawLink
 
@@ -100,10 +101,11 @@ FUNCTIONAL_FRAGMENT_PREFIXES = [
     "next-step", "show-hide", "modal", "lightbox", "scroll-",
 ]
 
-# ─── Placeholder hosts (AI/template leftovers) ───────────────────────────────
-PLACEHOLDER_HOSTS = [
+# ─── Placeholder markers (AI/template leftovers), matched on host + path ─────
+PLACEHOLDER_MARKERS = [
     "example.com", "example.org", "yourdomain.", "yoursite.",
     "your-domain.", "yourwebsite.", "placeholder.", "yourlink.",
+    "/yourhandle",
 ]
 
 # ─── Confidence: CTA signals ─────────────────────────────────────────────────
@@ -130,16 +132,45 @@ SPA_MARKERS = [
 SPA_ROOT_IDS = ("root", "app", "__next", "___gatsby")
 
 
+def bucket_for_confidence(confidence: str) -> str:
+    """high/medium dead-CTA candidates are actionable; low ones are a soft warning."""
+    return "unverifiable" if confidence == "low" else "dead_cta"
+
+
 # ─────────────────────────────────────────────────────────────────────────────
 # Page-builder profiles. A matched profile merges its widget_hints /
 # data_prefixes / functional_fragments into suppression, may force SPA-level
 # low confidence, and has its name appended to every flag's reason.
+#
+# Detect markers must be *product fingerprints*, not vendor names. A bare name
+# like "shopify" or "webflow" matches any page that merely mentions the vendor —
+# a customer-logo SVG (aria-label="webflow"), a theme called "astro-shopify", a
+# link to squarespace.com. That misattributes the builder in the client-facing
+# report AND merges that builder's widget hints into suppression, which can hide
+# genuinely dead CTAs. Prefer CDN hosts, framework-emitted class/data prefixes,
+# and `content="<name>` for meta-generator-only builders.
 # ─────────────────────────────────────────────────────────────────────────────
+def _compile_marker(marker: str):
+    """
+    Compile a detect marker to a regex over the lowercased page HTML.
+
+    A marker that begins with a word character must start at a token boundary,
+    or it matches inside an unrelated identifier: "ct-section" (Oxygen) was
+    matching "use-produ|ct-section-visibility.js" on a Shopify store. Markers
+    that begin with punctuation ("/cdn/shop/", ".webflow.io") get no guard —
+    they are routinely preceded by a word character, as in "…allbirds.com/cdn/shop/".
+    """
+    head = marker[:1]
+    guard = r"(?<![a-z0-9_])" if (head.isalnum() or head == "_") else ""
+    return re.compile(guard + re.escape(marker))
+
+
 def _profile(name, detect, widget_hints=None, data_prefixes=None,
              functional_fragments=None, spa=False):
     return {
         "name": name,
         "detect": detect,
+        "detect_res": [_compile_marker(m) for m in detect],
         "widget_hints": widget_hints or [],
         "data_prefixes": data_prefixes or [],
         "functional_fragments": functional_fragments or [],
@@ -166,10 +197,11 @@ BUILDER_PROFILES = [
              data_prefixes=["data-brz"]),
     _profile("Gutenberg", ["wp-block-"],
              widget_hints=["wp-block-navigation", "wp-block-details"]),
-    _profile("Webflow", ["data-wf-page", "webflow"],
+    _profile("Webflow", ["data-wf-page", "data-wf-site", "data-wf-domain",
+                         "website-files.com", ".webflow.io", "webflow.js"],
              widget_hints=["w-nav", "w-dropdown", "w-slider", "w-tab", "w-lightbox"]),
-    _profile("Wix", ["parastorage", "wixstatic", "wix.com"], spa=True),
-    _profile("Squarespace", ["squarespace"],
+    _profile("Wix", ["parastorage", "wixstatic"], spa=True),
+    _profile("Squarespace", ["squarespace-cdn", "static1.squarespace", "sqs-"],
              widget_hints=["sqs-block-accordion", "sqs-popup", "sqs-pill",
                            "header-burger", "sqs-announcement"]),
     _profile("Unbounce", ["lp-pom", "unbounce", "ub-emb"],
@@ -183,23 +215,26 @@ BUILDER_PROFILES = [
              widget_hints=["hl_", "c-modal", "c-timer"],
              data_prefixes=["data-hl"], functional_fragments=["popup"]),
     _profile("Leadpages", ["leadpages", "lpages.co"], data_prefixes=["data-leadbox"]),
-    _profile("Instapage", ["instapage"], functional_fragments=["element-"]),
-    _profile("Kajabi", ["kajabi"],
+    _profile("Instapage", ["instapage-", "cdn.instapage"], functional_fragments=["element-"]),
+    _profile("Kajabi", ["kajabi-cdn", "kajabi-theme", "kjb-"],
              widget_hints=["kjb-slider", "offcanvas", "sales-cta"],
              data_prefixes=["data-kjb-checkout"]),
     _profile("HubSpot CMS", ["hs-scripts", "hs_cos", "hubspotusercontent"],
              widget_hints=["hs-menu", "hs-search", "hs-accordion"],
              data_prefixes=["data-hs-"]),
-    _profile("Shopify", ["cdn.shopify", "shopify"],
+    _profile("Shopify", ["cdn.shopify", "myshopify.com", "/cdn/shop/",
+                         "shopify-features", "shopify-section", "shopify-payment"],
              widget_hints=["shopify-payment", "cart-drawer", "product-form",
                            "quick-add", "predictive-search", "deferred-media"]),
     _profile("Framer", ["framerusercontent", "framer-"], spa=True),
-    _profile("Duda", ["duda", "dmalbum"], widget_hints=["dmnav", "dmmenu"]),
-    _profile("Carrd", ["carrd"], spa=True),
+    _profile("Duda", ["irp.cdn-website.com", "dudamobile", "dmalbum", 'content="duda'],
+             widget_hints=["dmnav", "dmmenu"]),
+    _profile("Carrd", ['content="carrd', "carrd.co"], spa=True),
     _profile("Astro", ['content="astro', "astro-island"]),
-    _profile("Hugo", ["hugo"]),
-    _profile("Jekyll", ["jekyll"]),
-    _profile("Eleventy", ["eleventy"]),
+    # Static-site generators: identified solely by their meta generator tag.
+    _profile("Hugo", ['content="hugo']),
+    _profile("Jekyll", ['content="jekyll']),
+    _profile("Eleventy", ['content="eleventy']),
 ]
 
 
@@ -258,7 +293,7 @@ def detect_builders(soup) -> list:
     html = str(soup).lower()[:300000]
     matched = []
     for profile in BUILDER_PROFILES:
-        if any(marker in html for marker in profile["detect"]):
+        if any(rx.search(html) for rx in profile["detect_res"]):
             matched.append(profile)
     return matched
 
@@ -335,11 +370,13 @@ def _is_dead_href(href: str) -> bool:
 
 
 def _placeholder_host(href: str) -> bool:
+    """Absolute href whose host *or* path carries a template placeholder marker."""
     h = href.strip().lower()
     if not h.startswith(("http://", "https://")):
         return False
-    host = urlparse(h).netloc
-    return any(ph in host for ph in PLACEHOLDER_HOSTS)
+    parsed = urlparse(h)
+    target = parsed.netloc + parsed.path
+    return any(ph in target for ph in PLACEHOLDER_MARKERS)
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -405,6 +442,7 @@ def find_dead_ctas(soup, url: str) -> list:
             priority="medium",
             confidence=conf,
             reason=reason + builder_suffix,
+            bucket=bucket_for_confidence(conf),
         ))
 
     # ── Anchors ──────────────────────────────────────────────────────────────
@@ -418,6 +456,10 @@ def find_dead_ctas(soup, url: str) -> list:
             continue
 
         if _placeholder_host(href):
+            # Always high confidence, even on an SPA or inside a hydration
+            # island: those degrade a *handler* inference, but a link pointing
+            # at example.com is a content defect that no amount of hydration
+            # fixes. Never suppressed for the same reason.
             emit("placeholder", tag, "Placeholder link never wired up", "high")
             continue
 

@@ -53,6 +53,10 @@ class LinkResult(RawLink):
     fingerprint: Optional[str] = None
     diff_status: Optional[str] = None   # "new" | "recurring" | None
     age_days: Optional[int] = None
+    # Phase 3 — redirect forensics. The full hop chain [{url, status}, …],
+    # ending at the final response. Informational: a redirect is not a failure.
+    redirect_chain: list[dict] = Field(default_factory=list)
+    redirect_flags: list[str] = Field(default_factory=list)
 
 
 class SiteCreate(BaseModel):

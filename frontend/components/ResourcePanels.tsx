@@ -1,13 +1,21 @@
 "use client";
 
 import { motion } from "framer-motion";
-import { HostCount, ResourceType } from "@/types";
+import { HostCount, RedirectFlag, RedirectSummary, ResourceType } from "@/types";
 
 interface ResourcePanelsProps {
   linkTypes?: Partial<Record<ResourceType, number>>;
   topHosts?: HostCount[];
   schemes?: Record<string, number>;
+  redirects?: RedirectSummary | null;
 }
+
+const FLAG_LABELS: Record<RedirectFlag, string> = {
+  long_chain: "Long chains (3+ hops)",
+  http_to_https: "http → https hops",
+  slash_bounce: "Trailing-slash bounces",
+  loop: "Redirect loops",
+};
 
 // Display order matches how much a failure of that type hurts.
 const TYPE_ORDER: ResourceType[] = [
@@ -48,6 +56,7 @@ export default function ResourcePanels({
   linkTypes,
   topHosts,
   schemes,
+  redirects,
 }: ResourcePanelsProps) {
   const typeRows = TYPE_ORDER.filter((t) => (linkTypes?.[t] ?? 0) > 0).map((t) => ({
     label: TYPE_LABELS[t],
@@ -64,7 +73,18 @@ export default function ResourcePanels({
 
   const hostRows = (topHosts ?? []).map((h) => ({ label: h.host, count: h.count }));
 
-  if (!typeRows.length && !schemeRows.length && !hostRows.length) return null;
+  const redirectRows = redirects
+    ? [
+        { label: "Permanent (301/308)", count: redirects.permanent },
+        { label: "Temporary (302/303/307)", count: redirects.temporary },
+        ...(Object.entries(redirects.flags ?? {}) as [RedirectFlag, number][])
+          .filter(([, count]) => count > 0)
+          .map(([flag, count]) => ({ label: FLAG_LABELS[flag] ?? flag, count })),
+      ].filter((r) => r.count > 0)
+    : [];
+
+  if (!typeRows.length && !schemeRows.length && !hostRows.length && !redirectRows.length)
+    return null;
 
   return (
     <motion.div
@@ -76,6 +96,19 @@ export default function ResourcePanels({
       <Panel title="Link Types" rows={typeRows} mono />
       <Panel title="Top Hosts" rows={hostRows} mono />
       <Panel title="Link Schemes" rows={schemeRows} mono />
+      {redirectRows.length > 0 && (
+        <Panel
+          title="Redirects"
+          rows={redirectRows}
+          footer={
+            redirects && redirects.collapsible_rules > 0
+              ? `${redirects.collapsible_rules} chain${
+                  redirects.collapsible_rules === 1 ? "" : "s"
+                } collapse to a single rule`
+              : undefined
+          }
+        />
+      )}
     </motion.div>
   );
 }
@@ -84,10 +117,12 @@ function Panel({
   title,
   rows,
   mono,
+  footer,
 }: {
   title: string;
   rows: { label: string; count: number }[];
   mono?: boolean;
+  footer?: string;
 }) {
   if (!rows.length) return null;
   const max = Math.max(...rows.map((r) => r.count), 1);
@@ -133,6 +168,11 @@ function Panel({
           </li>
         ))}
       </ul>
+      {footer && (
+        <p className="text-[11px] mt-3" style={{ color: "rgba(255,255,255,0.4)" }}>
+          {footer}
+        </p>
+      )}
     </section>
   );
 }

@@ -5,6 +5,7 @@ import time
 import random
 from urllib.parse import urlparse, unquote
 from models import RawLink, LinkResult
+from redirect_rules import FLAG_LOOP, MAX_REDIRECT_HOPS, analyze_chain
 from resources import describe_resource_failure
 from typing import AsyncIterator, Optional
 
@@ -248,6 +249,16 @@ def _target_is_js_rendered(body: str) -> bool:
     return any(m in head for m in _SPA_BODY_MARKERS)
 
 
+def build_redirect_chain(response: httpx.Response) -> list:
+    """[{url, status}, …] across every hop, ending at the final response.
+
+    httpx exposes the redirects it followed in `response.history`.
+    """
+    chain = [{"url": str(hop.url), "status": hop.status_code} for hop in response.history]
+    chain.append({"url": str(response.url), "status": response.status_code})
+    return chain if len(chain) > 1 else []
+
+
 def _fragment_absence_is_provable(body: str) -> bool:
     """Only a page that runs no JavaScript can prove an id is truly absent.
 
@@ -354,6 +365,14 @@ async def check_single(client: httpx.AsyncClient, link: RawLink) -> LinkResult:
                 elapsed = int((time.monotonic() - start) * 1000)
                 _reward(domain)
 
+                # Redirect forensics. Informational: a redirect is not a failure,
+                # so this never changes the label or the bucket.
+                chain = build_redirect_chain(r)
+                redirect_meta = {
+                    "redirect_chain": chain,
+                    "redirect_flags": analyze_chain(chain),
+                }
+
                 # Detect bot-blocking independent of status code
                 if r.status_code == 403 or _is_bot_blocked(r):
                     return _result(
@@ -362,6 +381,7 @@ async def check_single(client: httpx.AsyncClient, link: RawLink) -> LinkResult:
                         final_url=str(r.url) if str(r.url) != link.url else None,
                         response_ms=elapsed,
                         error="Could not verify — server blocked automated request",
+                        **redirect_meta,
                     )
 
                 label = classify(r.status_code)
@@ -391,6 +411,7 @@ async def check_single(client: httpx.AsyncClient, link: RawLink) -> LinkResult:
                                     f"Section #{link.fragment} not found on {target_page} — "
                                     "the visitor lands at the top of the page"
                                 ),
+                                **redirect_meta,
                             )
                             result.reason = (
                                 f"Link points at #{link.fragment}, which does not exist on "
@@ -412,6 +433,7 @@ async def check_single(client: httpx.AsyncClient, link: RawLink) -> LinkResult:
                                 f"Couldn't confirm section #{link.fragment} on {target_page} — "
                                 "it may be rendered by JavaScript. Please check manually."
                             ),
+                            **redirect_meta,
                         )
                         result.confidence = "low"
                         result.reason = (
@@ -425,6 +447,22 @@ async def check_single(client: httpx.AsyncClient, link: RawLink) -> LinkResult:
                     status_code=r.status_code,
                     final_url=final_url,
                     response_ms=elapsed,
+                    **redirect_meta,
+                )
+            except httpx.TooManyRedirects:
+                # Deterministic: retrying walks the same circle. A loop is not a
+                # broken link — we simply never reached a destination.
+                return _result(
+                    "redirect",
+                    bucket="unverifiable",
+                    status_code=None,
+                    final_url=None,
+                    response_ms=int((time.monotonic() - start) * 1000),
+                    error=(
+                        f"Redirect loop — stopped after {MAX_REDIRECT_HOPS} hops. "
+                        "The link never reaches a destination."
+                    ),
+                    redirect_flags=[FLAG_LOOP],
                 )
             except httpx.TimeoutException:
                 _penalize(domain)
@@ -481,6 +519,9 @@ async def check_all_links(links: list[RawLink]) -> AsyncIterator[tuple[int, Link
     async with httpx.AsyncClient(
         follow_redirects=True,
         verify=False,
+        # Stop walking a redirect circle. httpx raises TooManyRedirects, which
+        # check_single reports as an (unverifiable) loop rather than a failure.
+        max_redirects=MAX_REDIRECT_HOPS,
     ) as client:
         tasks = [check_single(client, link) for link in links]
         for i, coro in enumerate(asyncio.as_completed(tasks), start=1):

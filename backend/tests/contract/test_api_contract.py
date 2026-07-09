@@ -50,6 +50,9 @@ REQUIRED_RESULT_FIELDS: dict = {
     "age_days": (int, type(None)),
     # Phase 2 — full resource checking
     "resource_type": str,
+    # Phase 3 — redirect forensics
+    "redirect_chain": list,
+    "redirect_flags": list,
 }
 
 REQUIRED_TOP_LEVEL_FIELDS: dict = {
@@ -65,6 +68,8 @@ REQUIRED_TOP_LEVEL_FIELDS: dict = {
     "link_types": dict,
     "top_hosts": list,
     "schemes": dict,
+    # Phase 3 — redirects panel
+    "redirects": dict,
 }
 
 REQUIRED_DIFF_FIELDS: dict = {
@@ -246,6 +251,14 @@ def test_top_hosts_entries_are_shaped(client):
 def test_schemes_panel_counts_every_result(client):
     payload = _result_event(client)
     assert sum(payload["schemes"].values()) == len(payload["data"])
+
+
+# ─── Phase 3: redirects panel ────────────────────────────────────────────────
+def test_redirects_panel_is_shaped(client):
+    redirects = _result_event(client)["redirects"]
+    for field in ("permanent", "temporary", "total", "flags", "collapsible_rules"):
+        assert field in redirects, field
+    assert isinstance(redirects["flags"], dict)
 
 
 def test_health_endpoint_still_responds(client):

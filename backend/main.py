@@ -13,7 +13,7 @@ import httpx
 from fastapi import FastAPI, Query
 from models import FindingRecord, LinkResult, SiteCreate
 from fastapi.middleware.cors import CORSMiddleware
-from fastapi.responses import StreamingResponse, JSONResponse
+from fastapi.responses import Response, StreamingResponse, JSONResponse
 
 from scraper import scrape_links
 from checker import check_all_links
@@ -26,6 +26,8 @@ from database import (
     save_scan,
     save_snapshot,
 )
+from correlation import enrich_reasons
+from redirect_rules import FORMATS, collapse_rules, redirect_summary, render
 from resources import host_breakdown, link_type_breakdown, scheme_breakdown
 from diffing import (
     collect_findings,
@@ -324,7 +326,8 @@ async def _run_diff(site_url: str, user_email: str, results, page_url_of) -> tup
 
 
 async def _persist_snapshot(site_id, scan_id, diff, link_counts,
-                            current_findings, current_fps, health_score) -> None:
+                            current_findings, current_fps, health_score,
+                            redirect_rules=None) -> None:
     if not site_id:
         return
     totals = {
@@ -336,6 +339,9 @@ async def _persist_snapshot(site_id, scan_id, diff, link_counts,
         "recurring": len(diff.recurring),
         "new_links": link_counts.get("new_links"),
         "link_fingerprints": current_fps,
+        # Collapsed first-hop -> final-destination rules, so the redirect-rules
+        # endpoint can serve a ruleset without rescanning.
+        "redirect_rules": redirect_rules or [],
     }
     # Recurring findings must persist with their ORIGINAL first_seen_at, or age
     # resets every scan and "broken for 12 days" never happens.
@@ -344,12 +350,13 @@ async def _persist_snapshot(site_id, scan_id, diff, link_counts,
     await save_snapshot(site_id, scan_id, totals, rows, resolved)
 
 
-def _breakdowns(results: list) -> dict:
-    """Informational overview panels: Link Types, Top Hosts, Link Schemes."""
+def _breakdowns(results: list, site_url: str = "") -> dict:
+    """Informational overview panels: Link Types, Top Hosts, Link Schemes, Redirects."""
     return {
         "link_types": link_type_breakdown(results),
         "top_hosts": host_breakdown(results),
         "schemes": scheme_breakdown(results),
+        "redirects": redirect_summary(results, site_url),
     }
 
 
@@ -473,13 +480,17 @@ async def scan(
                     "new": 0, "fixed": 0, "recurring": 0,
                     "new_links": None, "removed_links": None, "fixed_findings": [],
                 }
-                yield f"data: {json.dumps({'type': 'result', 'data': [], 'health_score': 100, 'detected_builders': detected_builders, 'diff': empty_diff, **_breakdowns([])})}\n\n"
+                yield f"data: {json.dumps({'type': 'result', 'data': [], 'health_score': 100, 'detected_builders': detected_builders, 'diff': empty_diff, **_breakdowns([], url)})}\n\n"
                 return
 
             async for i, result in check_all_links(links):
                 results.append(result)
                 pct = 30 + int((i / total) * 55)
                 yield f"data: {json.dumps({'type': 'progress', 'message': f'Checked {i}/{total} links...', 'percent': pct})}\n\n"
+
+            # Explain dead CTAs with what actually failed on the page. Only ever
+            # appends to `reason` — never changes bucket or confidence.
+            enrich_reasons(results, signals)
 
             # Run suggestion engine
             actionable_count = sum(1 for r in results if r.label in ["broken", "dead_cta", "blocked"])
@@ -523,6 +534,7 @@ async def scan(
                 await _persist_snapshot(
                     saved.get("site_id") or site_id, saved.get("scan_id"),
                     diff, link_counts, current_findings, current_fps, health_score,
+                    redirect_rules=collapse_rules(results, url),
                 )
             except Exception as db_err:
                 print(f"[DB] Snapshot save failed (non-critical): {db_err}")
@@ -535,7 +547,7 @@ async def scan(
             # nav and footer is fetched once but counted in both places.
             total_placements = sum(getattr(r, "occurrences", 1) or 1 for r in results)
 
-            yield f"data: {json.dumps({'type': 'result', 'data': [r.dict() for r in results], 'health_score': health_score, 'detected_builders': detected_builders, 'total_links': len(results), 'total_placements': total_placements, 'diff': diff_payload, **_breakdowns(results)})}\n\n"
+            yield f"data: {json.dumps({'type': 'result', 'data': [r.dict() for r in results], 'health_score': health_score, 'detected_builders': detected_builders, 'total_links': len(results), 'total_placements': total_placements, 'diff': diff_payload, **_breakdowns(results, url)})}\n\n"
 
         except Exception as e:
             yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
@@ -589,6 +601,9 @@ async def scan_site(
                         if links:
                             async for i, res in check_all_links(links):
                                 page_results.append(res)
+
+                            # Console/request failures are per page.
+                            enrich_reasons(page_results, page_signals)
 
                             actionable_count = sum(1 for r in page_results if r.label in ["broken", "dead_cta", "blocked"])
                             if actionable_count > 0:
@@ -694,6 +709,7 @@ async def scan_site(
                 await _persist_snapshot(
                     saved.get("site_id") or site_id, saved.get("scan_id"),
                     diff, link_counts, current_findings, current_fps, health_score,
+                    redirect_rules=collapse_rules(final_results, url),
                 )
             except Exception as db_err:
                 print(f"[DB] Snapshot save failed (non-critical): {db_err}")
@@ -710,7 +726,7 @@ async def scan_site(
             # Yield final result event
             total_placements = sum(r.get("occurrences", 1) or 1 for r in final_results)
 
-            yield f"data: {json.dumps({'type': 'result', 'data': final_results, 'health_score': health_score, 'pages_scanned': total_pages, 'detected_builders': site_builders, 'total_links': len(final_results), 'total_placements': total_placements, 'diff': diff_payload, **_breakdowns(final_results)})}\n\n"
+            yield f"data: {json.dumps({'type': 'result', 'data': final_results, 'health_score': health_score, 'pages_scanned': total_pages, 'detected_builders': site_builders, 'total_links': len(final_results), 'total_placements': total_placements, 'diff': diff_payload, **_breakdowns(final_results, url)})}\n\n"
 
         except Exception as e:
             yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
@@ -768,6 +784,37 @@ async def latest_diff(site_id: str):
             "fixed": [_finding_payload(f, now) for f in diff.fixed],
         },
     }
+
+
+@app.get("/api/sites/{site_id}/redirect-rules")
+async def redirect_rules(
+    site_id: str,
+    format: str = Query("cloudflare", description="cloudflare | netlify | htaccess"),
+):
+    """Collapsed redirect ruleset (first hop -> final destination) for a site.
+
+    Rules were derived from scanned page content, so every URL is re-validated
+    and escaped for the requested format before it reaches the file.
+    """
+    if format not in FORMATS:
+        return JSONResponse(
+            {"error": f"unknown format {format!r}", "supported": sorted(FORMATS)},
+            status_code=400,
+        )
+
+    try:
+        snapshot = await get_latest_snapshot(site_id)
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+    rules = ((snapshot or {}).get("totals_json") or {}).get("redirect_rules") or []
+    media_type, filename, body = render(format, rules)
+
+    return Response(
+        content=body,
+        media_type=media_type,
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
 
 
 @app.get("/history")

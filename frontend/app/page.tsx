@@ -3,7 +3,7 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { useSession } from "next-auth/react";
 import { AnimatePresence } from "framer-motion";
-import { LinkResult, FilterType, SortOption, ScanMeta, ScanDiff, DiffFilter, ResourceType, HostCount } from "@/types";
+import { LinkResult, FilterType, SortOption, ScanMeta, ScanDiff, DiffFilter, ResourceType, HostCount, RedirectSummary } from "@/types";
 import UrlInput from "@/components/UrlInput";
 import ScanProgress from "@/components/ScanProgress";
 import StatsBar from "@/components/StatsBar";
@@ -90,6 +90,7 @@ export default function HomePage() {
   const [linkTypes, setLinkTypes] = useState<Partial<Record<ResourceType, number>>>({});
   const [topHosts, setTopHosts] = useState<HostCount[]>([]);
   const [schemes, setSchemes] = useState<Record<string, number>>({});
+  const [redirects, setRedirects] = useState<RedirectSummary | null>(null);
   const [diffFilter, setDiffFilter] = useState<DiffFilter>("all");
   const [filter, setFilter] = useState<FilterType>("all");
   const [sortOption, setSortOption] = useState<SortOption>("status");
@@ -147,6 +148,7 @@ export default function HomePage() {
       setLinkTypes({});
       setTopHosts([]);
       setSchemes({});
+      setRedirects(null);
       setScanComplete(false);
       setScanning(true);
       scanningRef.current = true;
@@ -198,6 +200,7 @@ export default function HomePage() {
             setLinkTypes((data.link_types as Partial<Record<ResourceType, number>>) ?? {});
             setTopHosts((data.top_hosts as HostCount[]) ?? []);
             setSchemes((data.schemes as Record<string, number>) ?? {});
+            setRedirects((data.redirects as RedirectSummary) ?? null);
             setScanComplete(true);
             setScanning(false);
             scanningRef.current = false;
@@ -455,7 +458,7 @@ export default function HomePage() {
 
           {/* Informational breakdowns */}
           <section className="relative z-10">
-            <ResourcePanels linkTypes={linkTypes} topHosts={topHosts} schemes={schemes} />
+            <ResourcePanels linkTypes={linkTypes} topHosts={topHosts} schemes={schemes} redirects={redirects} />
           </section>
 
           {/* Triage: broken / dead CTA / unverifiable */}

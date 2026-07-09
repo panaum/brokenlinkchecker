@@ -70,6 +70,9 @@ export interface LinkResult {
   fragment?: string
   /** What kind of thing this URL is. A broken script/stylesheet breaks the page. */
   resource_type?: ResourceType
+  /** Every hop the link took. Empty for a direct hit. */
+  redirect_chain?: RedirectHop[]
+  redirect_flags?: RedirectFlag[]
   /** Stable identity across scans. Present on every scanned link. */
   fingerprint?: string
   /** Flagged items only. A working link is not a finding. */
@@ -100,6 +103,24 @@ export type ResourceType =
 export interface HostCount {
   host: string
   count: number
+}
+
+/** One hop of a redirect chain. */
+export interface RedirectHop {
+  url: string
+  status: number
+}
+
+/** Informational flags on a redirect chain. A redirect is never "broken". */
+export type RedirectFlag = 'long_chain' | 'http_to_https' | 'slash_bounce' | 'loop'
+
+export interface RedirectSummary {
+  permanent: number
+  temporary: number
+  total: number
+  flags: Partial<Record<RedirectFlag, number>>
+  /** Chains that collapse to a single first-hop -> destination rule. */
+  collapsible_rules: number
 }
 
 /** A flagged item, tracked across scans by its fingerprint. */
@@ -161,6 +182,7 @@ export interface ScanResultPayload {
   link_types?: Partial<Record<ResourceType, number>>
   top_hosts?: HostCount[]
   schemes?: Record<string, number>
+  redirects?: RedirectSummary
 }
 
 /** Diff filter in the results toolbar, alongside the bucket filters. */

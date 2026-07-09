@@ -9,6 +9,7 @@ from dead_cta_detector import (
     fragment_targets,
     is_functional_fragment,
 )
+from resources import collect_resources, resources_from_stylesheets
 
 # Priority mapping based on page zone
 ZONE_PRIORITY = {
@@ -152,7 +153,64 @@ def _collect_links(soup, url: str) -> list[RawLink]:
     return list(by_key.values())
 
 
-def _scrape_sync(url: str) -> tuple[list[RawLink], list[str]]:
+# Reads url() references out of stylesheets the browser has actually loaded.
+# Cross-origin sheets raise on .cssRules access — skipped, not fatal.
+_COLLECT_STYLESHEETS_JS = r"""
+() => {
+  const out = [];
+  for (const sheet of Array.from(document.styleSheets || [])) {
+    try {
+      const rules = sheet.cssRules;
+      if (!rules) continue;
+      let text = '';
+      for (const rule of Array.from(rules)) text += rule.cssText + '\n';
+      out.push({ href: sheet.href || '', text: text.slice(0, 200000) });
+    } catch (e) { /* cross-origin stylesheet */ }
+  }
+  return out;
+}
+"""
+
+
+def _empty_signals() -> dict:
+    return {
+        "console_errors": [],     # [{text, location}]
+        "csp_violations": [],     # [str]
+        "failed_requests": [],    # [{url, resource_type, failure}]
+        "http_errors": [],        # [{url, status, resource_type}]
+    }
+
+
+def _scrape_sync(url: str) -> tuple[list[RawLink], list[str], dict]:
+    signals = _empty_signals()
+
+    def on_console(msg):
+        if msg.type not in ("error", "warning"):
+            return
+        text = (msg.text or "")[:500]
+        entry = {"text": text, "location": (msg.location or {}).get("url", "")}
+        if "content security policy" in text.lower() or "refused to" in text.lower():
+            signals["csp_violations"].append(text)
+        if msg.type == "error":
+            signals["console_errors"].append(entry)
+
+    def on_request_failed(request):
+        signals["failed_requests"].append({
+            "url": request.url,
+            "resource_type": request.resource_type,
+            "failure": (request.failure or "")[:200] if isinstance(request.failure, str)
+                       else str(request.failure)[:200],
+        })
+
+    def on_response(response):
+        if response.status >= 400:
+            signals["http_errors"].append({
+                "url": response.url,
+                "status": response.status,
+                "resource_type": response.request.resource_type,
+            })
+
+    stylesheets = []
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
         context = browser.new_context(
@@ -166,6 +224,10 @@ def _scrape_sync(url: str) -> tuple[list[RawLink], list[str]]:
         # Stamp elements that attach runtime click listeners so genuinely
         # interactive JS elements are not mislabeled as dead CTAs.
         page.add_init_script(LISTENER_PROBE_JS)
+        page.on("console", on_console)
+        page.on("requestfailed", on_request_failed)
+        page.on("response", on_response)
+
         page.goto(url, wait_until="domcontentloaded", timeout=30000)
         # Give frameworks time to hydrate and attach their listeners.
         try:
@@ -174,18 +236,37 @@ def _scrape_sync(url: str) -> tuple[list[RawLink], list[str]]:
             pass
         page.wait_for_timeout(1200)
         html = page.content()
+        try:
+            stylesheets = page.evaluate(_COLLECT_STYLESHEETS_JS)
+        except Exception:
+            stylesheets = []
         browser.close()
 
     soup = BeautifulSoup(html, "lxml")
 
     results: list[RawLink] = _collect_links(soup, url)
     results.extend(find_dead_ctas(soup, url))
+    results.extend(merge_resources(
+        collect_resources(soup, url),
+        resources_from_stylesheets(stylesheets, url),
+        already_seen={r.url for r in results},
+    ))
 
     builders = [b["name"] for b in detect_builders(soup)]
-    return results, builders
+    return results, builders, signals
 
 
-async def scrape_links(url: str) -> tuple[list[RawLink], list[str]]:
-    """Scrape a page. Returns (links, detected_builder_names)."""
+def merge_resources(dom_resources, stylesheet_resources, already_seen) -> list:
+    """Resources not already covered by the anchor pass, deduped by URL."""
+    merged: dict = {}
+    for resource in list(dom_resources) + list(stylesheet_resources):
+        if resource.url in already_seen or resource.url in merged:
+            continue
+        merged[resource.url] = resource
+    return list(merged.values())
+
+
+async def scrape_links(url: str) -> tuple[list[RawLink], list[str], dict]:
+    """Scrape a page. Returns (links_and_resources, builders, runtime_signals)."""
     import asyncio
     return await asyncio.to_thread(_scrape_sync, url)

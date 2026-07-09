@@ -5,6 +5,7 @@ import time
 import random
 from urllib.parse import urlparse, unquote
 from models import RawLink, LinkResult
+from resources import describe_resource_failure
 from typing import AsyncIterator, Optional
 
 SEMAPHORE = asyncio.Semaphore(20)
@@ -299,6 +300,12 @@ async def check_single(client: httpx.AsyncClient, link: RawLink) -> LinkResult:
         # triage, so it carries no priority and the UI renders no chip.
         if fields["bucket"] == "ok":
             fields["priority"] = None
+        elif fields["bucket"] == "broken" and not fields.get("reason"):
+            resource_type = fields.get("resource_type") or "anchor"
+            if resource_type != "anchor":
+                # "Broken <script src> — breaks page behaviour". A 404 script
+                # leaves the page returning 200 while nothing on it works.
+                fields["reason"] = describe_resource_failure(resource_type)
         return LinkResult(**fields, label=label, **kwargs)
 
     if link.category == "Dead CTA":

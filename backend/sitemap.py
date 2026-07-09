@@ -84,20 +84,26 @@ async def crawl_site(base_url: str, max_pages: int) -> list[str]:
             continue
             
         try:
-            links = await scrape_links(current_url)
+            links, _builders, _signals = await scrape_links(current_url)
             for raw_link in links:
                 if len(discovered) >= max_pages:
                     break
-                
+
+                # Only anchors are pages. The scrape also returns images,
+                # scripts and stylesheets, and enqueueing those as pages would
+                # crawl assets instead of the site.
+                if raw_link.resource_type != "anchor" or raw_link.link_kind != "http":
+                    continue
+
                 url = clean_url(raw_link.url)
                 parsed = urlparse(url)
-                
+
                 # Check same domain, html-only, not external, not already discovered
-                if (parsed.netloc == base_domain and 
-                    is_html_url(url) and 
-                    not raw_link.is_external and 
+                if (parsed.netloc == base_domain and
+                    is_html_url(url) and
+                    not raw_link.is_external and
                     url not in discovered):
-                    
+
                     discovered.add(url)
                     queue.append((url, depth + 1))
         except Exception as e:

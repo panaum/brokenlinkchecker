@@ -26,6 +26,7 @@ from database import (
     save_scan,
     save_snapshot,
 )
+from resources import host_breakdown, link_type_breakdown, scheme_breakdown
 from diffing import (
     collect_findings,
     diff_findings,
@@ -343,6 +344,15 @@ async def _persist_snapshot(site_id, scan_id, diff, link_counts,
     await save_snapshot(site_id, scan_id, totals, rows, resolved)
 
 
+def _breakdowns(results: list) -> dict:
+    """Informational overview panels: Link Types, Top Hosts, Link Schemes."""
+    return {
+        "link_types": link_type_breakdown(results),
+        "top_hosts": host_breakdown(results),
+        "schemes": scheme_breakdown(results),
+    }
+
+
 def _calculate_health_score(results: list) -> int:
     total = len(results)
     if total == 0:
@@ -450,7 +460,7 @@ async def scan(
             yield f"data: {json.dumps({'type': 'progress', 'message': 'Launching headless browser...', 'percent': 5})}\n\n"
             await asyncio.sleep(0.1)
 
-            links, detected_builders = await scrape_links(url)
+            links, detected_builders, signals = await scrape_links(url)
             yield f"data: {json.dumps({'type': 'progress', 'message': f'Found {len(links)} links. Checking each one...', 'percent': 30})}\n\n"
             await asyncio.sleep(0.1)
 
@@ -463,7 +473,7 @@ async def scan(
                     "new": 0, "fixed": 0, "recurring": 0,
                     "new_links": None, "removed_links": None, "fixed_findings": [],
                 }
-                yield f"data: {json.dumps({'type': 'result', 'data': [], 'health_score': 100, 'detected_builders': detected_builders, 'diff': empty_diff})}\n\n"
+                yield f"data: {json.dumps({'type': 'result', 'data': [], 'health_score': 100, 'detected_builders': detected_builders, 'diff': empty_diff, **_breakdowns([])})}\n\n"
                 return
 
             async for i, result in check_all_links(links):
@@ -525,7 +535,7 @@ async def scan(
             # nav and footer is fetched once but counted in both places.
             total_placements = sum(getattr(r, "occurrences", 1) or 1 for r in results)
 
-            yield f"data: {json.dumps({'type': 'result', 'data': [r.dict() for r in results], 'health_score': health_score, 'detected_builders': detected_builders, 'total_links': len(results), 'total_placements': total_placements, 'diff': diff_payload})}\n\n"
+            yield f"data: {json.dumps({'type': 'result', 'data': [r.dict() for r in results], 'health_score': health_score, 'detected_builders': detected_builders, 'total_links': len(results), 'total_placements': total_placements, 'diff': diff_payload, **_breakdowns(results)})}\n\n"
 
         except Exception as e:
             yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
@@ -571,7 +581,7 @@ async def scan_site(
                         "message": f"Scanning page {completed_pages + 1}/{total_pages}: {path_to_show}"
                     })
                     try:
-                        links, page_builders = await scrape_links(page_url)
+                        links, page_builders, page_signals = await scrape_links(page_url)
                         for b in page_builders:
                             if b not in site_builders:
                                 site_builders.append(b)
@@ -700,7 +710,7 @@ async def scan_site(
             # Yield final result event
             total_placements = sum(r.get("occurrences", 1) or 1 for r in final_results)
 
-            yield f"data: {json.dumps({'type': 'result', 'data': final_results, 'health_score': health_score, 'pages_scanned': total_pages, 'detected_builders': site_builders, 'total_links': len(final_results), 'total_placements': total_placements, 'diff': diff_payload})}\n\n"
+            yield f"data: {json.dumps({'type': 'result', 'data': final_results, 'health_score': health_score, 'pages_scanned': total_pages, 'detected_builders': site_builders, 'total_links': len(final_results), 'total_placements': total_placements, 'diff': diff_payload, **_breakdowns(final_results)})}\n\n"
 
         except Exception as e:
             yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"

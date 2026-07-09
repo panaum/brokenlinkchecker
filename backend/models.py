@@ -20,6 +20,10 @@ class RawLink(BaseModel):
     link_kind: str = "http"
     # For link_kind == "anchor"/"http": the #fragment part, if any.
     fragment: str = ""
+    # What kind of thing this URL is: anchor | image | script | stylesheet |
+    # css_url | iframe | media | meta_image | favicon | other. A broken script
+    # or stylesheet breaks the page while it still returns HTTP 200.
+    resource_type: str = "anchor"
     # "critical" | "high" | "medium" | "low", or None for a working link.
     # Priority is a triage signal, so it is only meaningful for flagged items;
     # the checker clears it once a link comes back healthy (bucket == "ok").

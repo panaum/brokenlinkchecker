@@ -11,14 +11,31 @@ import os
 import httpx
 
 from fastapi import FastAPI, Query
-from models import LinkResult, SiteCreate
+from models import FindingRecord, LinkResult, SiteCreate
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import StreamingResponse, JSONResponse
 
 from scraper import scrape_links
 from checker import check_all_links
 from suggester import process_suggestions
-from database import save_scan
+from database import (
+    get_findings_for_snapshot,
+    get_latest_snapshot,
+    get_recent_snapshots,
+    get_site_id,
+    save_scan,
+    save_snapshot,
+)
+from diffing import (
+    collect_findings,
+    diff_findings,
+    diff_link_counts,
+    diff_status_by_fingerprint,
+    fingerprint_result,
+    issue_age_days,
+    summarize_diff,
+    utcnow_iso,
+)
 from sitemap import discover_site_urls
 
 app = FastAPI(title="Broken Link Checker API")
@@ -41,7 +58,8 @@ _PREVIEW_CACHE_TTL = 600  # 10 minutes
 async def send_slack_notification(
     url: str,
     health_score: int,
-    results: list
+    results: list,
+    diff_summary: str = "",
 ) -> None:
     webhook_url = os.getenv("SLACK_WEBHOOK_URL")
     if not webhook_url:
@@ -97,6 +115,16 @@ async def send_slack_notification(
                 "text": "🔍 LinkSpy Scan Complete"
             }
         },
+    ]
+
+    # Every report leads with the diff: "N new · M fixed · K still open".
+    if diff_summary:
+        blocks.append({
+            "type": "context",
+            "elements": [{"type": "mrkdwn", "text": f"*{diff_summary}*"}],
+        })
+
+    blocks += [
         {
             "type": "section",
             "fields": [
@@ -171,6 +199,148 @@ async def send_slack_notification(
             )
     except Exception as e:
         print(f"[Slack] Failed: {e}")
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Phase 1 — baseline diffing
+#
+# Every step is best-effort. If the database is unavailable or migrations/001
+# has not been applied, the scan still completes and simply reports "no
+# baseline" — which renders as n/a, not as "everything is new".
+# ─────────────────────────────────────────────────────────────────────────────
+def _findings_from_rows(rows: list) -> list:
+    out = []
+    for row in rows or []:
+        try:
+            out.append(FindingRecord(**{
+                k: row.get(k) for k in FindingRecord.model_fields if k in row
+            }))
+        except Exception:
+            continue   # a malformed row must not poison the diff
+    return out
+
+
+async def _load_baseline(site_id):
+    """(previous_findings, previous_link_fingerprints). (None, None) = no baseline."""
+    if not site_id:
+        return None, None
+    snapshot = await get_latest_snapshot(site_id)
+    if not snapshot:
+        return None, None
+    rows = await get_findings_for_snapshot(snapshot["id"])
+    totals = snapshot.get("totals_json") or {}
+    return _findings_from_rows(rows), totals.get("link_fingerprints")
+
+
+def _finding_payload(finding, now: str) -> dict:
+    data = finding.model_dump()
+    data["age_days"] = issue_age_days(finding.first_seen_at, now)
+    return data
+
+
+def _diff_payload(diff, link_counts: dict, now: str) -> dict:
+    return {
+        "has_baseline": diff.has_baseline,
+        # The lead line for every report and email.
+        "summary": summarize_diff(diff),
+        "new": len(diff.new),
+        "fixed": len(diff.fixed),
+        "recurring": len(diff.recurring),
+        # n/a on the first scan of a site.
+        "new_links": link_counts.get("new_links"),
+        "removed_links": link_counts.get("removed_links"),
+        # Fixed findings are gone from `results`, so carry them here.
+        "fixed_findings": [_finding_payload(f, now) for f in diff.fixed],
+    }
+
+
+def _annotate_results(results, page_url_of, diff, now: str) -> None:
+    """Stamp fingerprint / diff_status / age_days onto each flagged result."""
+    status_map = diff_status_by_fingerprint(diff)
+    first_seen = {f.fingerprint: f.first_seen_at for f in diff.new + diff.recurring}
+
+    for r in results:
+        bucket = r.get("bucket") if isinstance(r, dict) else getattr(r, "bucket", None)
+        page = page_url_of(r)
+        fp = fingerprint_result(page, r)
+
+        if isinstance(r, dict):
+            r["fingerprint"] = fp
+        else:
+            r.fingerprint = fp
+
+        if bucket in (None, "ok"):
+            continue   # a working link is not a finding
+
+        status = status_map.get(fp)
+        seen_at = first_seen.get(fp)
+        age = issue_age_days(seen_at, now) if seen_at else None
+        if isinstance(r, dict):
+            r["diff_status"] = status
+            r["first_seen_at"] = seen_at
+            r["age_days"] = age
+        else:
+            r.diff_status = status
+            r.first_seen_at = seen_at
+            r.age_days = age
+
+
+async def _run_diff(site_url: str, user_email: str, results, page_url_of) -> tuple:
+    """Diff this scan against the site's previous snapshot and annotate results.
+
+    Returns (diff, link_counts, now, site_id, current_findings, current_fps).
+    """
+    now = utcnow_iso()
+    try:
+        site_id = await get_site_id(site_url, user_email)
+        previous_findings, previous_fps = await _load_baseline(site_id)
+    except Exception as e:
+        print(f"[Diff] baseline unavailable (non-critical): {e}")
+        site_id, previous_findings, previous_fps = None, None, None
+
+    # Dedupe across the whole scan, not per result: a site scan can surface the
+    # same destination from several pages.
+    current_findings, current_fps = [], []
+    seen_findings, seen_links = set(), set()
+
+    for r in results:
+        page = page_url_of(r)
+        fp = fingerprint_result(page, r)
+        if fp not in seen_links:
+            seen_links.add(fp)
+            current_fps.append(fp)
+        if fp in seen_findings:
+            continue
+        for finding in collect_findings(page, [r], now=now):
+            seen_findings.add(finding.fingerprint)
+            current_findings.append(finding)
+
+    diff = diff_findings(previous_findings, current_findings, now=now)
+    link_counts = diff_link_counts(previous_fps, current_fps)
+    _annotate_results(results, page_url_of, diff, now)
+
+    return diff, link_counts, now, site_id, current_findings, current_fps
+
+
+async def _persist_snapshot(site_id, scan_id, diff, link_counts,
+                            current_findings, current_fps, health_score) -> None:
+    if not site_id:
+        return
+    totals = {
+        "health_score": health_score,
+        "total_links": len(current_fps),
+        "findings": len(current_findings),
+        "new": len(diff.new),
+        "fixed": len(diff.fixed),
+        "recurring": len(diff.recurring),
+        "new_links": link_counts.get("new_links"),
+        "link_fingerprints": current_fps,
+    }
+    # Recurring findings must persist with their ORIGINAL first_seen_at, or age
+    # resets every scan and "broken for 12 days" never happens.
+    rows = [f.model_dump() for f in diff.new + diff.recurring]
+    resolved = [(f.fingerprint, f.resolved_at) for f in diff.fixed]
+    await save_snapshot(site_id, scan_id, totals, rows, resolved)
 
 
 def _calculate_health_score(results: list) -> int:
@@ -288,7 +458,12 @@ async def scan(
             total = len(links)
 
             if total == 0:
-                yield f"data: {json.dumps({'type': 'result', 'data': [], 'health_score': 100, 'detected_builders': detected_builders})}\n\n"
+                empty_diff = {
+                    "has_baseline": False, "summary": summarize_diff(diff_findings(None, [])),
+                    "new": 0, "fixed": 0, "recurring": 0,
+                    "new_links": None, "removed_links": None, "fixed_findings": [],
+                }
+                yield f"data: {json.dumps({'type': 'result', 'data': [], 'health_score': 100, 'detected_builders': detected_builders, 'diff': empty_diff})}\n\n"
                 return
 
             async for i, result in check_all_links(links):
@@ -315,24 +490,42 @@ async def scan(
             # Calculate health score
             health_score = _calculate_health_score(results)
 
+            # Diff against the previous snapshot. Runs before save_scan so it
+            # reads the *previous* baseline, and annotates each flagged result
+            # with fingerprint / diff_status / age_days.
+            diff, link_counts, now, site_id, current_findings, current_fps = \
+                await _run_diff(url, email, results, lambda r: url)
+            diff_payload = _diff_payload(diff, link_counts, now)
+
             # Save to Supabase (non-blocking — never fail the scan)
+            saved = {}
             try:
-                await save_scan(
+                saved = await save_scan(
                     site_url=url,
                     user_email=email,
                     results=results,
                     health_score=health_score,
-                )
+                ) or {}
             except Exception as db_err:
                 print(f"[DB] Save failed (non-critical): {db_err}")
 
-            await send_slack_notification(url, health_score, results)
+            try:
+                await _persist_snapshot(
+                    saved.get("site_id") or site_id, saved.get("scan_id"),
+                    diff, link_counts, current_findings, current_fps, health_score,
+                )
+            except Exception as db_err:
+                print(f"[DB] Snapshot save failed (non-critical): {db_err}")
+
+            await send_slack_notification(
+                url, health_score, results, diff_summary=diff_payload["summary"]
+            )
 
             # "14 unique links across 47 placements" — the same URL linked from
             # nav and footer is fetched once but counted in both places.
             total_placements = sum(getattr(r, "occurrences", 1) or 1 for r in results)
 
-            yield f"data: {json.dumps({'type': 'result', 'data': [r.dict() for r in results], 'health_score': health_score, 'detected_builders': detected_builders, 'total_links': len(results), 'total_placements': total_placements})}\n\n"
+            yield f"data: {json.dumps({'type': 'result', 'data': [r.dict() for r in results], 'health_score': health_score, 'detected_builders': detected_builders, 'total_links': len(results), 'total_placements': total_placements, 'diff': diff_payload})}\n\n"
 
         except Exception as e:
             yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
@@ -466,34 +659,105 @@ async def scan_site(
             final_results = list(deduped.values())
             health_score = _calculate_health_score(final_results)
 
+            # Findings are identified per page they were found on.
+            diff, link_counts, now, site_id, current_findings, current_fps = \
+                await _run_diff(
+                    url, email, final_results,
+                    lambda r: r.get("found_on_page") or url,
+                )
+            diff_payload = _diff_payload(diff, link_counts, now)
+
             # Save full site scan to Supabase (non-blocking)
+            saved = {}
             try:
-                await save_scan(
+                saved = await save_scan(
                     site_url=url,
                     user_email=email,
                     results=final_results,
                     health_score=health_score,
                     pages_scanned=total_pages,
-                )
+                ) or {}
             except Exception as db_err:
                 print(f"[DB] Save site scan failed (non-critical): {db_err}")
+
+            try:
+                await _persist_snapshot(
+                    saved.get("site_id") or site_id, saved.get("scan_id"),
+                    diff, link_counts, current_findings, current_fps, health_score,
+                )
+            except Exception as db_err:
+                print(f"[DB] Snapshot save failed (non-critical): {db_err}")
 
             # Send Slack notification
             class SimpleNamespace:
                 def __init__(self, **kwargs):
                     self.__dict__.update(kwargs)
             slack_results = [SimpleNamespace(**r) for r in final_results]
-            await send_slack_notification(url, health_score, slack_results)
+            await send_slack_notification(
+                url, health_score, slack_results, diff_summary=diff_payload["summary"]
+            )
 
             # Yield final result event
             total_placements = sum(r.get("occurrences", 1) or 1 for r in final_results)
 
-            yield f"data: {json.dumps({'type': 'result', 'data': final_results, 'health_score': health_score, 'pages_scanned': total_pages, 'detected_builders': site_builders, 'total_links': len(final_results), 'total_placements': total_placements})}\n\n"
+            yield f"data: {json.dumps({'type': 'result', 'data': final_results, 'health_score': health_score, 'pages_scanned': total_pages, 'detected_builders': site_builders, 'total_links': len(final_results), 'total_placements': total_placements, 'diff': diff_payload})}\n\n"
 
         except Exception as e:
             yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
 
     return StreamingResponse(event_stream(), media_type="text/event-stream")
+
+
+@app.get("/api/sites/{site_id}/diff/latest")
+async def latest_diff(site_id: str):
+    """Diff the two most recent snapshots for a site.
+
+    Stateless: recomputed from stored findings rather than trusting counters.
+    A site with fewer than two snapshots has no baseline — the UI shows n/a
+    rather than reporting every pre-existing issue as new.
+    """
+    try:
+        snapshots = await get_recent_snapshots(site_id, limit=2)
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+    if not snapshots:
+        return {
+            "site_id": site_id,
+            "has_baseline": False,
+            "summary": "No scans yet",
+            "new": 0, "fixed": 0, "recurring": 0,
+            "new_links": None, "removed_links": None,
+            "items": {"new": [], "recurring": [], "fixed": []},
+        }
+
+    latest = snapshots[0]
+    previous = snapshots[1] if len(snapshots) > 1 else None
+
+    current_findings = _findings_from_rows(await get_findings_for_snapshot(latest["id"]))
+    previous_findings = (
+        _findings_from_rows(await get_findings_for_snapshot(previous["id"]))
+        if previous else None
+    )
+
+    now = utcnow_iso()
+    diff = diff_findings(previous_findings, current_findings, now=now)
+    link_counts = diff_link_counts(
+        (previous.get("totals_json") or {}).get("link_fingerprints") if previous else None,
+        (latest.get("totals_json") or {}).get("link_fingerprints") or [],
+    )
+
+    return {
+        "site_id": site_id,
+        "scanned_at": latest.get("created_at"),
+        **{k: v for k, v in _diff_payload(diff, link_counts, now).items()
+           if k != "fixed_findings"},
+        "items": {
+            "new": [_finding_payload(f, now) for f in diff.new],
+            "recurring": [_finding_payload(f, now) for f in diff.recurring],
+            "fixed": [_finding_payload(f, now) for f in diff.fixed],
+        },
+    }
 
 
 @app.get("/history")

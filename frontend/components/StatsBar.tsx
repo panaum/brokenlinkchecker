@@ -2,11 +2,12 @@
 
 import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
-import { LinkResult } from "@/types";
+import { LinkResult, ScanDiff } from "@/types";
 import { bucketOf, countBuckets } from "@/lib/buckets";
 
 interface StatsBarProps {
   results: LinkResult[];
+  diff?: ScanDiff | null;
 }
 
 function useCountUp(target: number, delay: number = 0): number {
@@ -42,9 +43,12 @@ interface StatCard {
   color: string;
   bg: string;
   delay: number;
+  /** Renders verbatim instead of counting up — used for "n/a" on a first scan. */
+  displayValue?: string;
+  hint?: string;
 }
 
-export default function StatsBar({ results }: StatsBarProps) {
+export default function StatsBar({ results, diff }: StatsBarProps) {
   const totalLinks = results.length;
   // A link can be HTTP-ok yet unverifiable (e.g. its #section may be rendered by
   // JavaScript on the target page). Such a row belongs in Unverifiable only.
@@ -54,6 +58,8 @@ export default function StatsBar({ results }: StatsBarProps) {
   // Counted by bucket, not label: a low-confidence dead-CTA candidate is
   // "unverifiable", and must not be reported to a client as a dead button.
   const { broken, dead_cta: deadCta, unverifiable: cantVerify } = countBuckets(results);
+
+  const hasBaseline = diff?.has_baseline === true;
 
   const stats: StatCard[] = [
     {
@@ -108,6 +114,28 @@ export default function StatsBar({ results }: StatsBarProps) {
           },
         ]
       : []),
+    // Baseline diff. On a site's first scan there is nothing to compare
+    // against, so these read "n/a" rather than a misleading 0.
+    {
+      label: "New Links",
+      rawValue: diff?.new_links ?? 0,
+      displayValue: hasBaseline && diff?.new_links != null ? undefined : "n/a",
+      hint: hasBaseline ? undefined : "No previous scan to compare against",
+      color: "#93c5fd",
+      bg: "rgba(147,197,253,0.10)",
+      delay: 600,
+    },
+    {
+      label: "New Issues",
+      rawValue: diff?.new ?? 0,
+      displayValue: hasBaseline ? undefined : "n/a",
+      hint: hasBaseline
+        ? `${diff?.fixed ?? 0} fixed · ${diff?.recurring ?? 0} still open`
+        : "No previous scan to compare against",
+      color: (diff?.new ?? 0) > 0 ? "#f87171" : "#4ade80",
+      bg: (diff?.new ?? 0) > 0 ? "rgba(248,113,113,0.10)" : "rgba(74,222,128,0.10)",
+      delay: 700,
+    },
   ];
 
   return (
@@ -128,6 +156,7 @@ export default function StatsBar({ results }: StatsBarProps) {
 
 function StatCardItem({ stat }: { stat: StatCard }) {
   const animValue = useCountUp(stat.rawValue, stat.delay);
+  const isPlaceholder = stat.displayValue !== undefined;
 
   return (
     <motion.div
@@ -136,6 +165,7 @@ function StatCardItem({ stat }: { stat: StatCard }) {
       transition={{ delay: stat.delay / 1000, duration: 0.4 }}
       className="glass-card p-5 text-center"
       style={{ background: stat.bg }}
+      title={stat.hint}
     >
       <div
         className="text-[11px] uppercase tracking-widest mb-2"
@@ -152,11 +182,19 @@ function StatCardItem({ stat }: { stat: StatCard }) {
         style={{
           fontFamily: "var(--font-poppins), Poppins, sans-serif",
           fontWeight: 700,
-          color: stat.color,
+          color: isPlaceholder ? "rgba(255,255,255,0.35)" : stat.color,
         }}
       >
-        {animValue}
+        {isPlaceholder ? stat.displayValue : animValue}
       </div>
+      {stat.hint && (
+        <div
+          className="text-[10px] mt-1.5"
+          style={{ color: "rgba(255,255,255,0.4)" }}
+        >
+          {stat.hint}
+        </div>
+      )}
     </motion.div>
   );
 }

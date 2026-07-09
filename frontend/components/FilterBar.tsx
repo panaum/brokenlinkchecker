@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect } from "react";
 import { Search, X, ChevronDown } from "lucide-react";
-import { FilterType, LinkResult, SortOption } from "@/types";
+import { DiffFilter, FilterType, LinkResult, ScanDiff, SortOption } from "@/types";
 
 interface FilterBarProps {
   results: LinkResult[];
@@ -15,6 +15,24 @@ interface FilterBarProps {
   zoneFilter: string;
   onZoneFilterChange: (z: string) => void;
   filteredCount: number;
+  /** Baseline diff. Without a baseline there is nothing to filter by. */
+  diff?: ScanDiff | null;
+  diffFilter?: DiffFilter;
+  onDiffFilterChange?: (d: DiffFilter) => void;
+}
+
+const DIFF_ITEMS: { label: string; value: DiffFilter; color: string; bg: string }[] = [
+  { label: "All", value: "all", color: "#fff", bg: "rgba(255,255,255,0.08)" },
+  { label: "New", value: "new", color: "#f87171", bg: "rgba(248,113,113,0.12)" },
+  { label: "Recurring", value: "recurring", color: "#fbbf24", bg: "rgba(251,191,36,0.12)" },
+  { label: "Fixed", value: "fixed", color: "#4ade80", bg: "rgba(74,222,128,0.12)" },
+];
+
+function diffCount(results: LinkResult[], diff: ScanDiff, value: DiffFilter): number {
+  if (value === "all") return results.length;
+  // Fixed findings are gone from the page, so they never appear in `results`.
+  if (value === "fixed") return diff.fixed;
+  return results.filter((r) => r.diff_status === value).length;
 }
 
 const ZONES = [
@@ -72,6 +90,9 @@ export default function FilterBar({
   zoneFilter,
   onZoneFilterChange,
   filteredCount,
+  diff,
+  diffFilter = "all",
+  onDiffFilterChange,
 }: FilterBarProps) {
   const [zoneOpen, setZoneOpen] = useState(false);
   const [sortOpen, setSortOpen] = useState(false);
@@ -87,9 +108,59 @@ export default function FilterBar({
     return () => document.removeEventListener("mousedown", handleClick);
   }, []);
 
+  const showDiffFilter = diff?.has_baseline === true && !!onDiffFilterChange;
+
   return (
     <div className="w-full max-w-5xl mx-auto mt-6 px-4">
       <div className="flex flex-col gap-4">
+        {/* Diff filter — only meaningful once a baseline exists */}
+        {showDiffFilter && (
+          <div className="flex flex-wrap items-center gap-2">
+            <span
+              className="text-[11px] uppercase tracking-widest mr-1"
+              style={{ color: "rgba(255,255,255,0.4)" }}
+            >
+              Since last scan
+            </span>
+            {DIFF_ITEMS.map((item) => {
+              const count = diffCount(results, diff!, item.value);
+              const isActive = diffFilter === item.value;
+              if (item.value !== "all" && count === 0) return null;
+              return (
+                <button
+                  key={item.value}
+                  onClick={() => onDiffFilterChange!(item.value)}
+                  className="flex items-center gap-2 px-3 py-1.5 rounded-xl transition-all cursor-pointer"
+                  style={{
+                    background: isActive
+                      ? "linear-gradient(132deg,rgb(65,0,153),rgb(138,26,155))"
+                      : item.bg,
+                    border: isActive
+                      ? "1px solid rgba(138,26,155,0.6)"
+                      : `1px solid ${item.color}22`,
+                    fontFamily: "var(--font-poppins), Poppins, sans-serif",
+                    fontWeight: isActive ? 600 : 400,
+                    fontSize: "12px",
+                    color: isActive ? "#fff" : item.color,
+                  }}
+                >
+                  {item.label}
+                  <span
+                    className="rounded-full px-1.5 py-0.5 text-[11px] tabular-nums"
+                    style={{
+                      background: isActive
+                        ? "rgba(255,255,255,0.2)"
+                        : "rgba(255,255,255,0.08)",
+                    }}
+                  >
+                    {count}
+                  </span>
+                </button>
+              );
+            })}
+          </div>
+        )}
+
         {/* Status filter cards */}
         <div className="flex flex-wrap gap-2">
           {STATUS_ITEMS.map((item) => {

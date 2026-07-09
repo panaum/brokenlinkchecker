@@ -44,6 +44,10 @@ REQUIRED_RESULT_FIELDS: dict = {
     "occurrences": int,
     "link_kind": str,
     "fragment": str,
+    # Phase 1 — baseline diffing
+    "fingerprint": (str, type(None)),
+    "diff_status": (str, type(None)),
+    "age_days": (int, type(None)),
 }
 
 REQUIRED_TOP_LEVEL_FIELDS: dict = {
@@ -53,6 +57,19 @@ REQUIRED_TOP_LEVEL_FIELDS: dict = {
     "detected_builders": list,
     "total_links": int,
     "total_placements": int,
+    # Phase 1
+    "diff": dict,
+}
+
+REQUIRED_DIFF_FIELDS: dict = {
+    "has_baseline": bool,
+    "summary": str,
+    "new": int,
+    "fixed": int,
+    "recurring": int,
+    "new_links": (int, type(None)),
+    "removed_links": (int, type(None)),
+    "fixed_findings": list,
 }
 
 
@@ -188,6 +205,23 @@ def test_flagged_items_keep_their_priority(client):
     for item in flagged:
         assert item["priority"] in {"critical", "high", "medium", "low"}, \
             f"{item['url']} -> {item['priority']!r}"
+
+
+# ─── Phase 1: the diff envelope ──────────────────────────────────────────────
+def test_scan_response_carries_a_diff_envelope(client):
+    diff = _result_event(client)["diff"]
+    for field, expected in REQUIRED_DIFF_FIELDS.items():
+        assert field in diff, f"missing diff field: {field}"
+        _assert_type(diff[field], expected, f"diff.{field}")
+
+
+def test_diff_without_a_baseline_reports_na_not_zero(client):
+    """No database is wired up in this fixture, so there is no baseline. New/removed
+    link counts must be null (rendered n/a), never 0 — 0 would claim we compared."""
+    diff = _result_event(client)["diff"]
+    assert diff["has_baseline"] is False
+    assert diff["new_links"] is None
+    assert diff["removed_links"] is None
 
 
 def test_health_endpoint_still_responds(client):

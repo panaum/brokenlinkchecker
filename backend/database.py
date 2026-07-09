@@ -1,5 +1,7 @@
 import os
 import threading
+from typing import Optional
+
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -195,11 +197,138 @@ async def add_site(url: str, name: str, client_name: str, freq: str, user_email:
     return await asyncio.to_thread(_add_site_sync, url, name, client_name, freq, user_email)
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# Phase 1: baseline diffing (scan_snapshots + findings)
+#
+# All of it is best-effort: a project that has not run migrations/001 yet must
+# keep scanning normally, so every call is wrapped and returns a neutral value
+# on failure rather than taking the scan down with it.
+# ─────────────────────────────────────────────────────────────────────────────
+def _latest_snapshot_sync(site_id: str) -> Optional[dict]:
+    client = _get_client()
+    resp = client.table("scan_snapshots")\
+        .select("id, created_at, totals_json")\
+        .eq("site_id", site_id)\
+        .order("created_at", desc=True)\
+        .limit(1)\
+        .execute()
+    return resp.data[0] if resp.data else None
+
+
+def _findings_for_snapshot_sync(snapshot_id: str) -> list:
+    client = _get_client()
+    resp = client.table("findings")\
+        .select("fingerprint, bucket, confidence, url, anchor_text, zone, "
+                "reason, first_seen_at, resolved_at, status")\
+        .eq("snapshot_id", snapshot_id)\
+        .execute()
+    return resp.data or []
+
+
+def _save_snapshot_sync(site_id, scan_id, totals, findings, resolved) -> Optional[str]:
+    client = _get_client()
+
+    snap = client.table("scan_snapshots").insert({
+        "site_id": site_id,
+        "scan_id": scan_id,
+        "totals_json": totals,
+    }).execute()
+    snapshot_id = snap.data[0]["id"]
+
+    if findings:
+        client.table("findings").insert([
+            {**f, "snapshot_id": snapshot_id, "site_id": site_id} for f in findings
+        ]).execute()
+
+    # Stamp findings that disappeared this scan. They live on their previous
+    # snapshot's rows, which is what the diff endpoint reads back.
+    for fp, resolved_at in resolved:
+        client.table("findings")\
+            .update({"resolved_at": resolved_at, "status": "resolved"})\
+            .eq("site_id", site_id)\
+            .eq("fingerprint", fp)\
+            .is_("resolved_at", "null")\
+            .execute()
+
+    return snapshot_id
+
+
+def _recent_snapshots_sync(site_id: str, limit: int) -> list:
+    client = _get_client()
+    resp = client.table("scan_snapshots")\
+        .select("id, created_at, totals_json")\
+        .eq("site_id", site_id)\
+        .order("created_at", desc=True)\
+        .limit(limit)\
+        .execute()
+    return resp.data or []
+
+
+async def get_recent_snapshots(site_id: str, limit: int = 2) -> list:
+    """Newest first. The diff endpoint compares [0] against [1]."""
+    import asyncio
+    try:
+        return await asyncio.to_thread(_recent_snapshots_sync, site_id, limit)
+    except Exception as e:
+        print(f"[DB] snapshot history lookup failed (non-critical): {e}")
+        return []
+
+
+async def get_latest_snapshot(site_id: str) -> Optional[dict]:
+    import asyncio
+    try:
+        return await asyncio.to_thread(_latest_snapshot_sync, site_id)
+    except Exception as e:
+        print(f"[DB] latest snapshot lookup failed (non-critical): {e}")
+        return None
+
+
+async def get_findings_for_snapshot(snapshot_id: str) -> list:
+    import asyncio
+    try:
+        return await asyncio.to_thread(_findings_for_snapshot_sync, snapshot_id)
+    except Exception as e:
+        print(f"[DB] findings lookup failed (non-critical): {e}")
+        return []
+
+
+async def save_snapshot(site_id, scan_id, totals, findings, resolved) -> Optional[str]:
+    import asyncio
+    try:
+        return await asyncio.to_thread(
+            _save_snapshot_sync, site_id, scan_id, totals, findings, resolved
+        )
+    except Exception as e:
+        print(f"[DB] snapshot save failed (non-critical): {e}")
+        return None
+
+
+def _site_id_for_url_sync(site_url: str, user_email: str) -> Optional[str]:
+    client = _get_client()
+    resp = client.table("sites").select("id")\
+        .eq("url", site_url).eq("user_email", user_email).limit(1).execute()
+    return resp.data[0]["id"] if resp.data else None
+
+
+async def get_site_id(site_url: str, user_email: str) -> Optional[str]:
+    import asyncio
+    try:
+        return await asyncio.to_thread(_site_id_for_url_sync, site_url, user_email)
+    except Exception as e:
+        print(f"[DB] site lookup failed (non-critical): {e}")
+        return None
+
+
 def _delete_site_sync(site_id: str):
     client = _get_client()
     # Remove dependent rows first in case the schema has no ON DELETE CASCADE.
-    client.table("link_issues").delete().eq("site_id", site_id).execute()
-    client.table("scans").delete().eq("site_id", site_id).execute()
+    # findings reference scan_snapshots, so they go before it.
+    for table in ("findings", "scan_snapshots", "link_issues", "scans"):
+        try:
+            client.table(table).delete().eq("site_id", site_id).execute()
+        except Exception as e:
+            # A project that has not run migrations/001 has no findings table.
+            print(f"[DB] delete from {table} skipped: {e}")
     resp = client.table("sites").delete().eq("id", site_id).execute()
     return resp.data
 

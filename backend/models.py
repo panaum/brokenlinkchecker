@@ -44,6 +44,11 @@ class LinkResult(RawLink):
     impact: Optional[dict] = None
     first_seen_at: Optional[str] = None
     days_broken: Optional[int] = None
+    # Phase 1 — baseline diffing. Populated for flagged items only; a working
+    # link is not a finding and has no diff status.
+    fingerprint: Optional[str] = None
+    diff_status: Optional[str] = None   # "new" | "recurring" | None
+    age_days: Optional[int] = None
 
 
 class SiteCreate(BaseModel):
@@ -52,3 +57,32 @@ class SiteCreate(BaseModel):
     client: str
     freq: str
     user_email: str
+
+
+# ─── Phase 1: baseline diffing ───────────────────────────────────────────────
+class FindingRecord(BaseModel):
+    """One flagged item, identified across scans by its fingerprint."""
+    fingerprint: str
+    bucket: str                      # broken | dead_cta | unverifiable
+    confidence: str = "high"
+    url: str
+    anchor_text: str = ""
+    zone: str = ""
+    reason: str = ""
+    # When this finding was first observed — carried forward across scans so an
+    # issue's age survives a rerun. Never reset on a recurring finding.
+    first_seen_at: Optional[str] = None
+    resolved_at: Optional[str] = None
+    status: str = "open"             # open | resolved | verified_fixed
+
+
+class ScanDiff(BaseModel):
+    """Result of comparing this scan's findings against the previous snapshot.
+
+    `has_baseline` is False on a site's first scan: the UI shows "n/a" rather
+    than reporting every pre-existing issue as new.
+    """
+    has_baseline: bool = False
+    new: list[FindingRecord] = Field(default_factory=list)
+    recurring: list[FindingRecord] = Field(default_factory=list)
+    fixed: list[FindingRecord] = Field(default_factory=list)

@@ -3,7 +3,7 @@
 import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { useSession } from "next-auth/react";
 import { AnimatePresence } from "framer-motion";
-import { LinkResult, FilterType, SortOption, ScanMeta } from "@/types";
+import { LinkResult, FilterType, SortOption, ScanMeta, ScanDiff, DiffFilter } from "@/types";
 import UrlInput from "@/components/UrlInput";
 import ScanProgress from "@/components/ScanProgress";
 import StatsBar from "@/components/StatsBar";
@@ -85,6 +85,8 @@ export default function HomePage() {
   const [totalCount, setTotalCount] = useState(0);
   const [results, setResults] = useState<LinkResult[]>([]);
   const [detectedBuilders, setDetectedBuilders] = useState<string[]>([]);
+  const [diff, setDiff] = useState<ScanDiff | null>(null);
+  const [diffFilter, setDiffFilter] = useState<DiffFilter>("all");
   const [filter, setFilter] = useState<FilterType>("all");
   const [sortOption, setSortOption] = useState<SortOption>("status");
   const [search, setSearch] = useState("");
@@ -136,6 +138,8 @@ export default function HomePage() {
       setError(null);
       setResults([]);
       setDetectedBuilders([]);
+      setDiff(null);
+      setDiffFilter("all");
       setScanComplete(false);
       setScanning(true);
       scanningRef.current = true;
@@ -183,6 +187,7 @@ export default function HomePage() {
             const linkResults = data.data as LinkResult[];
             setResults(linkResults);
             setDetectedBuilders((data.detected_builders as string[]) ?? []);
+            setDiff((data.diff as ScanDiff) ?? null);
             setScanComplete(true);
             setScanning(false);
             scanningRef.current = false;
@@ -221,6 +226,14 @@ export default function HomePage() {
   const filteredResults = useMemo(() => {
     let list = results;
 
+    // Diff filter. "fixed" findings no longer exist on the page, so they are
+    // not in `results` at all — the Fixed panel reads diff.fixed_findings.
+    if (diffFilter === "new" || diffFilter === "recurring") {
+      list = list.filter((r) => r.diff_status === diffFilter);
+    } else if (diffFilter === "fixed") {
+      list = [];
+    }
+
     // Status filter
     if (filter !== "all") {
       if (filter === "blocked") {
@@ -248,7 +261,7 @@ export default function HomePage() {
     }
 
     return list;
-  }, [results, filter, zoneFilter, search]);
+  }, [results, filter, zoneFilter, search, diffFilter]);
 
   const healthScore = useMemo(() => calcScore(results), [results]);
 
@@ -404,7 +417,7 @@ export default function HomePage() {
 
           {/* Report header: builder badge + bucket counts */}
           <section className="relative z-10">
-            <ReportHeader results={results} detectedBuilders={detectedBuilders} />
+            <ReportHeader results={results} detectedBuilders={detectedBuilders} diff={diff} />
           </section>
 
           {/* Health score */}
@@ -427,7 +440,7 @@ export default function HomePage() {
 
           {/* Stats bar */}
           <section className="relative z-10">
-            <StatsBar results={results} />
+            <StatsBar results={results} diff={diff} />
           </section>
 
           {/* Triage: broken / dead CTA / unverifiable */}
@@ -448,6 +461,9 @@ export default function HomePage() {
               zoneFilter={zoneFilter}
               onZoneFilterChange={setZoneFilter}
               filteredCount={filteredResults.length}
+              diff={diff}
+              diffFilter={diffFilter}
+              onDiffFilterChange={setDiffFilter}
             />
           </section>
 

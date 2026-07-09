@@ -11,6 +11,12 @@ class RawLink(BaseModel):
     priority: str = "low"  # "critical" | "high" | "medium" | "low"
     confidence: str = "high"  # "high" | "medium" | "low"
     reason: str = ""          # human-readable explanation for the flag
+    # "broken"       = provable failure (404/410/5xx, DNS, connection refused)
+    # "dead_cta"     = CTA-styled element that leads nowhere useful
+    # "unverifiable" = cannot judge from here (401/403/429/999, timeouts,
+    #                  JS-hydrated subtrees, low-confidence candidates)
+    # When unsure, an item belongs in "unverifiable" — never in a red bucket.
+    bucket: str = "broken"
 
 
 class LinkResult(RawLink):

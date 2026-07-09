@@ -3,17 +3,23 @@
 import { useEffect, useRef, useState } from "react";
 import { motion } from "framer-motion";
 import { LinkResult } from "@/types";
+import { bucketOf } from "@/lib/buckets";
 
 interface HealthScoreProps {
   results: LinkResult[];
 }
 
+// Mirrors _calculate_health_score() in backend/main.py — keep the two in sync.
+// Only high/medium-confidence dead CTAs (bucket "dead_cta") cost health; the
+// low-confidence ones are unverifiable and must not be scored as defects.
 function calcScore(results: LinkResult[]): number {
   if (results.length === 0) return 100;
   const total = results.length;
   const okCount = results.filter((r) => r.label === "ok").length;
   const brokenCount = results.filter((r) => r.label === "broken").length;
-  const deadCtaCount = results.filter((r) => r.label === "dead_cta").length;
+  const deadCtaCount = results.filter(
+    (r) => r.label === "dead_cta" && bucketOf(r) === "dead_cta"
+  ).length;
   const timeoutCount = results.filter((r) => r.label === "timeout").length;
 
   let score = Math.round((okCount / total) * 100);
@@ -41,7 +47,9 @@ export default function HealthScore({ results }: HealthScoreProps) {
   const total = results.length;
   const okCount = results.filter((r) => r.label === "ok").length;
   const brokenCount = results.filter((r) => r.label === "broken").length;
-  const deadCtaCount = results.filter((r) => r.label === "dead_cta").length;
+  const deadCtaCount = results.filter(
+    (r) => r.label === "dead_cta" && bucketOf(r) === "dead_cta"
+  ).length;
   const redirectCount = results.filter((r) => r.label === "redirect").length;
   const blockedCount = results.filter(
     (r) => r.label === "blocked" || r.label === "forbidden"

@@ -2,7 +2,7 @@ from playwright.sync_api import sync_playwright
 from bs4 import BeautifulSoup
 from urllib.parse import urljoin, urlparse
 from models import RawLink
-from dead_cta_detector import find_dead_ctas, LISTENER_PROBE_JS
+from dead_cta_detector import find_dead_ctas, detect_builders, LISTENER_PROBE_JS
 
 # Priority mapping based on page zone
 ZONE_PRIORITY = {
@@ -30,7 +30,7 @@ ZONE_SELECTORS = {
 }
 
 
-def _scrape_sync(url: str) -> list[RawLink]:
+def _scrape_sync(url: str) -> tuple[list[RawLink], list[str]]:
     with sync_playwright() as p:
         browser = p.chromium.launch(headless=True)
         context = browser.new_context(
@@ -90,9 +90,12 @@ def _scrape_sync(url: str) -> list[RawLink]:
             ))
     dead_ctas = find_dead_ctas(soup, url)
     results.extend(dead_ctas)
-    return results
+
+    builders = [b["name"] for b in detect_builders(soup)]
+    return results, builders
 
 
-async def scrape_links(url: str) -> list[RawLink]:
+async def scrape_links(url: str) -> tuple[list[RawLink], list[str]]:
+    """Scrape a page. Returns (links, detected_builder_names)."""
     import asyncio
     return await asyncio.to_thread(_scrape_sync, url)

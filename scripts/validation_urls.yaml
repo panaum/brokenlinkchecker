@@ -1,0 +1,56 @@
+# Live-validation targets: builder -> list of real URLs.
+#
+# Vendor sites are usually built on their own product, which makes them decent
+# ground truth for builder detection. These are production pages, so they change
+# without notice — this file feeds scripts/validate_live.py, which is run by hand
+# and deliberately kept out of CI.
+#
+# The mapping key is the EXPECTED builder. A key of `_no_expectation` means
+# "scan it, but don't assert which builder is detected".
+
+Elementor:
+  - https://elementor.com
+
+Divi:
+  # NOT the elegantthemes.com homepage — that is hand-built and ships no Divi
+  # markup (no et_pb_, no et-db), so it is not ground truth for Divi. The
+  # /layouts/ section is served by Divi itself.
+  - https://www.elegantthemes.com/layouts/
+
+Webflow:
+  - https://webflow.com
+
+Squarespace:
+  - https://www.squarespace.com
+
+Wix:
+  - https://www.wix.com
+
+Kajabi:
+  - https://kajabi.com
+
+HubSpot:
+  - https://www.hubspot.com
+
+Shopify:
+  - https://www.allbirds.com
+
+ClickFunnels:
+  - https://www.clickfunnels.com
+
+Framer:
+  - https://www.framer.com
+
+Astro:
+  - https://astro.build
+
+_no_expectation:
+  # The original false-positive case that motivated the dead-CTA overhaul.
+  - https://fautons.com
+
+  # ── Operator's own client pages ─────────────────────────────────────────────
+  # Uncomment and point these at real client work before a release.
+  # - https://client-elementor-site.example.com      # Elementor
+  # - https://funnel.example.com/optin               # GoHighLevel funnel
+  # - https://lp.example.com/webinar                 # Unbounce page
+  # - https://claude-generated.example.com           # Astro page built by Claude

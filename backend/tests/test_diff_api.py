@@ -109,7 +109,7 @@ def db(monkeypatch):
 
 def _install_scrape(monkeypatch, links):
     async def fake_scrape(url):
-        return list(links), ["Astro"]
+        return list(links), ["Astro"], {}
 
     async def fake_check_all(links_):
         from checker import check_single

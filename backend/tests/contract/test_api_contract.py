@@ -48,6 +48,11 @@ REQUIRED_RESULT_FIELDS: dict = {
     "fingerprint": (str, type(None)),
     "diff_status": (str, type(None)),
     "age_days": (int, type(None)),
+    # Phase 2 — full resource checking
+    "resource_type": str,
+    # Phase 3 — redirect forensics
+    "redirect_chain": list,
+    "redirect_flags": list,
 }
 
 REQUIRED_TOP_LEVEL_FIELDS: dict = {
@@ -59,6 +64,12 @@ REQUIRED_TOP_LEVEL_FIELDS: dict = {
     "total_placements": int,
     # Phase 1
     "diff": dict,
+    # Phase 2 — overview panels
+    "link_types": dict,
+    "top_hosts": list,
+    "schemes": dict,
+    # Phase 3 — redirects panel
+    "redirects": dict,
 }
 
 REQUIRED_DIFF_FIELDS: dict = {
@@ -102,7 +113,8 @@ _STATUS_BY_PATH = {"/ok": 200, "/gone": 404, "/blocked": 403}
 @pytest.fixture
 def client(monkeypatch):
     async def fake_scrape(url):
-        return list(FIXTURE_LINKS), ["Elementor"]
+        # (links_and_resources, builders, runtime_signals)
+        return list(FIXTURE_LINKS), ["Elementor"], {}
 
     async def fake_check_all(links):
         import httpx
@@ -222,6 +234,31 @@ def test_diff_without_a_baseline_reports_na_not_zero(client):
     assert diff["has_baseline"] is False
     assert diff["new_links"] is None
     assert diff["removed_links"] is None
+
+
+# ─── Phase 2: overview panels ────────────────────────────────────────────────
+def test_link_types_panel_counts_every_result(client):
+    payload = _result_event(client)
+    assert sum(payload["link_types"].values()) == len(payload["data"])
+
+
+def test_top_hosts_entries_are_shaped(client):
+    for entry in _result_event(client)["top_hosts"]:
+        assert set(entry) == {"host", "count"}
+        assert isinstance(entry["count"], int)
+
+
+def test_schemes_panel_counts_every_result(client):
+    payload = _result_event(client)
+    assert sum(payload["schemes"].values()) == len(payload["data"])
+
+
+# ─── Phase 3: redirects panel ────────────────────────────────────────────────
+def test_redirects_panel_is_shaped(client):
+    redirects = _result_event(client)["redirects"]
+    for field in ("permanent", "temporary", "total", "flags", "collapsible_rules"):
+        assert field in redirects, field
+    assert isinstance(redirects["flags"], dict)
 
 
 def test_health_endpoint_still_responds(client):

@@ -2,7 +2,7 @@
 
 import { motion } from "framer-motion";
 import { LinkResult } from "@/types";
-import { countBuckets } from "@/lib/buckets";
+import { countBuckets, countPlacements } from "@/lib/buckets";
 
 interface ReportHeaderProps {
   results: LinkResult[];
@@ -17,9 +17,17 @@ export default function ReportHeader({ results, detectedBuilders }: ReportHeader
   if (results.length === 0) return null;
 
   const { broken, dead_cta, unverifiable } = countBuckets(results);
+  const placements = countPlacements(results);
+
+  // A URL linked from both the nav and the footer is one row but two
+  // placements. Showing both stops the report from looking like it missed links.
+  const countLabel =
+    placements > results.length
+      ? `${results.length} unique links across ${placements} placements`
+      : `${results.length} links scanned`;
 
   const chips: { label: string; color: string }[] = [
-    { label: `${results.length} links scanned`, color: "rgba(255,255,255,0.55)" },
+    { label: countLabel, color: "rgba(255,255,255,0.55)" },
     { label: `${broken} broken`, color: "#f87171" },
     { label: `${dead_cta} dead CTA${dead_cta === 1 ? "" : "s"}`, color: "#fb923c" },
     { label: `${unverifiable} unverifiable`, color: "#fbbf24" },

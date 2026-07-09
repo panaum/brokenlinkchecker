@@ -1,8 +1,14 @@
 from playwright.sync_api import sync_playwright
 from bs4 import BeautifulSoup
-from urllib.parse import urljoin, urlparse
+from urllib.parse import urljoin, urlparse, unquote
 from models import RawLink
-from dead_cta_detector import find_dead_ctas, detect_builders, LISTENER_PROBE_JS
+from dead_cta_detector import (
+    LISTENER_PROBE_JS,
+    detect_builders,
+    find_dead_ctas,
+    fragment_targets,
+    is_functional_fragment,
+)
 
 # Priority mapping based on page zone
 ZONE_PRIORITY = {
@@ -28,6 +34,122 @@ ZONE_SELECTORS = {
         "main p a[href]", "article a[href]", ".content a[href]", "#content a[href]",
     ],
 }
+
+# Lower rank wins when a URL appears in several zones.
+_PRIORITY_RANK = {"critical": 0, "high": 1, "medium": 2, "low": 3}
+
+# A pure "#fragment" is an in-page anchor, not a link to fetch — urljoin() would
+# turn it into "https://site/#frag", which then looks like an http URL and gets
+# pointlessly requested over the network (HTTP never sees the fragment).
+_CONTACT_PREFIXES = ("mailto:", "tel:", "sms:")
+# Handled by the dead-CTA detector, or not addressable at all.
+_IGNORED_PREFIXES = ("javascript:", "data:", "blob:", "file:", "about:")
+
+# Bare placeholder hrefs — dead-CTA candidates, not navigable anchors.
+_BARE_FRAGMENTS = {"", "#", "#0", "#!", "#null", "#undefined"}
+
+
+def _zone_map(soup) -> dict:
+    """Map id(tag) -> zone for every anchor a zone selector matches.
+
+    Selectors are applied in ZONE_SELECTORS order and the first match wins, so
+    an <a> inside <nav> stays Navigation even if it also carries .btn.
+    """
+    zones: dict[int, str] = {}
+    for zone, selectors in ZONE_SELECTORS.items():
+        for selector in selectors:
+            for tag in soup.select(selector):
+                zones.setdefault(id(tag), zone)
+    return zones
+
+
+def _rank(zone: str) -> int:
+    return _PRIORITY_RANK.get(ZONE_PRIORITY.get(zone, "low"), 3)
+
+
+def _classify_href(href: str, page_url: str, targets: set) -> tuple:
+    """(key, link_kind, resolved_url, fragment) or None if the href isn't a link.
+
+    Returns None for bare placeholder hrefs and javascript:/data: URIs — the
+    dead-CTA detector owns those. Broken in-page anchors also return None: the
+    detector reports them with its own suppression rules, so listing them here
+    too would double-report the same defect.
+    """
+    h = href.strip()
+    if h.lower() in _BARE_FRAGMENTS:
+        return None
+    low = h.lower()
+    if low.startswith(_IGNORED_PREFIXES):
+        return None
+
+    if low.startswith(_CONTACT_PREFIXES):
+        return (low, "contact", h, "")
+
+    if h.startswith("#"):
+        fragment = unquote(h[1:])
+        # Only surface anchors that actually resolve; unresolved ones are the
+        # detector's business (it knows about functional fragments like
+        # #elementor-action and about widget suppression).
+        if fragment in targets or fragment.lower() in targets or is_functional_fragment(fragment):
+            absolute = urljoin(page_url, h)
+            return (absolute, "anchor", absolute, fragment)
+        return None
+
+    absolute = urljoin(page_url, h)
+    if not absolute.startswith(("http://", "https://")):
+        return None
+    return (absolute, "http", absolute, urlparse(absolute).fragment)
+
+
+def _collect_links(soup, url: str) -> list[RawLink]:
+    """One RawLink per unique destination, carrying every zone it appears in.
+
+    Covers http(s) links, resolving in-page anchors, and mailto:/tel: contacts —
+    a link the user can see on the page should be accounted for somewhere.
+    """
+    zone_of = _zone_map(soup)
+    targets = fragment_targets(soup)
+    by_key: dict[str, RawLink] = {}
+
+    for tag in soup.find_all("a", href=True):
+        classified = _classify_href(tag["href"], url, targets)
+        if classified is None:
+            continue
+        key, link_kind, resolved, fragment = classified
+
+        zone = zone_of.get(id(tag), "Other")
+        existing = by_key.get(key)
+
+        if existing is None:
+            by_key[key] = RawLink(
+                url=resolved,
+                source_element=tag.name,
+                anchor_text=(tag.get_text(strip=True) or "")[:80],
+                category=zone,
+                is_external=(
+                    link_kind == "http"
+                    and urlparse(resolved).netloc != urlparse(url).netloc
+                ),
+                priority=ZONE_PRIORITY.get(zone, "low"),
+                zones=[zone],
+                occurrences=1,
+                link_kind=link_kind,
+                fragment=fragment,
+            )
+            continue
+
+        # Same destination linked again — record the occurrence instead of
+        # dropping it, and promote the row to the highest-priority zone.
+        existing.occurrences += 1
+        if zone not in existing.zones:
+            existing.zones.append(zone)
+        if not existing.anchor_text:
+            existing.anchor_text = (tag.get_text(strip=True) or "")[:80]
+        if _rank(zone) < _rank(existing.category):
+            existing.category = zone
+            existing.priority = ZONE_PRIORITY.get(zone, "low")
+
+    return list(by_key.values())
 
 
 def _scrape_sync(url: str) -> tuple[list[RawLink], list[str]]:
@@ -55,41 +177,9 @@ def _scrape_sync(url: str) -> tuple[list[RawLink], list[str]]:
         browser.close()
 
     soup = BeautifulSoup(html, "lxml")
-    seen_hrefs: set[str] = set()
-    results: list[RawLink] = []
 
-    for zone, selectors in ZONE_SELECTORS.items():
-        for selector in selectors:
-            for tag in soup.select(selector):
-                href = tag.get("href", "").strip()
-                if not href or href.startswith(("#", "mailto:", "tel:", "javascript:")):
-                    continue
-                absolute = urljoin(url, href)
-                if absolute in seen_hrefs:
-                    continue
-                seen_hrefs.add(absolute)
-                results.append(RawLink(
-                    url=absolute,
-                    source_element=selector,
-                    anchor_text=(tag.get_text(strip=True) or "")[:80],
-                    category=zone,
-                    is_external=urlparse(absolute).netloc != urlparse(url).netloc,
-                    priority=ZONE_PRIORITY.get(zone, "low"),
-                ))
-    for tag in soup.find_all("a", href=True):
-        href = urljoin(url, tag["href"].strip())
-        if href not in seen_hrefs and href.startswith("http"):
-            seen_hrefs.add(href)
-            results.append(RawLink(
-                url=href,
-                source_element="a",
-                anchor_text=(tag.get_text(strip=True) or "")[:80],
-                category="Other",
-                is_external=urlparse(href).netloc != urlparse(url).netloc,
-                priority="low",
-            ))
-    dead_ctas = find_dead_ctas(soup, url)
-    results.extend(dead_ctas)
+    results: list[RawLink] = _collect_links(soup, url)
+    results.extend(find_dead_ctas(soup, url))
 
     builders = [b["name"] for b in detect_builders(soup)]
     return results, builders

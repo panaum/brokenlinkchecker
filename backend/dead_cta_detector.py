@@ -298,6 +298,31 @@ def detect_builders(soup) -> list:
     return matched
 
 
+def fragment_targets(soup) -> set:
+    """Every in-page anchor destination: element ids plus legacy <a name="…">."""
+    targets = set()
+    for el in soup.find_all(attrs={"id": True}):
+        v = el.get("id")
+        if v:
+            targets.add(v)
+            targets.add(v.lower())
+    for el in soup.find_all("a", attrs={"name": True}):
+        v = el.get("name")
+        if v:
+            targets.add(v)
+            targets.add(v.lower())
+    return targets
+
+
+def is_functional_fragment(fragment: str, extra_prefixes=()) -> bool:
+    """True for fragments that drive behaviour rather than scroll to a target."""
+    f = fragment.lower()
+    if f == "top":  # implicit browser target — always valid
+        return True
+    prefixes = tuple(FUNCTIONAL_FRAGMENT_PREFIXES) + tuple(extra_prefixes)
+    return any(f.startswith(p) for p in prefixes)
+
+
 def _detect_spa(soup) -> bool:
     head = str(soup)[:4000].lower()
     if any(marker in head for marker in SPA_MARKERS):
@@ -403,18 +428,7 @@ def find_dead_ctas(soup, url: str) -> list:
     if builder_names:
         builder_suffix = " · builder: " + ", ".join(builder_names)
 
-    # Collect fragment targets present on the page.
-    ids = set()
-    for el in soup.find_all(attrs={"id": True}):
-        v = el.get("id")
-        if v:
-            ids.add(v)
-            ids.add(v.lower())
-    for el in soup.find_all("a", attrs={"name": True}):
-        v = el.get("name")
-        if v:
-            ids.add(v)
-            ids.add(v.lower())
+    ids = fragment_targets(soup)
 
     results: list = []
     seen: set = set()
@@ -443,6 +457,7 @@ def find_dead_ctas(soup, url: str) -> list:
             confidence=conf,
             reason=reason + builder_suffix,
             bucket=bucket_for_confidence(conf),
+            link_kind="dead_cta",
         ))
 
     # ── Anchors ──────────────────────────────────────────────────────────────

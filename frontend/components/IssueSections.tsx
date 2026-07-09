@@ -128,6 +128,23 @@ function IssueRow({ result, spec }: { result: LinkResult; spec: SectionSpec }) {
               {result.status_code}
             </span>
           )}
+
+          {/* A link in several zones is one row — say so, or it reads as missing. */}
+          {(result.occurrences ?? 1) > 1 && (
+            <span
+              className="text-[11px] tabular-nums rounded px-1.5 py-0.5"
+              style={{ background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.55)" }}
+              title={`Linked ${result.occurrences} times on this page`}
+            >
+              ×{result.occurrences}
+            </span>
+          )}
+
+          {result.zones && result.zones.length > 0 && (
+            <span className="text-[11px]" style={{ color: "rgba(255,255,255,0.4)" }}>
+              {result.zones.join(" · ")}
+            </span>
+          )}
         </div>
 
         {/* Every item displays its reason. */}

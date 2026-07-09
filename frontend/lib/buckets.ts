@@ -44,18 +44,31 @@ export function countBuckets(results: LinkResult[]): BucketCounts {
   }
 }
 
-/** "🏗️ Built with: Elementor · 47 links scanned · 2 broken · 1 dead CTA · 3 unverifiable" */
+/**
+ * Total link placements — the number a human gets counting links by eye.
+ * The same URL in the nav and the footer is one row but two placements.
+ */
+export function countPlacements(results: LinkResult[]): number {
+  return results.reduce((n, r) => n + (r.occurrences ?? 1), 0)
+}
+
+/** "🏗️ Built with: Elementor · 14 unique links across 47 placements · 2 broken · …" */
 export function buildSummaryLine(
   results: LinkResult[],
   detectedBuilders: string[],
 ): string {
   const { broken, dead_cta, unverifiable } = countBuckets(results)
+  const placements = countPlacements(results)
   const parts: string[] = []
 
   if (detectedBuilders.length > 0) {
     parts.push(`🏗️ Built with: ${detectedBuilders.join(', ')}`)
   }
-  parts.push(`${results.length} links scanned`)
+  parts.push(
+    placements > results.length
+      ? `${results.length} unique links across ${placements} placements`
+      : `${results.length} links scanned`,
+  )
   parts.push(`${broken} broken`)
   parts.push(`${dead_cta} dead CTA${dead_cta === 1 ? '' : 's'}`)
   parts.push(`${unverifiable} unverifiable`)

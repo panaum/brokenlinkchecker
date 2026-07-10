@@ -60,6 +60,11 @@ export default function StatsBar({ results, diff }: StatsBarProps) {
   const { broken, dead_cta: deadCta, unverifiable: cantVerify } = countBuckets(results);
 
   const hasBaseline = diff?.has_baseline === true;
+  // "No previous scan" is a lie when the baseline lookup failed. Say which.
+  const baselineUnavailable = diff?.baseline_status === "unavailable";
+  const noBaselineHint = baselineUnavailable
+    ? "Couldn't load the previous scan — baseline tracking isn't set up"
+    : "No previous scan to compare against";
 
   const stats: StatCard[] = [
     {
@@ -120,7 +125,7 @@ export default function StatsBar({ results, diff }: StatsBarProps) {
       label: "New Links",
       rawValue: diff?.new_links ?? 0,
       displayValue: hasBaseline && diff?.new_links != null ? undefined : "n/a",
-      hint: hasBaseline ? undefined : "No previous scan to compare against",
+      hint: hasBaseline ? undefined : noBaselineHint,
       color: "#93c5fd",
       bg: "rgba(147,197,253,0.10)",
       delay: 600,
@@ -131,7 +136,7 @@ export default function StatsBar({ results, diff }: StatsBarProps) {
       displayValue: hasBaseline ? undefined : "n/a",
       hint: hasBaseline
         ? `${diff?.fixed ?? 0} fixed · ${diff?.recurring ?? 0} still open`
-        : "No previous scan to compare against",
+        : noBaselineHint,
       color: (diff?.new ?? 0) > 0 ? "#f87171" : "#4ade80",
       bg: (diff?.new ?? 0) > 0 ? "rgba(248,113,113,0.10)" : "rgba(74,222,128,0.10)",
       delay: 700,

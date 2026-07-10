@@ -19,6 +19,7 @@ from scraper import scrape_links
 from checker import check_all_links
 from suggester import process_suggestions
 from database import (
+    diffing_tables_ready,
     get_findings_for_snapshot,
     get_latest_snapshot,
     get_recent_snapshots,
@@ -207,9 +208,11 @@ async def send_slack_notification(
 # ─────────────────────────────────────────────────────────────────────────────
 # Phase 1 — baseline diffing
 #
-# Every step is best-effort. If the database is unavailable or migrations/001
-# has not been applied, the scan still completes and simply reports "no
-# baseline" — which renders as n/a, not as "everything is new".
+# A scan never fails because diffing failed. But it must report *which* of the
+# two no-baseline cases it hit: a genuine first scan, or a lookup that failed
+# (usually migrations/001 not applied). Reporting both as "first scan" tells a
+# user who has scanned a site fifty times that there is nothing to compare
+# against, forever, with the real error buried in a server log.
 # ─────────────────────────────────────────────────────────────────────────────
 def _findings_from_rows(rows: list) -> list:
     out = []
@@ -241,9 +244,19 @@ def _finding_payload(finding, now: str) -> dict:
     return data
 
 
-def _diff_payload(diff, link_counts: dict, now: str) -> dict:
+# Why there is no baseline. "first_scan" is normal; "unavailable" means the
+# lookup failed (usually migrations/001 has not been applied), and the UI must
+# say so instead of claiming this is the site's first scan.
+BASELINE_OK = "ok"
+BASELINE_FIRST_SCAN = "first_scan"
+BASELINE_UNAVAILABLE = "unavailable"
+
+
+def _diff_payload(diff, link_counts: dict, now: str,
+                  baseline_status: str = BASELINE_FIRST_SCAN) -> dict:
     return {
         "has_baseline": diff.has_baseline,
+        "baseline_status": BASELINE_OK if diff.has_baseline else baseline_status,
         # The lead line for every report and email.
         "summary": summarize_diff(diff),
         "new": len(diff.new),
@@ -291,14 +304,19 @@ def _annotate_results(results, page_url_of, diff, now: str) -> None:
 async def _run_diff(site_url: str, user_email: str, results, page_url_of) -> tuple:
     """Diff this scan against the site's previous snapshot and annotate results.
 
-    Returns (diff, link_counts, now, site_id, current_findings, current_fps).
+    Returns (diff, link_counts, now, site_id, current_findings, current_fps,
+             baseline_status).
     """
     now = utcnow_iso()
+    baseline_status = BASELINE_FIRST_SCAN
     try:
         site_id = await get_site_id(site_url, user_email)
         previous_findings, previous_fps = await _load_baseline(site_id)
     except Exception as e:
-        print(f"[Diff] baseline unavailable (non-critical): {e}")
+        # A failed lookup is NOT a first scan. Say which one it was, or the UI
+        # will report "no previous scan" on a site scanned a hundred times.
+        print(f"[Diff] baseline lookup failed: {type(e).__name__}: {e}")
+        baseline_status = BASELINE_UNAVAILABLE
         site_id, previous_findings, previous_fps = None, None, None
 
     # Dedupe across the whole scan, not per result: a site scan can surface the
@@ -322,7 +340,8 @@ async def _run_diff(site_url: str, user_email: str, results, page_url_of) -> tup
     link_counts = diff_link_counts(previous_fps, current_fps)
     _annotate_results(results, page_url_of, diff, now)
 
-    return diff, link_counts, now, site_id, current_findings, current_fps
+    return (diff, link_counts, now, site_id, current_findings, current_fps,
+            baseline_status)
 
 
 async def _persist_snapshot(site_id, scan_id, diff, link_counts,
@@ -476,7 +495,9 @@ async def scan(
 
             if total == 0:
                 empty_diff = {
-                    "has_baseline": False, "summary": summarize_diff(diff_findings(None, [])),
+                    "has_baseline": False,
+                    "baseline_status": BASELINE_FIRST_SCAN,
+                    "summary": summarize_diff(diff_findings(None, [])),
                     "new": 0, "fixed": 0, "recurring": 0,
                     "new_links": None, "removed_links": None, "fixed_findings": [],
                 }
@@ -514,9 +535,8 @@ async def scan(
             # Diff against the previous snapshot. Runs before save_scan so it
             # reads the *previous* baseline, and annotates each flagged result
             # with fingerprint / diff_status / age_days.
-            diff, link_counts, now, site_id, current_findings, current_fps = \
-                await _run_diff(url, email, results, lambda r: url)
-            diff_payload = _diff_payload(diff, link_counts, now)
+            (diff, link_counts, now, site_id, current_findings, current_fps,
+             baseline_status) = await _run_diff(url, email, results, lambda r: url)
 
             # Save to Supabase (non-blocking — never fail the scan)
             saved = {}
@@ -537,7 +557,11 @@ async def scan(
                     redirect_rules=collapse_rules(results, url),
                 )
             except Exception as db_err:
-                print(f"[DB] Snapshot save failed (non-critical): {db_err}")
+                # The scan still succeeds, but the next one will have no baseline.
+                print(f"[DB] Snapshot save failed: {type(db_err).__name__}: {db_err}")
+                baseline_status = BASELINE_UNAVAILABLE
+
+            diff_payload = _diff_payload(diff, link_counts, now, baseline_status)
 
             await send_slack_notification(
                 url, health_score, results, diff_summary=diff_payload["summary"]
@@ -685,12 +709,11 @@ async def scan_site(
             health_score = _calculate_health_score(final_results)
 
             # Findings are identified per page they were found on.
-            diff, link_counts, now, site_id, current_findings, current_fps = \
-                await _run_diff(
-                    url, email, final_results,
-                    lambda r: r.get("found_on_page") or url,
-                )
-            diff_payload = _diff_payload(diff, link_counts, now)
+            (diff, link_counts, now, site_id, current_findings, current_fps,
+             baseline_status) = await _run_diff(
+                url, email, final_results,
+                lambda r: r.get("found_on_page") or url,
+            )
 
             # Save full site scan to Supabase (non-blocking)
             saved = {}
@@ -712,7 +735,10 @@ async def scan_site(
                     redirect_rules=collapse_rules(final_results, url),
                 )
             except Exception as db_err:
-                print(f"[DB] Snapshot save failed (non-critical): {db_err}")
+                print(f"[DB] Snapshot save failed: {type(db_err).__name__}: {db_err}")
+                baseline_status = BASELINE_UNAVAILABLE
+
+            diff_payload = _diff_payload(diff, link_counts, now, baseline_status)
 
             # Send Slack notification
             class SimpleNamespace:
@@ -784,6 +810,39 @@ async def latest_diff(site_id: str):
             "fixed": [_finding_payload(f, now) for f in diff.fixed],
         },
     }
+
+
+@app.get("/api/diagnostics/diffing")
+async def diffing_diagnostics():
+    """Is baseline diffing actually working?
+
+    Diffing needs the tables from backend/migrations/001. Without them every
+    scan silently reports "no previous scan". This probes them directly so the
+    answer is one request away rather than buried in a server log.
+    """
+    try:
+        checks = await diffing_tables_ready()
+    except Exception as e:
+        return {
+            "diffing_ready": False,
+            "checks": {},
+            "error": f"{type(e).__name__}: {e}",
+            "migration": "backend/migrations/001_phase1_snapshots_findings.sql",
+        }
+
+    ready = all(status == "ok" for status in checks.values())
+    body = {
+        "diffing_ready": ready,
+        "checks": checks,
+        "migration": "backend/migrations/001_phase1_snapshots_findings.sql",
+    }
+    if not ready:
+        body["hint"] = (
+            "Apply backend/migrations/001_phase1_snapshots_findings.sql to the "
+            "Supabase project, then rescan twice: the first scan writes the "
+            "baseline, the second one diffs against it."
+        )
+    return body
 
 
 @app.get("/api/sites/{site_id}/redirect-rules")

@@ -45,9 +45,17 @@ export default function ReportHeader({ results, detectedBuilders, diff }: Report
       {diff?.summary && (
         <div
           className="mb-2 text-sm font-medium"
-          style={{ color: diff.has_baseline ? "#e2e8f0" : "rgba(255,255,255,0.45)" }}
+          style={{
+            color: diff.has_baseline
+              ? "#e2e8f0"
+              : diff.baseline_status === "unavailable"
+                ? "#fbbf24"
+                : "rgba(255,255,255,0.45)",
+          }}
         >
-          {diff.summary}
+          {diff.baseline_status === "unavailable"
+            ? "Couldn't compare against the previous scan — baseline tracking isn't set up"
+            : diff.summary}
         </div>
       )}
 

@@ -26,6 +26,7 @@ const TYPE_ORDER: ResourceType[] = [
   "css_url",
   "iframe",
   "media",
+  "form_action",
   "meta_image",
   "favicon",
   "other",
@@ -41,6 +42,7 @@ const TYPE_LABELS: Record<ResourceType, string> = {
   media: "media",
   meta_image: "social/meta image",
   favicon: "favicon",
+  form_action: "form",
   other: "other",
 };
 

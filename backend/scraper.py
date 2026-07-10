@@ -9,6 +9,7 @@ from dead_cta_detector import (
     fragment_targets,
     is_functional_fragment,
 )
+from form_audit import form_action_links
 from resources import collect_resources, resources_from_stylesheets
 
 # Priority mapping based on page zone
@@ -172,12 +173,130 @@ _COLLECT_STYLESHEETS_JS = r"""
 """
 
 
+# Read-only inventory of every <form> on the rendered page.
+#
+# THIS NEVER SUBMITS ANYTHING. It reads attributes, computed styles, bounding
+# boxes and elementFromPoint. There is no .submit(), no .requestSubmit(), no
+# .click(), and no synthetic event anywhere in this script. A form audit that
+# submits would spam a client's CRM, which is the one outcome worse than a
+# broken form.
+#
+# `getAttribute('action')` is deliberate: form.action returns the PAGE URL when
+# the attribute is absent, which would make every action-less form look like it
+# posts to itself.
+_COLLECT_FORMS_JS = r"""
+() => {
+  const SUBMIT_SELECTOR = [
+    'button[type=submit]',
+    'input[type=submit]',
+    'input[type=image]',
+    'button:not([type])',          // HTML spec: implicit submit
+    '[role=button][data-submit]',
+  ].join(',');
+
+  // Why a form is not visible matters. "display:none" is the resting state of
+  // every modal contact form; "rendered at zero size" is a rendering failure.
+  const hiddenReason = (el, rect, style) => {
+    if (style.display === 'none') return 'css';
+    if (style.visibility === 'hidden') return 'css';
+    if (parseFloat(style.opacity || '1') === 0) return 'css';
+    if (el.hidden) return 'css';
+    if (!el.offsetParent && style.position !== 'fixed') return 'css';
+    if (rect.width < 2 || rect.height < 2) return 'zero-size';
+    return '';
+  };
+
+  const isCovered = (form, rect) => {
+    // Something painted on top of the form's centre point. A cookie wall or a
+    // modal backdrop makes a form unreachable without changing its styles.
+    const x = rect.left + rect.width / 2;
+    const y = rect.top + rect.height / 2;
+    if (x < 0 || y < 0 || x > window.innerWidth || y > window.innerHeight) {
+      return null;   // off-screen: cannot tell, do not guess
+    }
+    const top = document.elementFromPoint(x, y);
+    if (!top) return null;
+    return !(form.contains(top) || top.contains(form));
+  };
+
+  const label = (form) => {
+    const aria = form.getAttribute('aria-label');
+    if (aria) return aria.trim().slice(0, 60);
+    if (form.id) return form.id.trim().slice(0, 60);
+    if (form.name) return form.name.trim().slice(0, 60);
+    const heading = form.querySelector('legend, h1, h2, h3, h4');
+    if (heading && heading.textContent.trim()) {
+      return heading.textContent.trim().slice(0, 60);
+    }
+    const submit = form.querySelector('button, input[type=submit]');
+    if (submit) {
+      const text = (submit.value || submit.textContent || '').trim();
+      if (text) return text.slice(0, 60);
+    }
+    return '';
+  };
+
+  const forms = Array.from(document.querySelectorAll('form'));
+  return forms.map((form, index) => {
+    const style = window.getComputedStyle(form);
+    const rect = form.getBoundingClientRect();
+    const reason = hiddenReason(form, rect, style);
+    const visible = reason === '';
+
+    const controls = Array.from(form.elements || []);
+    const fields = controls
+      .filter((el) => ['input', 'select', 'textarea'].includes(el.tagName.toLowerCase()))
+      .map((el) => ({
+        tag: el.tagName.toLowerCase(),
+        type: (el.getAttribute('type') || '').toLowerCase(),
+        name: el.getAttribute('name') || '',
+        id: el.id || '',
+        placeholder: el.getAttribute('placeholder') || '',
+        required: !!(el.required || el.getAttribute('aria-required') === 'true'),
+      }));
+    const required = fields.filter((f) => f.required);
+
+    return {
+      index: index,
+      identifier: form.id || form.name || '',
+      label: label(form),
+      role: form.getAttribute('role') || '',
+      fields: fields,
+      hidden_reason: reason,
+      action_raw: form.getAttribute('action'),        // null when absent
+      method: (form.getAttribute('method') || 'get').toLowerCase(),
+      // Resolved by the browser, so relative actions are already absolute.
+      action_url: form.getAttribute('action') ? form.action : '',
+      has_submit: !!form.querySelector(SUBMIT_SELECTOR),
+      has_inline_onsubmit: !!form.getAttribute('onsubmit'),
+      has_js_submit_listener: form.hasAttribute('data-js-listener'),
+      field_count: controls.length,
+      required_fields: required,
+      visible: visible,
+      covered: visible ? isCovered(form, rect) : null,
+      // Scripts that render a form for you. If one 404s, the form never appears.
+      embed_scripts: Array.from(document.querySelectorAll('script[src]'))
+        .map((s) => s.src)
+        .filter((src) =>
+          /hs-scripts\.com|hsforms\.net|js\.hsforms\.net|embed\.typeform\.com|form\.jotform|forms\.gle|paperform|formstack|wufoo|gravityforms|marketo|munchkin\.js|pardot|leadconnectorhq|msgsndr/i.test(src)
+        ),
+      has_embed_container: !!document.querySelector(
+        '.hs-form, .hs-form-frame, [data-hs-forms], [data-form-id], .typeform-widget, .jotform-form, [data-formstack]'
+      ),
+    };
+  });
+}
+"""
+
+
 def _empty_signals() -> dict:
     return {
         "console_errors": [],     # [{text, location}]
         "csp_violations": [],     # [str]
         "failed_requests": [],    # [{url, resource_type, failure}]
         "http_errors": [],        # [{url, status, resource_type}]
+        "forms": [],              # [FormInfo] — read-only, never submitted
+        "delegated": False,       # a document-level listener (React & co)
     }
 
 
@@ -240,9 +359,19 @@ def _scrape_sync(url: str) -> tuple[list[RawLink], list[str], dict]:
             stylesheets = page.evaluate(_COLLECT_STYLESHEETS_JS)
         except Exception:
             stylesheets = []
+        try:
+            # Read-only. See _COLLECT_FORMS_JS: nothing here submits a form.
+            signals["forms"] = page.evaluate(_COLLECT_FORMS_JS) or []
+        except Exception as e:
+            print(f"[Forms] inventory failed (non-critical): {type(e).__name__}: {e}")
+            signals["forms"] = []
         browser.close()
 
     soup = BeautifulSoup(html, "lxml")
+
+    # A document-level listener means handlers are delegated (React and friends),
+    # so the absence of a listener on a form proves nothing about it.
+    signals["delegated"] = bool(soup.find(attrs={"data-js-delegated": True}))
 
     results: list[RawLink] = _collect_links(soup, url)
     results.extend(find_dead_ctas(soup, url))
@@ -250,6 +379,13 @@ def _scrape_sync(url: str) -> tuple[list[RawLink], list[str], dict]:
         collect_resources(soup, url),
         resources_from_stylesheets(stylesheets, url),
         already_seen={r.url for r in results},
+    ))
+
+    # Form actions are just URLs. Hand them to the existing checker rather than
+    # building a second one: they are checked, bucketed and diffed like anything
+    # else. A GET, never a POST — the audit is observation-only.
+    results.extend(form_action_links(
+        signals["forms"], url, already_seen={r.url for r in results},
     ))
 
     builders = [b["name"] for b in detect_builders(soup)]

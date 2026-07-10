@@ -98,6 +98,8 @@ export type ResourceType =
   | 'media'
   | 'meta_image'
   | 'favicon'
+  /** A <form>'s action URL, and the identity of a form finding. */
+  | 'form_action'
   | 'other'
 
 export interface HostCount {

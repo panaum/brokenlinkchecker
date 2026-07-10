@@ -869,3 +869,72 @@ def _record_host_alert_sync(host: str) -> None:
 async def record_host_alert(host: str) -> None:
     import asyncio
     await asyncio.to_thread(_record_host_alert_sync, host)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Phase 4 — per-form active-testing opt-in (active_form_optin)
+#
+# A form is submittable by the active tester only if a row here says enabled.
+# Best-effort reads: before migrations/005 the table does not exist, and that
+# simply means no form is opted in — which is the safe default.
+# ─────────────────────────────────────────────────────────────────────────────
+def _form_optin_sync(site_id: str, form_key: str) -> Optional[dict]:
+    client = _get_client()
+    try:
+        resp = client.table("active_form_optin")\
+            .select("form_key, test_email, enabled")\
+            .eq("site_id", site_id).eq("form_key", form_key).limit(1).execute()
+    except Exception as e:
+        if _tables_missing(e):
+            return None
+        raise
+    return resp.data[0] if resp.data else None
+
+
+async def get_form_optin(site_id: str, form_key: str) -> Optional[dict]:
+    import asyncio
+    return await asyncio.to_thread(_form_optin_sync, site_id, form_key)
+
+
+def _set_form_optin_sync(site_id: str, form_key: str, enabled: bool,
+                         test_email: Optional[str]) -> dict:
+    client = _get_client()
+    row = {"site_id": site_id, "form_key": form_key, "enabled": enabled,
+           "updated_at": "now()"}
+    if test_email is not None:
+        row["test_email"] = test_email
+    try:
+        resp = client.table("active_form_optin").upsert(
+            row, on_conflict="site_id,form_key").execute()
+    except Exception as e:
+        if _tables_missing(e):
+            raise MonitoringColumnMissing(
+                "Active-testing opt-in storage is not set up. Run migrations/005 "
+                "in the Supabase SQL editor, then try again.")
+        raise
+    return (resp.data or [{}])[0]
+
+
+async def set_form_optin(site_id: str, form_key: str, enabled: bool,
+                         test_email: Optional[str] = None) -> dict:
+    import asyncio
+    return await asyncio.to_thread(_set_form_optin_sync, site_id, form_key,
+                                   enabled, test_email)
+
+
+def _list_form_optins_sync(site_id: str) -> list:
+    client = _get_client()
+    try:
+        resp = client.table("active_form_optin")\
+            .select("form_key, test_email, enabled, updated_at")\
+            .eq("site_id", site_id).execute()
+        return resp.data or []
+    except Exception as e:
+        if _tables_missing(e):
+            return []
+        raise
+
+
+async def list_form_optins(site_id: str) -> list:
+    import asyncio
+    return await asyncio.to_thread(_list_form_optins_sync, site_id)

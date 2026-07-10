@@ -54,7 +54,9 @@ from database import (
     get_expected_tracking, set_expected_tracking,
     upsert_host_inventory, get_watchdog_inventory,
     get_recently_alerted, record_host_alert,
+    get_form_optin, set_form_optin, list_form_optins,
 )
+from active_submission import active_testing_enabled
 from fix_engine import build_fix_suggestion, choose_builder, render_client_message
 from fix_pack import build_fix_pack, build_rows
 from fix_verify import verify_finding
@@ -1523,6 +1525,73 @@ async def set_site_tracking_ids(site_id: str, ga4: str = Query(default=""),
     except MonitoringColumnMissing as e:
         return JSONResponse({"error": str(e), "setup_required": True},
                             status_code=400)
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+
+# ─── Phase 4: opt-in active form testing (DANGEROUS — every rail enforced) ───
+@app.get("/api/sites/{site_id}/forms/optin")
+async def list_active_form_optins(site_id: str):
+    """Which forms on this site are enabled for active testing, and their test
+    email. Also reports whether the global flag is on, so the UI can explain why
+    a test would refuse."""
+    try:
+        optins = await list_form_optins(site_id)
+        return {"global_enabled": active_testing_enabled(), "forms": optins}
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+
+@app.post("/api/sites/{site_id}/forms/optin")
+async def set_active_form_optin(site_id: str, form_key: str = Query(...),
+                                enabled: bool = Query(...),
+                                test_email: str = Query(default="")):
+    """Explicitly enable/disable active testing for ONE form. Enabling is a
+    deliberate human action — nothing tests a form that has not been turned on
+    here, and there is no bulk switch."""
+    from database import MonitoringColumnMissing
+    try:
+        saved = await set_form_optin(site_id, form_key, enabled, test_email or None)
+        return {"status": "ok", "form_key": form_key,
+                "enabled": bool(saved.get("enabled", enabled)),
+                "test_email": saved.get("test_email")}
+    except MonitoringColumnMissing as e:
+        return JSONResponse({"error": str(e), "setup_required": True}, status_code=400)
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+
+@app.post("/api/sites/{site_id}/forms/active-test")
+async def run_active_form_test(site_id: str, form_key: str = Query(...),
+                               form_selector: str = Query(...)):
+    """Submit ONE opted-in form ONCE, manually. This is the dangerous path, so
+    it refuses unless BOTH rails pass: the global ACTIVE_FORM_TESTING flag is on
+    AND this specific form is opted in. Payment forms are refused inside the
+    executor regardless."""
+    # Rail 1: the global kill-switch.
+    if not active_testing_enabled():
+        return JSONResponse(
+            {"error": "Active form testing is turned off. Set ACTIVE_FORM_TESTING "
+                      "on in the environment to enable it.", "refused": True},
+            status_code=403)
+    # Rail 2: this specific form must be opted in.
+    optin = await get_form_optin(site_id, form_key)
+    if not optin or not optin.get("enabled"):
+        return JSONResponse(
+            {"error": "This form is not enabled for active testing. Turn it on "
+                      "for this form first — there is no bulk test.", "refused": True},
+            status_code=403)
+
+    site = await get_site(site_id)
+    if not site:
+        return JSONResponse({"error": "site not found"}, status_code=404)
+
+    from active_submission_exec import submit_test_form
+    try:
+        record = await asyncio.to_thread(
+            submit_test_form, site["url"], form_selector,
+            test_email=optin.get("test_email"))
+        return record
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=500)
 

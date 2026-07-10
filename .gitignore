@@ -16,3 +16,6 @@ Thumbs.db
 
 # Build artifacts
 *.tsbuildinfo
+
+# Local Claude Code permissions — machine-specific
+.claude/

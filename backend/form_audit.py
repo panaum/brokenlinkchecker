@@ -280,6 +280,20 @@ def _has_any_submit_handler(form, delegated: bool) -> bool:
     )
 
 
+def _submits_natively(form, delegated: bool) -> bool:
+    """True when the BROWSER does the submitting, so the HTML rules bind.
+
+    A field with no `name` is only discarded when the browser serialises the
+    form itself. React reads its values out of component state and posts them
+    with fetch: `<input required>` with no name is completely normal there and
+    works. A synthetic container has no <form> tag, so nothing is ever
+    serialised natively.
+    """
+    if _get(form, "synthetic"):
+        return False
+    return not _has_any_submit_handler(form, delegated)
+
+
 def classify_form(form, results_by_url: dict, signals: dict = None,
                   page_url: str = "") -> dict:
     """One verdict per form: {bucket, reason, confidence} or None if healthy.
@@ -330,9 +344,16 @@ def classify_form(form, results_by_url: dict, signals: dict = None,
     if not _input_fields(form):
         return None
 
+    # Visibility rules below apply to a real <form> element, whose box is the
+    # form. A synthetic container is whichever ancestor <div> happened to hold
+    # the inputs and the button: its box may be 0x0 while the fields inside
+    # render perfectly (absolutely positioned children, contents display, …).
+    # wix.com produced exactly that — "renders with no size" about its hero.
+    synthetic = bool(_get(form, "synthetic"))
+
     # 5. Covered by something painted on top — a cookie wall, a stuck modal.
     #    This is the case worth reporting: the form is there and unreachable.
-    if _get(form, "covered") is True:
+    if not synthetic and _get(form, "covered") is True:
         return {
             "bucket": "unverifiable",
             "confidence": "low",
@@ -344,14 +365,14 @@ def classify_form(form, results_by_url: dict, signals: dict = None,
     #    NOTE: plain display:none is NOT reported. It is the resting state of
     #    every modal contact form on the internet, and flagging it would mean
     #    telling most clients their working popup form "may be unreachable".
-    if _get(form, "hidden_reason") == "zero-size":
+    if not synthetic and _get(form, "hidden_reason") == "zero-size":
         return {
             "bucket": "unverifiable",
             "confidence": "low",
             "reason": (f"{label} renders with no size — visitors may not be able "
                        f"to see or use it. Please check manually"),
         }
-    if _get(form, "visible") is False:
+    if not synthetic and _get(form, "visible") is False:
         return None   # hidden by CSS: almost certainly a popup awaiting its trigger
 
     # 7. Nothing to press.
@@ -364,8 +385,13 @@ def classify_form(form, results_by_url: dict, signals: dict = None,
 
     # 5. A required field with no name is never sent to the server. The visitor
     #    fills it in, and the value silently never arrives.
+    #
+    #    ONLY when the browser does the submitting. React reads its values from
+    #    component state and posts them with fetch, so `<input required>` with no
+    #    name is normal there and works fine. Firing this rule on a JS-driven
+    #    form would call most modern contact forms broken.
     nameless = [f for f in (_get(form, "required_fields") or []) if not f.get("name")]
-    if nameless:
+    if nameless and _submits_natively(form, delegated):
         which = nameless[0].get("id") or nameless[0].get("type") or "a field"
         return {
             "bucket": "broken",
@@ -376,6 +402,16 @@ def classify_form(form, results_by_url: dict, signals: dict = None,
 
     # 6. No action and no handler anywhere: nothing happens on submit.
     if not action_raw and not _has_any_submit_handler(form, delegated):
+        if _get(form, "synthetic"):
+            # No <form> tag, so there is no native submit to fall back on, and we
+            # found no click handler. That is suspicious but not proof: the
+            # handler may be bound in a way the probe cannot see.
+            return {
+                "bucket": "unverifiable",
+                "confidence": "low",
+                "reason": (f"{label} collects details but we found no code that "
+                           f"sends them. Please check manually"),
+            }
         return {
             "bucket": "dead_cta",
             "confidence": "high",
@@ -406,7 +442,10 @@ def _finding_url(form, page_url: str) -> str:
     action = _get(form, "action_url") or ""
     if action:
         return action
-    identifier = _get(form, "identifier") or f"form-{_get(form, 'index', 0) + 1}"
+    # A synthetic container and a real <form> can both fall back to their index.
+    # Namespace them, or form #1 and container #1 collide into one finding.
+    prefix = "formless-" if _get(form, "synthetic") else "form-"
+    identifier = _get(form, "identifier") or f"{prefix}{_get(form, 'index', 0) + 1}"
     return f"{page_url}#{identifier}"
 
 
@@ -456,6 +495,11 @@ def _is_lead_form(form) -> bool:
 def _healthy_reason(form, delegated: bool) -> str:
     """Say what we proved, and name what we could not prove. No overclaiming."""
     parts = []
+    revealed_by = _get(form, "revealed_by")
+    if revealed_by:
+        parts.append(f'Opened by the "{revealed_by}" button.')
+    if _get(form, "synthetic"):
+        parts.append("Built without a <form> tag, as most modern forms are.")
     if _get(form, "hidden_reason") == "css":
         parts.append("Hidden until opened, as a modal form is.")
     parts.append("The form renders, and it has a working submit path.")

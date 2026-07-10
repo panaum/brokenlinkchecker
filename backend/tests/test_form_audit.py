@@ -403,29 +403,67 @@ def test_reason_is_business_language_not_jargon():
 # ─────────────────────────────────────────────────────────────────────────────
 # THE HARD CONSTRAINT: this feature never submits a form.
 # ─────────────────────────────────────────────────────────────────────────────
+# Submitting a form requires either a non-GET request or a navigation. Neither
+# of these patterns may appear in either file.
 _SUBMIT_PATTERNS = re.compile(
-    r"\.submit\s*\(|requestSubmit|\.click\s*\(|dispatchEvent|"
+    r"\.submit\s*\(|requestSubmit|dispatchEvent|"
     r"new\s+SubmitEvent|method\s*=\s*[\"']post[\"']|client\.post|\.post\s*\(",
     re.IGNORECASE,
 )
 
+# form_audit.py judges forms. It has no reason to press anything, ever.
+_CLICK_PATTERN = re.compile(r"\.click\s*\(", re.IGNORECASE)
 
-@pytest.mark.parametrize("path", ["form_audit.py", "scraper.py"])
-def test_no_source_file_can_submit_a_form(path):
+
+def _code_of(path: str) -> str:
+    """Source with comments and docstrings removed: they discuss it, not do it."""
     source = (pathlib.Path(__file__).parent.parent / path).read_text(encoding="utf-8")
-    # Strip comments and docstrings: they discuss submission, they do not do it.
     code = "\n".join(
-        line for line in source.splitlines()
-        if not line.lstrip().startswith("#")
+        line for line in source.splitlines() if not line.lstrip().startswith("#")
     )
     for block in re.findall(r'"""(.*?)"""', code, re.DOTALL):
         code = code.replace(block, "")
-    offenders = _SUBMIT_PATTERNS.findall(code)
+    return code
+
+
+@pytest.mark.parametrize("path", ["form_audit.py", "scraper.py"])
+def test_no_source_file_can_submit_a_form(path):
+    offenders = _SUBMIT_PATTERNS.findall(_code_of(path))
     assert not offenders, f"{path} contains submission-shaped code: {offenders}"
 
 
-def test_the_collect_forms_script_only_reads():
-    js = scraper._COLLECT_FORMS_JS
+def test_the_form_audit_never_clicks_anything_at_all():
+    assert not _CLICK_PATTERN.findall(_code_of("form_audit.py"))
+
+
+def test_the_only_click_in_the_scraper_is_the_cta_reveal():
+    """The scraper may press a CTA to reveal a form. Nothing else, nowhere else.
+
+    Enforced structurally, not by grep: every `.click(` call node must sit inside
+    _reveal_forms. If someone adds one elsewhere, this fails.
+    """
+    import ast
+    tree = ast.parse(
+        (pathlib.Path(__file__).parent.parent / "scraper.py").read_text(encoding="utf-8")
+    )
+    reveal = next(
+        n for n in ast.walk(tree)
+        if isinstance(n, ast.FunctionDef) and n.name == "_reveal_forms"
+    )
+    inside = {id(n) for n in ast.walk(reveal)}
+    stray = [
+        n.lineno for n in ast.walk(tree)
+        if isinstance(n, ast.Call)
+        and isinstance(n.func, ast.Attribute)
+        and n.func.attr == "click"
+        and id(n) not in inside
+    ]
+    assert not stray, f"scraper.py clicks outside _reveal_forms at lines {stray}"
+
+
+@pytest.mark.parametrize("js_name", ["_COLLECT_FORMS_JS", "_COLLECT_FORMLESS_JS"])
+def test_the_collection_scripts_only_read(js_name):
+    js = getattr(scraper, js_name)
     for forbidden in (".submit(", "requestSubmit", ".click(", "dispatchEvent",
                       "new SubmitEvent", "fetch(", "XMLHttpRequest"):
         assert forbidden not in js, forbidden
@@ -653,3 +691,285 @@ def test_ordinary_links_are_never_touched():
     rows = [_Row(resource_type="anchor")]
     assert form_audit.relabel_form_actions(rows) == 0
     assert rows[0].bucket == "unverifiable"
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Revealing a CTA-built form. We press the CTA; we never press a form.
+#
+# A form cannot be submitted without either a non-GET request or a navigation.
+# Both are aborted at the transport while the reveal runs, so even a click that
+# lands somewhere unintended cannot send anything.
+# ─────────────────────────────────────────────────────────────────────────────
+class _FakeRequest:
+    def __init__(self, method="GET", navigation=False, top_level=True,
+                 url="https://acme.test/asset.js"):
+        self.method = method
+        self.url = url
+        self._nav = navigation
+        parent = None if top_level else object()
+        self.frame = type("F", (), {"parent_frame": parent})()
+
+    def is_navigation_request(self):
+        return self._nav
+
+
+class _FakeRoute:
+    def __init__(self, request):
+        self.request = request
+        self.action = None
+
+    def abort(self):
+        self.action = "abort"
+
+    def continue_(self):
+        self.action = "continue"
+
+
+@pytest.mark.parametrize("method", ["POST", "PUT", "PATCH", "DELETE", "post"])
+def test_every_non_get_request_is_aborted_during_reveal(method):
+    """A form submission is a POST. It never leaves the browser."""
+    route = _FakeRoute(_FakeRequest(method=method))
+    scraper._block_non_get(route)
+    assert route.action == "abort"
+
+
+def test_a_top_level_navigation_is_aborted_during_reveal():
+    """A GET form submits by navigating. That is blocked too."""
+    route = _FakeRoute(_FakeRequest(navigation=True, top_level=True))
+    scraper._block_non_get(route)
+    assert route.action == "abort"
+
+
+def test_an_ordinary_get_still_loads():
+    route = _FakeRoute(_FakeRequest())
+    scraper._block_non_get(route)
+    assert route.action == "continue"
+
+
+def test_a_subframe_get_navigation_still_loads():
+    """A modal that renders in an iframe must be allowed to load."""
+    route = _FakeRoute(_FakeRequest(navigation=True, top_level=False))
+    scraper._block_non_get(route)
+    assert route.action == "continue"
+
+
+class _FakeEl:
+    def __init__(self, js=True, attrs=None, raises=False):
+        self._js, self._attrs, self._raises = js, attrs or {}, raises
+
+    def evaluate(self, _script):
+        if self._raises:
+            raise RuntimeError("detached")
+        return self._js
+
+    def get_attribute(self, name):
+        return self._attrs.get(name)
+
+
+def test_a_safe_cta_is_clickable():
+    assert scraper._click_is_safe(_FakeEl()) is True
+
+
+def test_the_dom_predicate_can_veto():
+    """It is the one that knows about closest('form') and computed styles."""
+    assert scraper._click_is_safe(_FakeEl(js=False)) is False
+
+
+@pytest.mark.parametrize("type_attr", ["submit", "image", "reset", "SUBMIT"])
+def test_a_submit_control_is_never_clicked_even_if_the_dom_says_yes(type_attr):
+    """Defence in depth: both checks must agree, so one bug is not enough."""
+    assert scraper._click_is_safe(_FakeEl(attrs={"type": type_attr})) is False
+
+
+def test_an_element_with_an_href_is_never_clicked():
+    assert scraper._click_is_safe(_FakeEl(attrs={"href": "/pricing"})) is False
+
+
+def test_the_guard_fails_closed_when_asking_throws():
+    """A guard that fails open is not a guard."""
+    assert scraper._click_is_safe(_FakeEl(raises=True)) is False
+
+
+def test_the_click_predicate_refuses_anything_inside_a_form():
+    assert "closest('form')" in scraper._SAFE_TO_CLICK_JS
+
+
+def test_the_reveal_only_runs_when_no_lead_form_was_found():
+    typed = [{"fields": [{"type": "email", "name": "e"}]}]
+    hidden_only = [{"fields": [{"type": "hidden", "name": "csrf"}]}]
+    assert scraper._has_lead_form(typed) is True
+    assert scraper._has_lead_form(hidden_only) is False
+    assert scraper._has_lead_form([]) is False
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Formless forms: a <div> with inputs and a button, no <form> tag.
+# ─────────────────────────────────────────────────────────────────────────────
+def _synthetic(**over):
+    form = {
+        "synthetic": True, "index": 0, "identifier": "", "label": "Get Started",
+        "role": "", "action_raw": None, "action_url": "", "method": "",
+        "has_submit": True, "has_inline_onsubmit": False,
+        "has_js_submit_listener": True, "visible": True, "covered": False,
+        "hidden_reason": "", "embed_scripts": [], "has_embed_container": False,
+        "fields": [{"tag": "input", "type": "email", "name": "email",
+                    "id": "", "placeholder": "Your email", "required": True}],
+    }
+    form["required_fields"] = [f for f in form["fields"] if f["required"]]
+    form.update(over)
+    return form
+
+
+def test_a_react_form_with_a_nameless_required_field_is_not_broken():
+    """React reads values from state and posts with fetch. No name is normal."""
+    form = _synthetic(fields=[{"tag": "input", "type": "email", "name": "",
+                               "id": "email", "placeholder": "", "required": True}])
+    form["required_fields"] = form["fields"]
+    assert classify_form(form, {}, {}, PAGE) is None
+
+
+def test_a_native_form_with_a_nameless_required_field_is_still_broken():
+    """No handler anywhere: the browser serialises it, and the value is dropped."""
+    html = ('<form action="/submit" method="post">'
+            '<input type="email" required><button type="submit">Go</button></form>')
+    verdict = _verdict(html)
+    assert verdict["bucket"] == "broken"
+
+
+def test_a_js_handled_form_with_a_nameless_required_field_stays_quiet():
+    """Its handler may read the DOM directly. We cannot prove it is dropped."""
+    html = ('<form><input type="email" required>'
+            '<button type="submit">Go</button></form>')
+    assert _verdict(html, has_js_submit_listener=True) is None
+
+
+def test_a_formless_container_with_no_handler_anywhere_is_unverifiable():
+    """Suspicious, not proven: the handler may be bound invisibly."""
+    verdict = classify_form(_synthetic(has_js_submit_listener=False), {}, {}, PAGE)
+    assert verdict["bucket"] == "unverifiable"
+    assert "no code that sends them" in verdict["reason"]
+
+
+def test_a_real_form_with_no_handler_and_no_action_is_dead_not_unverifiable():
+    """A <form> has a native submit to fall back on. Its absence is provable."""
+    html = '<form><input type="email" name="e"><button type="submit">Go</button></form>'
+    assert _verdict(html)["bucket"] == "dead_cta"
+
+
+def test_a_healthy_formless_container_says_it_has_no_form_tag():
+    rows = audit_forms([_synthetic()], [], {}, PAGE)
+    assert len(rows) == 1 and rows[0].bucket == "ok"
+    assert "without a <form> tag" in rows[0].reason
+
+
+def test_a_revealed_form_names_the_button_that_opened_it():
+    rows = audit_forms([_synthetic(revealed_by="Join The Next Cohort")], [], {}, PAGE)
+    assert 'Opened by the "Join The Next Cohort" button' in rows[0].reason
+
+
+def test_a_synthetic_and_a_real_form_never_collide_into_one_finding():
+    from form_audit import _finding_url
+    real = {"index": 0, "identifier": ""}
+    fake = {"index": 0, "identifier": "", "synthetic": True}
+    assert _finding_url(real, PAGE) != _finding_url(fake, PAGE)
+
+
+# ─── a synthetic container's bounding box is not the form's ──────────────────
+# wix.com: the walk up from an input landed on a wrapper whose box is 0x0 while
+# the fields inside render perfectly. We reported "renders with no size" about
+# their hero section. A <div> is not a <form>; its box proves nothing.
+def test_a_synthetic_container_is_never_reported_for_its_size():
+    form = _synthetic(hidden_reason="zero-size", visible=False)
+    assert classify_form(form, {}, {}, PAGE) is None
+
+
+def test_a_synthetic_container_is_never_reported_as_covered():
+    assert classify_form(_synthetic(covered=True), {}, {}, PAGE) is None
+
+
+def test_a_real_form_is_still_reported_for_its_size():
+    """The regression above must not silence the rule where it is sound."""
+    verdict = _verdict(HEALTHY, results=[_ok("https://acme.test/subscribe")],
+                       visible=False, hidden_reason="zero-size")
+    assert verdict["bucket"] == "unverifiable"
+
+
+def test_a_real_form_is_still_reported_as_covered():
+    verdict = _verdict(HEALTHY, results=[_ok("https://acme.test/subscribe")],
+                       visible=True, covered=True)
+    assert verdict["bucket"] == "unverifiable"
+
+
+def test_the_formless_collector_prefers_the_button_over_a_page_heading():
+    """"Get Started" names the form. "The new way to create a website" does not."""
+    js = scraper._COLLECT_FORMLESS_JS
+    button_pos = js.index("textOf(button)")
+    heading_pos = js.index("heading.textContent")
+    assert button_pos < heading_pos
+
+
+def _submitish_pattern() -> re.Pattern:
+    """The SUBMITISH regex out of the JS, compiled in Python.
+
+    The JS builds it from a string, so every \\s is escaped twice. Asserting on
+    the escaped substring is brittle — check that it matches the real button
+    texts instead.
+    """
+    js = scraper._COLLECT_FORMLESS_JS
+    body = js.split("const SUBMITISH = new RegExp(", 1)[1].split("'i');", 1)[0]
+    source = "".join(re.findall(r"'([^']*)'", body)).replace("\\\\", "\\")
+    return re.compile(source, re.I)
+
+
+@pytest.mark.parametrize("text", [
+    "Go To Step #2",      # GoHighLevel two-step order form
+    "Continue",           # checkout
+    "Send", "Submit", "Subscribe", "Get Started", "Join The Next Cohort",
+    "Request a demo", "Book a call", "Claim your spot", "Reserve my seat",
+])
+def test_a_real_submit_button_is_recognised(text):
+    assert _submitish_pattern().search(text), text
+
+
+@pytest.mark.parametrize("text", ["Play video", "Read more", "Close", "Watch"])
+def test_an_unrelated_button_is_not_a_submit_control(text):
+    assert not _submitish_pattern().search(text), text
+
+
+def test_a_container_with_an_email_box_qualifies_whatever_the_button_says():
+    assert "LEAD_FIELD" in scraper._COLLECT_FORMLESS_JS
+
+
+# ─── pressing a CTA must not be counted by the client's analytics ────────────
+# A conversion pixel is a GET, so blocking non-GET was not enough. Pressing
+# "Join The Next Cohort" would have logged a visitor who does not exist and
+# inflated the click-through on the client's own funnel.
+@pytest.mark.parametrize("url", [
+    "https://www.google-analytics.com/collect?v=1&t=event",
+    "https://www.googletagmanager.com/gtag/js?id=G-XYZ",
+    "https://www.facebook.com/tr?id=1&ev=Lead",
+    "https://analytics.tiktok.com/i18n/pixel/events.js",
+    "https://bat.bing.com/action/0?ti=1",
+    "https://eu.posthog.com/e/?ip=1",
+    "https://sites.leadconnectorhq.com/tracking/click",
+])
+def test_an_analytics_beacon_is_aborted_during_reveal(url):
+    route = _FakeRoute(_FakeRequest(url=url))
+    scraper._block_non_get(route)
+    assert route.action == "abort", url
+
+
+@pytest.mark.parametrize("url", [
+    "https://acme.test/app.js",
+    "https://cdn.acme.test/modal.css",
+    "https://api.leadconnectorhq.com/widget/form/abc123",   # the form itself
+])
+def test_the_assets_a_modal_needs_still_load(url):
+    """Blocking analytics must not block the form we are trying to reveal."""
+    route = _FakeRoute(_FakeRequest(url=url))
+    scraper._block_non_get(route)
+    assert route.action == "continue", url
+
+
+def test_analytics_matching_is_case_insensitive():
+    assert scraper._is_analytics("https://WWW.Google-Analytics.COM/collect")

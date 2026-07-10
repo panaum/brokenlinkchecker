@@ -1,0 +1,9 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(export PYTHONPATH=\"c:/Users/anaum/OneDrive/Desktop/brokenlinkchecker/brokenlinkchecker/backend\")",
+      "Bash(timeout 300 python /tmp/lc_scroll.py)",
+      "Bash(timeout 580 python /tmp/regress2.py)"
+    ]
+  }
+}

@@ -442,6 +442,96 @@ def test_diagnostics_omits_site_report_without_a_url(monkeypatch):
     assert "site" not in TestClient(main.app).get("/api/diagnostics/diffing").json()
 
 
+# ─── snapshot persistence through the real /scan endpoint ───────────────────
+def test_snapshot_is_written_on_the_first_scan(db, monkeypatch):
+    """3 scans previously produced 0 snapshot rows. The first scan must write one."""
+    _install_scrape(monkeypatch, SCAN_1)
+    payload = _scan(TestClient(main.app))
+
+    assert len(db.snapshots) == 1
+    assert payload["diff"]["baseline_status"] == "first_scan"   # not "unavailable"
+
+
+def test_site_id_is_recovered_when_save_scan_returns_nothing(monkeypatch, db):
+    """save_scan can time out after the upsert landed. Look the site up again
+    rather than silently skipping the snapshot."""
+    async def save_scan_returns_empty(**kwargs):
+        return {}
+
+    lookups = {"n": 0}
+
+    async def get_site_id(site_url, user_email):
+        # None before save_scan (site does not exist yet), an id afterwards.
+        lookups["n"] += 1
+        return None if lookups["n"] == 1 else "site-1"
+
+    monkeypatch.setattr(main, "save_scan", save_scan_returns_empty)
+    monkeypatch.setattr(main, "get_site_id", get_site_id)
+    _install_scrape(monkeypatch, SCAN_1)
+
+    payload = _scan(TestClient(main.app))
+    assert lookups["n"] == 2, "expected a second, post-save site_id lookup"
+    assert len(db.snapshots) == 1
+    assert payload["diff"]["baseline_status"] == "first_scan"
+
+
+def test_a_truly_missing_site_id_is_loud_not_silent(monkeypatch, db):
+    """No site row anywhere: report unavailable rather than a clean first scan."""
+    async def save_scan_returns_empty(**kwargs):
+        return {}
+
+    async def no_site(site_url, user_email):
+        return None
+
+    monkeypatch.setattr(main, "save_scan", save_scan_returns_empty)
+    monkeypatch.setattr(main, "get_site_id", no_site)
+    _install_scrape(monkeypatch, SCAN_1)
+
+    payload = _scan(TestClient(main.app))
+    assert payload["type"] == "result"                     # scan still succeeds
+    assert payload["diff"]["baseline_status"] == "unavailable"
+    assert db.snapshots == []
+
+
+def test_a_failed_snapshot_write_never_fails_the_scan(monkeypatch, db):
+    async def write_fails(*args, **kwargs):
+        raise RuntimeError("new row violates row-level security policy")
+
+    monkeypatch.setattr(main, "save_snapshot", write_fails)
+    _install_scrape(monkeypatch, SCAN_1)
+
+    payload = _scan(TestClient(main.app))
+    assert payload["type"] == "result"
+    assert len(payload["data"]) == 3
+    assert payload["diff"]["baseline_status"] == "unavailable"
+
+
+def test_diagnostics_exposes_the_last_snapshot_error(monkeypatch):
+    async def ready():
+        return {"scan_snapshots": "ok", "findings": "ok"}
+
+    monkeypatch.setattr(main, "diffing_tables_ready", ready)
+    monkeypatch.setattr(main, "last_snapshot_error",
+                        lambda: {"stage": "scan_snapshots.insert",
+                                 "message": "new row violates row-level security policy"})
+
+    body = TestClient(main.app).get("/api/diagnostics/diffing").json()
+    assert "row-level security" in body["last_snapshot_error"]["message"]
+
+
+def test_snapshot_write_test_endpoint_returns_the_probe_result(monkeypatch):
+    async def probe(url, email):
+        return {"ok": False, "stage": "scan_snapshots.insert",
+                "error": {"message": "new row violates row-level security policy"}}
+
+    monkeypatch.setattr(main, "snapshot_write_probe", probe)
+    body = TestClient(main.app).get(
+        "/api/diagnostics/snapshot-write-test",
+        params={"url": "https://acme.test/", "email": "u@x.test"}).json()
+    assert body["ok"] is False
+    assert "row-level security" in body["error"]["message"]
+
+
 def test_diagnostics_site_report_survives_a_failure(monkeypatch):
     async def ready():
         return {"scan_snapshots": "ok", "findings": "ok"}

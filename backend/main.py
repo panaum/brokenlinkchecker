@@ -19,7 +19,10 @@ from scraper import scrape_links
 from checker import check_all_links
 from suggester import process_suggestions
 from database import (
+    describe_exception,
     diffing_tables_ready,
+    last_snapshot_error,
+    snapshot_write_probe,
     get_findings_for_snapshot,
     get_latest_snapshot,
     get_recent_snapshots,
@@ -345,11 +348,38 @@ async def _run_diff(site_url: str, user_email: str, results, page_url_of) -> tup
             baseline_status)
 
 
+async def _resolve_site_id(saved: dict, site_id, site_url: str, user_email: str):
+    """The site row may have been created by save_scan moments ago.
+
+    _run_diff looks the site up *before* the upsert, so on a site's first scan it
+    finds nothing. If save_scan then failed (or timed out) we have no id from it
+    either — but the upsert may still have landed. Ask once more before giving up.
+    """
+    resolved = saved.get("site_id") or site_id
+    if resolved:
+        return resolved
+    try:
+        resolved = await get_site_id(site_url, user_email)
+        if resolved:
+            print(f"[Persist] recovered site_id={resolved} via post-save lookup")
+        return resolved
+    except Exception as e:
+        print(f"[Persist] post-save site_id lookup failed: {type(e).__name__}: {e}")
+        return None
+
+
 async def _persist_snapshot(site_id, scan_id, diff, link_counts,
                             current_findings, current_fps, health_score,
-                            redirect_rules=None) -> None:
+                            redirect_rules=None, saved=None) -> None:
     if not site_id:
-        return
+        # Never silent. A skipped snapshot means no baseline next scan, and this
+        # used to be the one path that produced zero rows and zero explanation.
+        print(f"[Persist] SKIPPED snapshot: site_id=None scan_id={scan_id} — "
+              f"save_scan result was {saved!r}")
+        raise RuntimeError(
+            "snapshot skipped: no site_id (save_scan returned no row and the "
+            "post-save lookup found none)"
+        )
     totals = {
         "health_score": health_score,
         "total_links": len(current_fps),
@@ -367,6 +397,9 @@ async def _persist_snapshot(site_id, scan_id, diff, link_counts,
     # resets every scan and "broken for 12 days" never happens.
     rows = [f.model_dump() for f in diff.new + diff.recurring]
     resolved = [(f.fingerprint, f.resolved_at) for f in diff.fixed]
+
+    print(f"[Persist] saving snapshot: site_id={site_id} scan_id={scan_id} "
+          f"findings={len(rows)} fingerprints={len(current_fps)}")
     await save_snapshot(site_id, scan_id, totals, rows, resolved)
 
 
@@ -552,14 +585,16 @@ async def scan(
                 print(f"[DB] Save failed (non-critical): {db_err}")
 
             try:
+                effective_site_id = await _resolve_site_id(saved, site_id, url, email)
                 await _persist_snapshot(
-                    saved.get("site_id") or site_id, saved.get("scan_id"),
+                    effective_site_id, saved.get("scan_id"),
                     diff, link_counts, current_findings, current_fps, health_score,
                     redirect_rules=collapse_rules(results, url),
+                    saved=saved,
                 )
             except Exception as db_err:
                 # The scan still succeeds, but the next one will have no baseline.
-                print(f"[DB] Snapshot save failed: {type(db_err).__name__}: {db_err}")
+                print(f"[DB] Snapshot save failed: {describe_exception(db_err)}")
                 baseline_status = BASELINE_UNAVAILABLE
 
             diff_payload = _diff_payload(diff, link_counts, now, baseline_status)
@@ -730,13 +765,15 @@ async def scan_site(
                 print(f"[DB] Save site scan failed (non-critical): {db_err}")
 
             try:
+                effective_site_id = await _resolve_site_id(saved, site_id, url, email)
                 await _persist_snapshot(
-                    saved.get("site_id") or site_id, saved.get("scan_id"),
+                    effective_site_id, saved.get("scan_id"),
                     diff, link_counts, current_findings, current_fps, health_score,
                     redirect_rules=collapse_rules(final_results, url),
+                    saved=saved,
                 )
             except Exception as db_err:
-                print(f"[DB] Snapshot save failed: {type(db_err).__name__}: {db_err}")
+                print(f"[DB] Snapshot save failed: {describe_exception(db_err)}")
                 baseline_status = BASELINE_UNAVAILABLE
 
             diff_payload = _diff_payload(diff, link_counts, now, baseline_status)
@@ -851,9 +888,33 @@ async def diffing_diagnostics(
         try:
             body["site"] = await site_storage_report(url, email)
         except Exception as e:
-            body["site"] = {"error": f"{type(e).__name__}: {e}"}
+            body["site"] = {"error": describe_exception(e)}
 
+    # The real PostgREST error from the last failed snapshot write, if any.
+    # A SELECT can succeed while an INSERT is refused (row-level security),
+    # and reads alone cannot tell those apart.
+    body["last_snapshot_error"] = last_snapshot_error()
     return body
+
+
+@app.get("/api/diagnostics/snapshot-write-test")
+async def snapshot_write_test(
+    url: str = Query(..., description="A site URL that has already been scanned"),
+    email: str = Query(default="anonymous"),
+):
+    """Attempt a real snapshot + finding write, then delete both.
+
+    Reads succeeding while writes fail is the signature of row-level security
+    with no policy. This performs the write and returns the full PostgREST
+    error, then cleans up the probe rows it created.
+    """
+    try:
+        return await snapshot_write_probe(url, email)
+    except Exception as e:
+        return JSONResponse(
+            {"ok": False, "stage": "probe", "error": describe_exception(e)},
+            status_code=500,
+        )
 
 
 @app.get("/api/sites/{site_id}/redirect-rules")

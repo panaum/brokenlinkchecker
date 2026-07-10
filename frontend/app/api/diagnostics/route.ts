@@ -18,13 +18,20 @@ export const runtime = "nodejs";
 
 export async function GET(req: NextRequest) {
   const url = req.nextUrl.searchParams.get("url") ?? "";
+  // ?probe=1 attempts a real snapshot write (and deletes it again). Reads
+  // succeeding while writes fail is the signature of row-level security.
+  const probe = req.nextUrl.searchParams.get("probe");
 
   const session = await getServerSession(authOptions);
   const email = session?.user?.email || "anonymous";
 
   const backendUrl = process.env.BACKEND_URL || "http://localhost:8000";
+  const endpoint =
+    probe && url
+      ? "/api/diagnostics/snapshot-write-test"
+      : "/api/diagnostics/diffing";
   const target =
-    `${backendUrl}/api/diagnostics/diffing` +
+    `${backendUrl}${endpoint}` +
     `?email=${encodeURIComponent(email)}` +
     (url ? `&url=${encodeURIComponent(url)}` : "");
 

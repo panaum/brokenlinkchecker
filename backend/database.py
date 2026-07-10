@@ -252,31 +252,128 @@ def _findings_for_snapshot_sync(snapshot_id: str) -> list:
     return resp.data or []
 
 
+# The `findings` table's real columns. PostgREST rejects the ENTIRE batch if any
+# row carries a key that is not a column, so the payload is whitelisted rather
+# than trusted to match the model. snapshot_id/site_id are added at insert time.
+FINDING_COLUMNS = frozenset({
+    "fingerprint", "bucket", "confidence", "url", "anchor_text", "zone",
+    "reason", "first_seen_at", "resolved_at", "status",
+})
+
+# The last snapshot-write failure, surfaced by /api/diagnostics/diffing so the
+# real PostgREST error is one request away instead of buried in a server log.
+_last_snapshot_error: Optional[dict] = None
+
+
+def describe_exception(e: BaseException) -> dict:
+    """Everything the exception knows.
+
+    str(e) on a PostgREST APIError shows a short message and drops the code,
+    details and hint — which is exactly where "row-level security policy" or
+    "column ... does not exist" lives.
+    """
+    info = {
+        "type": type(e).__name__,
+        "str": str(e)[:600],
+        "repr": repr(e)[:800],
+        "args": [str(a)[:400] for a in getattr(e, "args", ())],
+    }
+    for attr in ("message", "code", "details", "hint"):
+        value = getattr(e, attr, None)
+        if value:
+            info[attr] = str(value)[:400]
+    return info
+
+
+def last_snapshot_error() -> Optional[dict]:
+    return _last_snapshot_error
+
+
+def _record_snapshot_error(stage: str, e: BaseException, **extra) -> dict:
+    global _last_snapshot_error
+    _last_snapshot_error = {"stage": stage, **describe_exception(e), **extra}
+    print(f"[Persist] {stage} FAILED: {_last_snapshot_error}")
+    return _last_snapshot_error
+
+
+def _finding_row(finding: dict, snapshot_id: str, site_id: str) -> dict:
+    row = {k: v for k, v in finding.items() if k in FINDING_COLUMNS}
+    row["snapshot_id"] = snapshot_id
+    row["site_id"] = site_id
+    return row
+
+
+def _insert_findings(client, rows: list) -> int:
+    """Batch insert; on failure retry one row at a time so the offending row is
+    named instead of taking the whole scan's findings down with it."""
+    if not rows:
+        return 0
+    try:
+        client.table("findings").insert(rows).execute()
+        return len(rows)
+    except Exception as batch_error:
+        _record_snapshot_error("findings.insert(batch)", batch_error,
+                               row_count=len(rows), keys=sorted(rows[0]))
+        print("[Persist] retrying findings one row at a time…")
+
+    inserted = 0
+    for i, row in enumerate(rows):
+        try:
+            client.table("findings").insert(row).execute()
+            inserted += 1
+        except Exception as row_error:
+            _record_snapshot_error("findings.insert(row)", row_error,
+                                   row_index=i, keys=sorted(row),
+                                   fingerprint=row.get("fingerprint"))
+    return inserted
+
+
 def _save_snapshot_sync(site_id, scan_id, totals, findings, resolved) -> Optional[str]:
+    global _last_snapshot_error
     client = _get_client()
 
-    snap = client.table("scan_snapshots").insert({
-        "site_id": site_id,
-        "scan_id": scan_id,
-        "totals_json": totals,
-    }).execute()
-    snapshot_id = snap.data[0]["id"]
+    print(f"[Persist] snapshot attempt: site_id={site_id} scan_id={scan_id} "
+          f"findings={len(findings or [])} fingerprints={len(totals.get('link_fingerprints') or [])}")
 
-    if findings:
-        client.table("findings").insert([
-            {**f, "snapshot_id": snapshot_id, "site_id": site_id} for f in findings
-        ]).execute()
+    # 1. The snapshot row. Without it there is nothing to attach findings to,
+    #    so this is the only failure that is allowed to propagate.
+    try:
+        snap = client.table("scan_snapshots").insert({
+            "site_id": site_id,
+            "scan_id": scan_id,
+            "totals_json": totals,
+        }).execute()
+        snapshot_id = snap.data[0]["id"]
+    except Exception as e:
+        _record_snapshot_error("scan_snapshots.insert", e,
+                               site_id=site_id, scan_id=scan_id,
+                               totals_keys=sorted(totals))
+        raise
 
-    # Stamp findings that disappeared this scan. They live on their previous
-    # snapshot's rows, which is what the diff endpoint reads back.
-    for fp, resolved_at in resolved:
-        client.table("findings")\
-            .update({"resolved_at": resolved_at, "status": "resolved"})\
-            .eq("site_id", site_id)\
-            .eq("fingerprint", fp)\
-            .is_("resolved_at", "null")\
-            .execute()
+    # 2. Findings. A site with zero broken links legitimately has none, and a
+    #    findings failure must not discard the snapshot we just wrote.
+    rows = [_finding_row(f, snapshot_id, site_id) for f in (findings or [])]
+    inserted = _insert_findings(client, rows)
+    if rows and inserted < len(rows):
+        print(f"[Persist] WARNING: only {inserted}/{len(rows)} findings inserted")
 
+    # 3. Stamp findings that disappeared this scan. They live on their previous
+    #    snapshot's rows, which is what the diff endpoint reads back.
+    for fp, resolved_at in resolved or []:
+        try:
+            client.table("findings")\
+                .update({"resolved_at": resolved_at, "status": "resolved"})\
+                .eq("site_id", site_id)\
+                .eq("fingerprint", fp)\
+                .is_("resolved_at", "null")\
+                .execute()
+        except Exception as e:
+            _record_snapshot_error("findings.update(resolved)", e, fingerprint=fp)
+
+    if inserted == len(rows):
+        _last_snapshot_error = None   # a clean write clears the last error
+
+    print(f"[Persist] snapshot OK: id={snapshot_id} findings_inserted={inserted}")
     return snapshot_id
 
 
@@ -382,6 +479,67 @@ def _site_storage_report_sync(site_url: str, user_email: str) -> dict:
 async def site_storage_report(site_url: str, user_email: str) -> dict:
     import asyncio
     return await asyncio.to_thread(_site_storage_report_sync, site_url, user_email)
+
+
+def _snapshot_write_probe_sync(site_url: str, user_email: str) -> dict:
+    """Actually try to write a snapshot + finding, then delete them.
+
+    A SELECT succeeding while an INSERT fails is the signature of row-level
+    security with no policy, and reads alone cannot tell them apart. This does
+    the write, reports the full PostgREST error, and cleans up after itself.
+    """
+    client = _get_client()
+
+    site = client.table("sites").select("id")\
+        .eq("url", site_url).eq("user_email", user_email).limit(1).execute()
+    if not site.data:
+        return {"ok": False, "stage": "sites.select",
+                "error": {"str": "no sites row for this url + email"},
+                "site_url": site_url, "user_email": user_email}
+    site_id = site.data[0]["id"]
+
+    snapshot_id = None
+    try:
+        snap = client.table("scan_snapshots").insert({
+            "site_id": site_id,
+            "scan_id": None,
+            "totals_json": {"probe": True},
+        }).execute()
+        snapshot_id = snap.data[0]["id"]
+    except Exception as e:
+        return {"ok": False, "stage": "scan_snapshots.insert",
+                "error": describe_exception(e), "site_id": site_id}
+
+    try:
+        client.table("findings").insert(_finding_row(
+            {"fingerprint": "probe", "bucket": "broken", "url": "https://probe.invalid/",
+             "status": "open"},
+            snapshot_id, site_id,
+        )).execute()
+    except Exception as e:
+        _cleanup_probe(client, snapshot_id)
+        return {"ok": False, "stage": "findings.insert",
+                "error": describe_exception(e), "site_id": site_id}
+
+    cleanup = _cleanup_probe(client, snapshot_id)
+    return {"ok": True, "site_id": site_id, "snapshot_id": snapshot_id,
+            "cleaned_up": cleanup}
+
+
+def _cleanup_probe(client, snapshot_id: str) -> object:
+    """Remove the probe rows. findings cascade from scan_snapshots, but delete
+    them explicitly in case the FK was created without ON DELETE CASCADE."""
+    try:
+        client.table("findings").delete().eq("snapshot_id", snapshot_id).execute()
+        client.table("scan_snapshots").delete().eq("id", snapshot_id).execute()
+        return True
+    except Exception as e:
+        return describe_exception(e)
+
+
+async def snapshot_write_probe(site_url: str, user_email: str) -> dict:
+    import asyncio
+    return await asyncio.to_thread(_snapshot_write_probe_sync, site_url, user_email)
 
 
 def _delete_site_sync(site_id: str):

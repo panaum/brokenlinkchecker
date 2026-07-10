@@ -62,8 +62,68 @@ from diffing import (
     utcnow_iso,
 )
 from sitemap import discover_site_urls
+from database import get_monitored_sites, set_monitoring, get_site
+import monitoring
+from monitoring import MonitorScheduler, run_monitored_scan, monitoring_status, weekly_digest
+from models import RawLink
+from checker import check_single
+from contextlib import asynccontextmanager
 
-app = FastAPI(title="Broken Link Checker API")
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Monitoring wiring. The scheduler holds no scan logic; it calls these adapters,
+# each of which is the existing pipeline, not a reimplementation of it.
+# ─────────────────────────────────────────────────────────────────────────────
+async def _recheck_link(url: str) -> str:
+    """One fresh check of a single link, for flap protection. Returns a bucket.
+
+    Reuses checker.check_single — the same code path the scan uses per link — so
+    a recheck agrees with the scan by construction.
+    """
+    link = RawLink(url=url, source_element="a", anchor_text="", category="Other",
+                   is_external=True, zones=["Other"], link_kind="http")
+    async with httpx.AsyncClient(follow_redirects=True, timeout=20) as client:
+        result = await check_single(client, link)
+    return getattr(result, "bucket", None) or "unverifiable"
+
+
+async def _notify_change(site: dict, outcome, alert: dict) -> None:
+    """Change-only alert. Reuses the existing Slack sender; the diff summary it
+    already builds names what changed."""
+    await send_slack_notification(
+        site.get("url"), outcome.health_score, outcome.results,
+        diff_summary=outcome.diff_payload.get("summary", ""),
+    )
+
+
+async def _run_site(site: dict) -> dict:
+    return await run_monitored_scan(
+        site, run_scan=run_scan_once, get_last_snapshot=get_latest_snapshot,
+        recheck_link=_recheck_link, notify=_notify_change,
+    )
+
+
+_scheduler = MonitorScheduler(run_site=_run_site)
+
+
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Start the in-process scheduler inside the always-on Railway service.
+    try:
+        sites = await get_monitored_sites()
+        loaded = _scheduler.start(sites)
+        print(f"[Monitor] scheduler started with {loaded} monitored site(s)")
+    except Exception as e:
+        # Monitoring failing to start must never take the API down.
+        print(f"[Monitor] scheduler did not start: {e}")
+    yield
+    try:
+        _scheduler.shutdown()
+    except Exception:
+        pass
+
+
+app = FastAPI(title="Broken Link Checker API", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
@@ -533,115 +593,191 @@ def calculate_business_impact(
         }
 
 
+# ─────────────────────────────────────────────────────────────────────────────
+# The scan pipeline, once, with two consumers.
+#
+# It used to live inside the /scan SSE generator, so the only way to run a scan
+# was to stream it to a browser. Monitoring needs the same pipeline server-side:
+# same scrape, same checker, same form audit, same diff, same snapshot. Forking
+# it would mean two definitions of "a scan" drifting apart.
+#
+# So it yields events instead of SSE frames. /scan encodes them; the monitor
+# drains them and keeps the outcome. Identical bytes on the wire either way.
+#
+# `notify` exists because the two consumers alert differently: an interactive
+# scan always posts to Slack, monitoring posts only when something changed.
+# ─────────────────────────────────────────────────────────────────────────────
+class ScanOutcome:
+    """Everything a caller could want from one scan, already computed."""
+
+    def __init__(self, url, results, health_score, diff, diff_payload,
+                 site_id, baseline_status, detected_builders, payload):
+        self.url = url
+        self.results = results
+        self.health_score = health_score
+        self.diff = diff                      # ScanDiff — FindingRecords, with buckets
+        self.diff_payload = diff_payload      # the JSON-safe summary
+        self.site_id = site_id
+        self.baseline_status = baseline_status
+        self.detected_builders = detected_builders
+        self.payload = payload                # exactly what /scan streams
+
+
+def _progress(message: str, percent: int) -> tuple:
+    return ("progress", {"type": "progress", "message": message, "percent": percent})
+
+
+async def scan_events(url: str, email: str = "anonymous", notify: bool = True):
+    """Yields ("progress", dict) … then ("result", ScanOutcome) or ("error", dict)."""
+    try:
+        yield _progress("Launching headless browser...", 5)
+        await asyncio.sleep(0.1)
+
+        links, detected_builders, signals = await scrape_links(url)
+        yield _progress(f"Found {len(links)} links. Checking each one...", 30)
+        await asyncio.sleep(0.1)
+
+        results = []
+        total = len(links)
+
+        if total == 0:
+            empty_diff = {
+                "has_baseline": False,
+                "baseline_status": BASELINE_FIRST_SCAN,
+                "summary": summarize_diff(diff_findings(None, [])),
+                "new": 0, "fixed": 0, "recurring": 0,
+                "new_links": None, "removed_links": None, "fixed_findings": [],
+            }
+            payload = {"type": "result", "data": [], "health_score": 100,
+                       "detected_builders": detected_builders,
+                       "diff": empty_diff, **_breakdowns([], url)}
+            yield ("result", ScanOutcome(
+                url=url, results=[], health_score=100,
+                diff=diff_findings(None, []), diff_payload=empty_diff,
+                site_id=None, baseline_status=BASELINE_FIRST_SCAN,
+                detected_builders=detected_builders, payload=payload))
+            return
+
+        async for i, result in check_all_links(links):
+            results.append(result)
+            pct = 30 + int((i / total) * 55)
+            yield _progress(f"Checked {i}/{total} links...", pct)
+
+        # A broken form is invisible: the page looks fine and the lead
+        # vanishes. Audited passively — nothing is ever submitted — and fed
+        # into the same results list, so it diffs and scores like any other
+        # finding.
+        results.extend(audit_forms(signals.get("forms"), results, signals, url))
+
+        # Explain dead CTAs with what actually failed on the page. Only ever
+        # appends to `reason` — never changes bucket or confidence.
+        enrich_reasons(results, signals)
+
+        # Run suggestion engine
+        actionable_count = sum(1 for r in results if r.label in ["broken", "dead_cta", "blocked"])
+        if actionable_count > 0:
+            yield _progress(f"Analyzing {actionable_count} links for suggestions...", 90)
+            await asyncio.sleep(0.1)
+            results = await process_suggestions(results)
+
+        # Calculate business impact for actionable links
+        for r in results:
+            if r.label in ["broken", "dead_cta", "error"]:
+                r.impact = calculate_business_impact(
+                    label=r.label,
+                    category=r.category,
+                    days_broken=0,
+                )
+
+        # Calculate health score
+        health_score = _calculate_health_score(results)
+
+        # Diff against the previous snapshot. Runs before save_scan so it
+        # reads the *previous* baseline, and annotates each flagged result
+        # with fingerprint / diff_status / age_days.
+        (diff, link_counts, now, site_id, current_findings, current_fps,
+         baseline_status) = await _run_diff(url, email, results, lambda r: url)
+
+        # Save to Supabase (non-blocking — never fail the scan)
+        saved = {}
+        effective_site_id = site_id
+        try:
+            saved = await save_scan(
+                site_url=url,
+                user_email=email,
+                results=results,
+                health_score=health_score,
+            ) or {}
+        except Exception as db_err:
+            print(f"[DB] Save failed (non-critical): {db_err}")
+
+        try:
+            effective_site_id = await _resolve_site_id(saved, site_id, url, email)
+            await _persist_snapshot(
+                effective_site_id, saved.get("scan_id"),
+                diff, link_counts, current_findings, current_fps, health_score,
+                redirect_rules=collapse_rules(results, url),
+                saved=saved,
+                detected_builders=detected_builders,
+            )
+        except Exception as db_err:
+            # The scan still succeeds, but the next one will have no baseline.
+            print(f"[DB] Snapshot save failed: {describe_exception(db_err)}")
+            baseline_status = BASELINE_UNAVAILABLE
+
+        diff_payload = _diff_payload(diff, link_counts, now, baseline_status)
+
+        # An interactive scan always reports. Monitoring alerts only on change,
+        # so it drives notification itself: see monitoring.run_monitored_scan.
+        if notify:
+            await send_slack_notification(
+                url, health_score, results, diff_summary=diff_payload["summary"]
+            )
+
+        # "14 unique links across 47 placements" — the same URL linked from
+        # nav and footer is fetched once but counted in both places.
+        total_placements = sum(getattr(r, "occurrences", 1) or 1 for r in results)
+
+        payload = {"type": "result", "data": [r.dict() for r in results],
+                   "health_score": health_score,
+                   "detected_builders": detected_builders,
+                   "total_links": len(results),
+                   "total_placements": total_placements,
+                   "diff": diff_payload, "site_id": effective_site_id,
+                   **_breakdowns(results, url)}
+        yield ("result", ScanOutcome(
+            url=url, results=results, health_score=health_score, diff=diff,
+            diff_payload=diff_payload, site_id=effective_site_id,
+            baseline_status=baseline_status,
+            detected_builders=detected_builders, payload=payload))
+
+    except Exception as e:
+        yield ("error", {"type": "error", "message": str(e)})
+
+
+async def run_scan_once(url: str, email: str = "anonymous") -> ScanOutcome:
+    """The same pipeline, drained server-side. No SSE, no browser streaming.
+
+    Monitoring calls this. It raises what the scan raised, rather than encoding
+    the failure into an event nobody reads.
+    """
+    async for kind, event in scan_events(url, email, notify=False):
+        if kind == "result":
+            return event
+        if kind == "error":
+            raise RuntimeError(event.get("message") or "scan failed")
+    raise RuntimeError("scan produced no result")
+
+
 @app.get("/scan")
 async def scan(
     url: str = Query(..., description="URL to scan"),
     email: str = Query(default="anonymous", description="User email for monitoring"),
 ):
     async def event_stream():
-        try:
-            yield f"data: {json.dumps({'type': 'progress', 'message': 'Launching headless browser...', 'percent': 5})}\n\n"
-            await asyncio.sleep(0.1)
-
-            links, detected_builders, signals = await scrape_links(url)
-            yield f"data: {json.dumps({'type': 'progress', 'message': f'Found {len(links)} links. Checking each one...', 'percent': 30})}\n\n"
-            await asyncio.sleep(0.1)
-
-            results = []
-            total = len(links)
-
-            if total == 0:
-                empty_diff = {
-                    "has_baseline": False,
-                    "baseline_status": BASELINE_FIRST_SCAN,
-                    "summary": summarize_diff(diff_findings(None, [])),
-                    "new": 0, "fixed": 0, "recurring": 0,
-                    "new_links": None, "removed_links": None, "fixed_findings": [],
-                }
-                yield f"data: {json.dumps({'type': 'result', 'data': [], 'health_score': 100, 'detected_builders': detected_builders, 'diff': empty_diff, **_breakdowns([], url)})}\n\n"
-                return
-
-            async for i, result in check_all_links(links):
-                results.append(result)
-                pct = 30 + int((i / total) * 55)
-                yield f"data: {json.dumps({'type': 'progress', 'message': f'Checked {i}/{total} links...', 'percent': pct})}\n\n"
-
-            # A broken form is invisible: the page looks fine and the lead
-            # vanishes. Audited passively — nothing is ever submitted — and fed
-            # into the same results list, so it diffs and scores like any other
-            # finding.
-            results.extend(audit_forms(signals.get("forms"), results, signals, url))
-
-            # Explain dead CTAs with what actually failed on the page. Only ever
-            # appends to `reason` — never changes bucket or confidence.
-            enrich_reasons(results, signals)
-
-            # Run suggestion engine
-            actionable_count = sum(1 for r in results if r.label in ["broken", "dead_cta", "blocked"])
-            if actionable_count > 0:
-                yield f"data: {json.dumps({'type': 'progress', 'message': f'Analyzing {actionable_count} links for suggestions...', 'percent': 90})}\n\n"
-                await asyncio.sleep(0.1)
-                results = await process_suggestions(results)
-
-            # Calculate business impact for actionable links
-            for r in results:
-                if r.label in ["broken", "dead_cta", "error"]:
-                    r.impact = calculate_business_impact(
-                        label=r.label,
-                        category=r.category,
-                        days_broken=0,
-                    )
-
-            # Calculate health score
-            health_score = _calculate_health_score(results)
-
-            # Diff against the previous snapshot. Runs before save_scan so it
-            # reads the *previous* baseline, and annotates each flagged result
-            # with fingerprint / diff_status / age_days.
-            (diff, link_counts, now, site_id, current_findings, current_fps,
-             baseline_status) = await _run_diff(url, email, results, lambda r: url)
-
-            # Save to Supabase (non-blocking — never fail the scan)
-            saved = {}
-            effective_site_id = site_id
-            try:
-                saved = await save_scan(
-                    site_url=url,
-                    user_email=email,
-                    results=results,
-                    health_score=health_score,
-                ) or {}
-            except Exception as db_err:
-                print(f"[DB] Save failed (non-critical): {db_err}")
-
-            try:
-                effective_site_id = await _resolve_site_id(saved, site_id, url, email)
-                await _persist_snapshot(
-                    effective_site_id, saved.get("scan_id"),
-                    diff, link_counts, current_findings, current_fps, health_score,
-                    redirect_rules=collapse_rules(results, url),
-                    saved=saved,
-                    detected_builders=detected_builders,
-                )
-            except Exception as db_err:
-                # The scan still succeeds, but the next one will have no baseline.
-                print(f"[DB] Snapshot save failed: {describe_exception(db_err)}")
-                baseline_status = BASELINE_UNAVAILABLE
-
-            diff_payload = _diff_payload(diff, link_counts, now, baseline_status)
-
-            await send_slack_notification(
-                url, health_score, results, diff_summary=diff_payload["summary"]
-            )
-
-            # "14 unique links across 47 placements" — the same URL linked from
-            # nav and footer is fetched once but counted in both places.
-            total_placements = sum(getattr(r, "occurrences", 1) or 1 for r in results)
-
-            yield f"data: {json.dumps({'type': 'result', 'data': [r.dict() for r in results], 'health_score': health_score, 'detected_builders': detected_builders, 'total_links': len(results), 'total_placements': total_placements, 'diff': diff_payload, 'site_id': effective_site_id, **_breakdowns(results, url)})}\n\n"
-
-        except Exception as e:
-            yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
+        async for kind, event in scan_events(url, email):
+            frame = event.payload if kind == "result" else event
+            yield f"data: {json.dumps(frame)}\n\n"
 
     return StreamingResponse(event_stream(), media_type="text/event-stream")
 
@@ -1194,6 +1330,47 @@ async def delete_site_endpoint(site_id: str):
         from database import delete_site
         await delete_site(site_id)
         return {"status": "success"}
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+
+# ─── monitoring endpoints ────────────────────────────────────────────────────
+@app.post("/api/sites/{site_id}/monitoring")
+async def set_site_monitoring(site_id: str, enabled: bool = Query(...),
+                              freq: str = Query(default="")):
+    """Turn monitoring on/off for a site and (re)schedule it live.
+
+    The scheduler is updated in the same request, so a toggle takes effect
+    without waiting for a restart.
+    """
+    try:
+        await set_monitoring(site_id, enabled, freq or None)
+        site = await get_site(site_id)
+        if not site:
+            return JSONResponse({"error": "site not found"}, status_code=404)
+        if enabled:
+            _scheduler.schedule_site(site)
+            if _scheduler._scheduler and not _scheduler._scheduler.running:
+                _scheduler.start()
+        else:
+            _scheduler.unschedule_site(site_id)
+        return {"status": "ok", "monitoring_enabled": enabled,
+                "freq": site.get("freq")}
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+
+@app.get("/api/sites/{site_id}/monitoring")
+async def site_monitoring_status(site_id: str):
+    """The uptime record: last checked, current health, healthy streak, events."""
+    try:
+        snapshots = await get_recent_snapshots(site_id, limit=60)
+        status = monitoring_status(snapshots)
+        status["digest"] = weekly_digest(snapshots)
+        site = await get_site(site_id)
+        status["freq"] = (site or {}).get("freq") or monitoring.DEFAULT_CADENCE
+        status["monitoring_enabled"] = bool((site or {}).get("monitoring_enabled"))
+        return status
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=500)
 

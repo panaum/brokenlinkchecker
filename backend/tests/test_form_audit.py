@@ -125,6 +125,11 @@ def _server_error(url):
     return {"url": url, "bucket": "broken", "status_code": 500}
 
 
+def _opts(url, status):
+    """An OPTIONS reply for a form action, as classify_form receives it."""
+    return {"action_options": {url: status}}
+
+
 def _dead_host(url):
     return {"url": url, "bucket": "broken", "status_code": None}
 
@@ -141,13 +146,24 @@ def test_form_with_no_action_and_no_handler_is_a_dead_cta():
     assert "submits nowhere" in verdict["reason"]
 
 
-def test_form_posting_to_a_404_is_a_dead_cta():
+def test_form_posting_to_a_gone_endpoint_is_a_dead_cta():
+    """410 is the server saying it, in the one status with no second reading."""
     verdict = _verdict(BROKEN_ACTION,
-                       results=[_broken("https://acme.test/handlers/gone")],
+                       results=[_broken("https://acme.test/handlers/gone", 410)],
                        visible=True)
     assert verdict["bucket"] == "dead_cta"
-    assert "returns 404" in verdict["reason"]
+    assert "permanently gone" in verdict["reason"]
     assert "submissions may be lost" in verdict["reason"]
+
+
+def test_a_404_is_never_a_dead_cta_however_it_is_corroborated():
+    """A router that matches on method 404s every method it does not register,
+    while POST works. Indistinguishable from a deleted handler without POSTing."""
+    for options_status in (404, 410, None, 500):
+        verdict = _verdict(BROKEN_ACTION, visible=True,
+                           results=[_broken("https://acme.test/handlers/gone")],
+                           signals=_opts("https://acme.test/handlers/gone", options_status))
+        assert verdict is None or verdict["bucket"] == "unverifiable", options_status
 
 
 def test_form_without_a_submit_control_is_a_dead_cta():
@@ -181,7 +197,8 @@ def test_a_form_rendered_at_zero_size_is_unverifiable():
 
 
 def test_a_css_hidden_form_with_a_dead_endpoint_is_still_a_dead_cta():
-    verdict = _verdict(HIDDEN, results=[_broken("https://acme.test/subscribe", 404)])
+    """A closed modal is still audited: a 410 endpoint is a lost lead either way."""
+    verdict = _verdict(HIDDEN, results=[_broken("https://acme.test/subscribe", 410)])
     assert verdict["bucket"] == "dead_cta"
 
 
@@ -216,10 +233,9 @@ def test_a_500_on_a_post_only_endpoint_is_never_called_broken():
     assert "submissions may be lost" not in verdict["reason"]
 
 
-@pytest.mark.parametrize("status", [404, 410])
-def test_only_a_gone_status_proves_the_form_posts_nowhere(status):
+def test_only_410_proves_the_form_posts_nowhere():
     verdict = _verdict(BROKEN_ACTION,
-                       results=[_broken("https://acme.test/handlers/gone", status)],
+                       results=[_broken("https://acme.test/handlers/gone", 410)],
                        visible=True)
     assert verdict["bucket"] == "dead_cta"
 
@@ -229,15 +245,20 @@ def test_a_dead_host_proves_the_form_posts_nowhere():
                        results=[_dead_host("https://acme.test/handlers/gone")],
                        visible=True)
     assert verdict["bucket"] == "dead_cta"
-    assert "no longer exists" in verdict["reason"]
+    assert "server that does not exist" in verdict["reason"]
 
 
 def test_action_verdict_table():
     from form_audit import ACTION_FINE, ACTION_GONE, ACTION_UNCERTAIN, action_verdict
-    assert action_verdict({"status_code": 404, "bucket": "broken"}) == ACTION_GONE
+    four_oh_four = {"status_code": 404, "bucket": "broken"}
+    assert action_verdict(four_oh_four, options_status=405) == ACTION_FINE
+    assert action_verdict(four_oh_four, options_status=404) == ACTION_UNCERTAIN
+    assert action_verdict(four_oh_four) == ACTION_UNCERTAIN
+    assert action_verdict({"status_code": 410, "bucket": "broken"}) == ACTION_GONE
     assert action_verdict({"status_code": 405, "bucket": "unverifiable"}) == ACTION_FINE
     assert action_verdict({"status_code": 200, "bucket": "ok"}) == ACTION_FINE
     assert action_verdict({"status_code": 500, "bucket": "broken"}) == ACTION_UNCERTAIN
+    assert action_verdict({"status_code": None, "bucket": "broken"}) == ACTION_GONE
     assert action_verdict(None) == ACTION_UNCERTAIN
 
 
@@ -263,8 +284,8 @@ def test_a_delegated_page_never_calls_an_action_less_form_dead():
 
 
 def test_a_broken_endpoint_beats_hidden():
-    """Visibility is uncertain; a 404 endpoint is not. The endpoint wins."""
-    verdict = _verdict(HIDDEN, results=[_broken("https://acme.test/subscribe", 404)])
+    """Visibility is uncertain; a 410 endpoint is not. The endpoint wins."""
+    verdict = _verdict(HIDDEN, results=[_broken("https://acme.test/subscribe", 410)])
     assert verdict["bucket"] == "dead_cta"
 
 
@@ -392,7 +413,7 @@ def test_finding_identity_is_stable_across_scans():
 
 def test_reason_is_business_language_not_jargon():
     verdict = _verdict(BROKEN_ACTION,
-                       results=[_broken("https://acme.test/handlers/gone")],
+                       results=[_broken("https://acme.test/handlers/gone", 410)],
                        visible=True)
     reason = verdict["reason"].lower()
     assert "submissions may be lost" in reason
@@ -651,7 +672,7 @@ def test_a_form_with_an_http_action_is_not_listed_twice():
 def test_a_broken_form_still_reports_the_defect_not_a_healthy_row():
     html = ('<form action="https://forms.test/gone">'
             '<input type="email" name="e" required><button type="submit">Go</button></form>')
-    checked = [{"url": "https://forms.test/gone", "status_code": 404, "bucket": "broken",
+    checked = [{"url": "https://forms.test/gone", "status_code": 410, "bucket": "broken",
                 "resource_type": "form_action"}]
     rows = _rows(html, results=checked)
     assert [r.bucket for r in rows] == ["dead_cta"]
@@ -973,3 +994,280 @@ def test_the_assets_a_modal_needs_still_load(url):
 
 def test_analytics_matching_is_case_insensitive():
     assert scraper._is_analytics("https://WWW.Google-Analytics.COM/collect")
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# A 404 on a GET does not prove a POST-only endpoint is gone.
+#
+# fautons.com: the sign-in modal POSTs to /api/auth/request. A GET returns 404
+# (Next.js serving its HTML 404 page for an unsupported method); OPTIONS returns
+# 405. The route is alive and the magic-link sign-in works. We told the client it
+# was broken, in the report's loudest bucket.
+#
+# OPTIONS is idempotent, carries no body, and by RFC 9110 has no side effects.
+# The browser sends one before every cross-origin POST. It is not a submission.
+# ─────────────────────────────────────────────────────────────────────────────
+_FAUTONS = "https://fautons.com/api/auth/request"
+
+LOGIN_MODAL = """
+<form action="/api/auth/request" method="post" style="display:none"
+      aria-label="Email me a sign-in link">
+  <input type="email" name="email" required>
+  <button type="submit">Email me a sign-in link</button>
+</form>
+"""
+
+
+@pytest.mark.parametrize("options_status", [200, 204, 400, 401, 403, 405, 501])
+def test_a_404_with_a_live_options_route_is_not_a_dead_form(options_status):
+    """A route that does not exist cannot answer "method not allowed"."""
+    verdict = _verdict(LOGIN_MODAL,
+                       results=[_broken("https://acme.test/api/auth/request")],
+                       signals=_opts("https://acme.test/api/auth/request", options_status))
+    assert verdict is None, options_status
+
+
+def test_a_404_nobody_could_corroborate_is_unverifiable_never_broken():
+    """OPTIONS timed out or was refused. We do not know, so we do not accuse."""
+    verdict = _verdict(BROKEN_ACTION, visible=True,
+                       results=[_broken("https://acme.test/handlers/gone")],
+                       signals=_opts("https://acme.test/handlers/gone", None))
+    assert verdict["bucket"] == "unverifiable"
+    assert "submissions may be lost" not in verdict["reason"]
+
+
+def test_a_hidden_modal_with_an_uncorroborated_404_says_nothing_at_all():
+    """A closed login modal plus a 404 we could not confirm is two unknowns."""
+    assert _verdict(LOGIN_MODAL,
+                    results=[_broken("https://acme.test/api/auth/request")],
+                    signals=_opts("https://acme.test/api/auth/request", None)) is None
+
+
+def test_a_404_that_options_also_404s_is_still_not_proof():
+    """A method-matching router 404s everything it does not register. POST may
+    work. Two negative answers about other methods are still not evidence."""
+    verdict = _verdict(BROKEN_ACTION, visible=True,
+                       results=[_broken("https://acme.test/handlers/gone")],
+                       signals=_opts("https://acme.test/handlers/gone", 404))
+    assert verdict["bucket"] == "unverifiable"
+    assert "submissions may be lost" not in verdict["reason"]
+
+
+def test_a_410_needs_no_corroboration():
+    """Gone means gone. It is the one status with no second reading."""
+    verdict = _verdict(LOGIN_MODAL,
+                       results=[_broken("https://acme.test/api/auth/request", 410)])
+    assert verdict["bucket"] == "dead_cta"
+
+
+def test_the_form_action_row_is_relabelled_working_not_broken():
+    """The row the client actually saw: bucket=broken, reason "an asset fails to
+    load" — for their login endpoint."""
+    row = _Row(status_code=404, bucket="broken", label="broken",
+               error="Broken other", url=_FAUTONS,
+               reason="Broken other - an asset fails to load")
+    assert form_audit.relabel_form_actions([row], {_FAUTONS: 405}) == 1
+    assert row.bucket == "ok" and row.label == "ok" and row.priority is None
+    assert "OPTIONS answers 405" in row.reason
+    assert "asset fails to load" not in row.reason
+
+
+def test_an_uncorroborated_404_row_is_demoted_out_of_broken():
+    """It may not stay red. A GET says nothing about POST."""
+    row = _Row(status_code=404, bucket="broken", label="broken", url=_FAUTONS)
+    assert form_audit.relabel_form_actions([row], {_FAUTONS: None}) == 1
+    assert row.bucket == "unverifiable" and row.label == "blocked"
+    assert "says nothing about whether it accepts submissions" in row.reason
+
+
+# ─── the probe itself ────────────────────────────────────────────────────────
+def test_the_probe_asks_with_options_and_never_posts():
+    seen = []
+
+    def handler(request):
+        seen.append(request.method)
+        return httpx.Response(405)
+
+    async def run():
+        transport = httpx.MockTransport(handler)
+        async with httpx.AsyncClient(transport=transport) as client:
+            rows = [{"url": _FAUTONS, "status_code": 404,
+                     "resource_type": "form_action"}]
+            return await form_audit.probe_action_methods(rows, client=client)
+
+    statuses = asyncio.run(run())
+    assert seen == ["OPTIONS"]
+    assert "POST" not in seen and "GET" not in seen
+    assert statuses == {_FAUTONS: 405}
+
+
+def test_the_probe_only_asks_about_form_actions_that_404():
+    seen = []
+
+    def handler(request):
+        seen.append(str(request.url))
+        return httpx.Response(405)
+
+    async def run():
+        transport = httpx.MockTransport(handler)
+        async with httpx.AsyncClient(transport=transport) as client:
+            rows = [
+                {"url": "https://a.test/ok", "status_code": 200, "resource_type": "form_action"},
+                {"url": "https://a.test/405", "status_code": 405, "resource_type": "form_action"},
+                {"url": "https://a.test/anchor", "status_code": 404, "resource_type": "anchor"},
+                {"url": "https://a.test/form404", "status_code": 404, "resource_type": "form_action"},
+            ]
+            return await form_audit.probe_action_methods(rows, client=client)
+
+    statuses = asyncio.run(run())
+    assert seen == ["https://a.test/form404"]
+    assert statuses == {"https://a.test/form404": 405}
+
+
+def test_a_probe_that_cannot_reach_the_host_records_none_not_a_verdict():
+    def handler(request):
+        raise httpx.ConnectError("refused")
+
+    async def run():
+        transport = httpx.MockTransport(handler)
+        async with httpx.AsyncClient(transport=transport) as client:
+            rows = [{"url": _FAUTONS, "status_code": 404, "resource_type": "form_action"}]
+            return await form_audit.probe_action_methods(rows, client=client)
+
+    assert asyncio.run(run()) == {_FAUTONS: None}
+
+
+def test_the_probe_makes_no_request_when_nothing_404ed():
+    seen = []
+
+    async def run():
+        transport = httpx.MockTransport(lambda r: seen.append(1) or httpx.Response(200))
+        async with httpx.AsyncClient(transport=transport) as client:
+            rows = [{"url": "https://a.test/x", "status_code": 200,
+                     "resource_type": "form_action"}]
+            return await form_audit.probe_action_methods(rows, client=client)
+
+    assert asyncio.run(run()) == {} and seen == []
+
+
+# ═════════════════════════════════════════════════════════════════════════════
+# THE PROPERTY TEST.
+#
+# Three times a form endpoint was called broken because a GET came back with a
+# status I had not thought about: 405, then 500, then 404. Each was fixed by
+# special-casing that one code, which is why there was a next one. The set of
+# statuses meaning "alive, but not for GET" depends on the framework and cannot
+# be listed from memory.
+#
+# So instead of enumerating what is safe, enumerate what is PROOF. Two things
+# are: the host does not resolve, and 410 Gone. This sweeps every status in
+# 100–599 against every OPTIONS answer and every bucket the checker can assign,
+# and asserts nothing else ever reaches a red bucket.
+#
+# A future edit that adds a status to the "provably gone" set fails here.
+# That is the point.
+# ═════════════════════════════════════════════════════════════════════════════
+_ALL_STATUSES = list(range(100, 600))
+_ALL_OPTIONS = [None, 200, 204, 400, 401, 403, 404, 405, 410, 500, 503]
+_ALL_BUCKETS = ["ok", "broken", "unverifiable", "dead_cta"]
+
+
+def test_no_status_code_can_prove_a_form_is_broken_except_410():
+    from form_audit import ACTION_GONE, action_verdict
+    offenders = []
+    for status in _ALL_STATUSES:
+        for bucket in _ALL_BUCKETS:
+            for options in _ALL_OPTIONS:
+                verdict = action_verdict(
+                    {"status_code": status, "bucket": bucket}, options)
+                if verdict == ACTION_GONE and status != 410:
+                    offenders.append((status, bucket, options))
+    assert not offenders, (
+        f"{len(offenders)} status/bucket/OPTIONS combinations claim a form is "
+        f"gone on GET evidence alone, e.g. {offenders[:5]}"
+    )
+
+
+def test_a_dead_host_is_the_only_other_proof():
+    from form_audit import ACTION_GONE, action_verdict
+    assert action_verdict({"status_code": None, "bucket": "broken"}) == ACTION_GONE
+
+
+def test_no_form_finding_reaches_a_red_bucket_on_get_evidence_alone():
+    """The same sweep, one level up: through classify_form, not action_verdict."""
+    red = {"broken", "dead_cta"}
+    offenders = []
+    for status in _ALL_STATUSES:
+        if status == 410:
+            continue
+        for options in _ALL_OPTIONS:
+            verdict = _verdict(
+                BROKEN_ACTION, visible=True,
+                results=[{"url": "https://acme.test/handlers/gone",
+                          "bucket": "broken", "status_code": status}],
+                signals=_opts("https://acme.test/handlers/gone", options))
+            if verdict and verdict["bucket"] in red:
+                offenders.append((status, options, verdict["bucket"]))
+    assert not offenders, f"red verdict on GET evidence: {offenders[:5]}"
+
+
+def test_no_form_action_row_stays_red_on_get_evidence_alone():
+    """And one level up again: the row the client actually reads."""
+    offenders = []
+    for status in _ALL_STATUSES:
+        if status == 410:
+            continue
+        for options in _ALL_OPTIONS:
+            row = _Row(status_code=status, bucket="broken", label="broken",
+                       url="https://acme.test/handler")
+            form_audit.relabel_form_actions([row], {"https://acme.test/handler": options})
+            if row.bucket in {"broken", "dead_cta"}:
+                offenders.append((status, options, row.bucket))
+    assert not offenders, f"red row on GET evidence: {offenders[:5]}"
+
+
+def test_the_real_defects_survive_the_sweep():
+    """The rule above must not silence what we CAN prove."""
+    # 410: the server says gone.
+    assert _verdict(BROKEN_ACTION, visible=True,
+                    results=[_broken("https://acme.test/handlers/gone", 410)]
+                    )["bucket"] == "dead_cta"
+    # No host at all.
+    assert _verdict(BROKEN_ACTION, visible=True,
+                    results=[_dead_host("https://acme.test/handlers/gone")]
+                    )["bucket"] == "dead_cta"
+    # Defects that need no endpoint at all still fire.
+    assert _verdict(NO_SUBMIT, results=[_ok("https://acme.test/subscribe")],
+                    visible=True)["bucket"] == "dead_cta"
+    assert _verdict(NO_ACTION, visible=True)["bucket"] == "dead_cta"
+    assert _verdict(REQUIRED_WITHOUT_NAME, results=[_ok("https://acme.test/subscribe")],
+                    visible=True)["bucket"] == "broken"
+
+
+# ─── hidden, in every sense of the word ──────────────────────────────────────
+def test_every_kind_of_hidden_form_is_still_collected():
+    """Verified in a real browser: display:none, visibility:hidden, opacity:0,
+    zero-size, off-screen and overlay-covered forms are all FOUND. What changes
+    is only what we say about them."""
+    assert "querySelectorAll('form')" in scraper._COLLECT_FORMS_JS
+    # Nothing filters on visibility before collection.
+    collect = scraper._COLLECT_FORMS_JS
+    assert "hiddenReason" in collect and "return forms.map" not in collect.split("hiddenReason")[0]
+
+
+def test_forms_are_collected_from_every_frame():
+    """HubSpot, Typeform and Jotform render their form inside an iframe."""
+    import inspect
+    source = inspect.getsource(scraper._collect_all_forms)
+    assert "page.frames" in source
+    assert "main_frame" in source
+
+
+def test_a_hidden_form_with_a_gone_endpoint_is_still_reported():
+    """Being closed does not make a lost lead less lost."""
+    assert _verdict(HIDDEN, results=[_broken("https://acme.test/subscribe", 410)]
+                    )["bucket"] == "dead_cta"
+
+
+def test_a_hidden_form_with_a_healthy_endpoint_stays_quiet():
+    assert _verdict(HIDDEN, results=[_ok("https://acme.test/subscribe")]) is None

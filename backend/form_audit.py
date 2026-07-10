@@ -67,35 +67,132 @@ def _get(obj, field, default=None):
 # on a GET would be reported as "submissions may be lost" — claiming a working
 # form is dead. Only a status that proves the destination is GONE may do that.
 # ─────────────────────────────────────────────────────────────────────────────
-_PROVABLY_GONE = frozenset({404, 410})
+# ─── THE RULE THAT KEPT BEING BROKEN ─────────────────────────────────────────
+#
+# The form POSTs. We ask with GET. The endpoint answers about GET. Any claim we
+# then make about POST is an inference, not an observation.
+#
+# That single mistake shipped three times, each time as a different status code,
+# each time fixed by special-casing that one code — which guarantees a fourth:
+#
+#   405  every real endpoint returns it (EmailOctopus, HubSpot, Formspree)
+#   500  a POST-only endpoint may 500 on a GET
+#   404  Next.js/Django/Rails serve their 404 page for the wrong method
+#        (fautons.com/api/auth/request: GET 404, OPTIONS 405, POST signs you in)
+#
+# The list of statuses that mean "alive, but not for GET" cannot be enumerated:
+# it depends on the framework. So the rule is inverted. Two things prove a form
+# posts nowhere, and nothing else does:
+#
+#   1. the host does not resolve            — there is no server
+#   2. 410 Gone                             — the server says so, unambiguously
+#
+# Everything else is at most `unverifiable`. This is enforced by a property test
+# over every status 100–599: see test_no_status_code_can_prove_a_form_is_broken.
+# If you are about to add a status here, that test will stop you. It is meant to.
+# ─────────────────────────────────────────────────────────────────────────────
+
+# 410 Gone is the server stating it, in the one status that has no other reading.
+_EXPLICITLY_GONE = frozenset({410})
+
+# A 404 is NOT proof, even when OPTIONS agrees. A Cloudflare Worker, or any
+# router matching on method, answers 404 to every method it does not register
+# while POST works fine. Indistinguishable from a deleted handler without
+# POSTing, and we do not POST.
+_AMBIGUOUS_ON_GET = frozenset({404})
 
 # The endpoint answered, and refused a GET. That is exactly what it should do.
 _EXPECTED_FOR_A_POST_ENDPOINT = frozenset({400, 401, 403, 405, 429})
+
+# What an OPTIONS answer says about whether the route is there at all. A route
+# that does not exist cannot answer "method not allowed".
+_ROUTE_IS_THERE = frozenset({200, 201, 204, 400, 401, 403, 405, 501})
 
 ACTION_GONE = "gone"
 ACTION_FINE = "fine"
 ACTION_UNCERTAIN = "uncertain"
 
 
-def action_verdict(checked) -> str:
-    """What the checked action result means for the FORM, not for a link."""
+def action_verdict(checked, options_status=None) -> str:
+    """What the checked action result means for the FORM, not for a link.
+
+    `options_status` is the reply to an OPTIONS probe of the same URL, when one
+    was made. OPTIONS is idempotent and carries no body: it is not a submission.
+    """
     if checked is None:
         return ACTION_UNCERTAIN
 
     status = _get(checked, "status_code")
     bucket = _get(checked, "bucket")
 
-    if status in _PROVABLY_GONE:
+    if status in _EXPLICITLY_GONE:
         return ACTION_GONE
     # No status at all with a broken bucket means DNS failure or a refused
     # connection: the host the form posts to does not exist.
     if status is None and bucket == "broken":
         return ACTION_GONE
+
+    if status in _AMBIGUOUS_ON_GET:
+        if options_status in _ROUTE_IS_THERE:
+            return ACTION_FINE          # the route exists; it just will not GET
+        # A 404 to both GET and OPTIONS still does not prove the POST route is
+        # gone: a Cloudflare Worker, or any router that matches on method,
+        # answers 404 to every method it does not register — while POST works.
+        # It is indistinguishable from a deleted handler without POSTing, and we
+        # do not POST. So we say we do not know, because we do not know.
+        return ACTION_UNCERTAIN
+
     if status in _EXPECTED_FOR_A_POST_ENDPOINT:
         return ACTION_FINE
     if bucket == "ok":
         return ACTION_FINE
     return ACTION_UNCERTAIN
+
+
+OPTIONS_TIMEOUT_SECONDS = 8.0
+
+
+async def probe_action_methods(results, client=None) -> dict:
+    """Ask a 404-ing form action whether its route exists, with OPTIONS.
+
+    OPTIONS is idempotent, carries no body, and by RFC 9110 must have no side
+    effects. It is a question, not a submission — the browser itself sends one
+    before every cross-origin POST. WE NEVER POST.
+
+    Returns {action_url: options_status_or_None}. Only URLs that answered a GET
+    with 404 are probed: everywhere else the GET already told us enough.
+
+    Kept out of classify_form and audit_forms on purpose, so those stay pure and
+    provably issue no request at all.
+    """
+    import httpx
+    from checker import _browser_headers
+
+    targets = sorted({
+        _get(r, "url") for r in (results or [])
+        if _get(r, "resource_type") == FORM_ACTION_RESOURCE
+        and _get(r, "status_code") in _AMBIGUOUS_ON_GET
+    })
+    if not targets:
+        return {}
+
+    owned = client is None
+    if owned:
+        client = httpx.AsyncClient(follow_redirects=True,
+                                   timeout=OPTIONS_TIMEOUT_SECONDS)
+    statuses = {}
+    try:
+        for url in targets:
+            try:
+                response = await client.request(
+                    "OPTIONS", url, headers=_browser_headers(url))
+                statuses[url] = response.status_code
+            except Exception:
+                statuses[url] = None      # unreachable: cannot corroborate
+    finally:
+        if owned:
+            await client.aclose()
+    return statuses
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -306,19 +403,22 @@ def classify_form(form, results_by_url: dict, signals: dict = None,
     action_url = _get(form, "action_url") or ""
     action_raw = _get(form, "action_raw")
     checked = results_by_url.get(action_url) if action_url else None
+    options_status = (signals.get("action_options") or {}).get(action_url)
     label = _get(form, "label") or "This form"
 
-    # 1. The destination is provably gone (404/410, or the host does not exist).
-    #    True whether or not the form is on screen. Anything short of proof —
-    #    a 405, a 403, a 500 — is not enough: see action_verdict.
-    verdict = action_verdict(checked)
+    # 1. The destination is provably gone: 410, a host that does not resolve, or
+    #    a 404 that an OPTIONS probe agrees with. Anything short of proof — a
+    #    405, a 403, a 500, a lone 404 — is not enough: see action_verdict.
+    verdict = action_verdict(checked, options_status)
     if verdict == ACTION_GONE:
         status = _get(checked, "status_code")
-        detail = f"returns {status}" if status else "no longer exists"
+        # Only 410, or a host that does not resolve, ever reaches here.
+        detail = ("is marked permanently gone by the server" if status
+                  else "is on a server that does not exist")
         return {
             "bucket": "dead_cta",
             "confidence": "high",
-            "reason": (f"{label} posts to a page that {detail} — "
+            "reason": (f"{label} posts to an address that {detail} — "
                        f"submissions may be lost"),
         }
 
@@ -460,31 +560,67 @@ def _finding_url(form, page_url: str) -> str:
 _PROVES_ENDPOINT_LIVE = frozenset({405})
 
 
-def relabel_form_actions(results) -> int:
-    """Promote form-action rows the checker could only call `blocked`.
+def relabel_form_actions(results, options_statuses: dict = None) -> int:
+    """Promote form-action rows the checker mislabelled.
+
+    The checker sees a URL, not a form. It calls a 405 `blocked` and a 404
+    `broken` with the reason "an asset fails to load" — nonsense for a login
+    endpoint. Here we know it is a form action, and we have an OPTIONS answer.
 
     Mutates in place. Returns how many rows were promoted.
     """
+    options_statuses = options_statuses or {}
     promoted = 0
+    demoted = 0
     for r in results or []:
         if _get(r, "resource_type") != FORM_ACTION_RESOURCE:
             continue
         if _get(r, "bucket") == "ok":
             continue
-        if _get(r, "status_code") not in _PROVES_ENDPOINT_LIVE:
+
+        status = _get(r, "status_code")
+        options_status = options_statuses.get(_get(r, "url"))
+
+        if status in _PROVES_ENDPOINT_LIVE:
+            reason = (
+                "Endpoint is live. It refuses GET with 405, which is exactly what "
+                "a POST-only form endpoint does. We never POST, so we do not test "
+                "the submission itself."
+            )
+        elif status in _AMBIGUOUS_ON_GET and options_status in _ROUTE_IS_THERE:
+            reason = (
+                f"Endpoint is live. A GET returns 404, but OPTIONS answers "
+                f"{options_status} — the route exists and accepts POST. Many "
+                f"frameworks serve their 404 page for the wrong method."
+            )
+        elif _get(r, "bucket") == "broken" and status not in _EXPLICITLY_GONE \
+                and status is not None:
+            # The checker judged a URL. This is a form action: a GET that came
+            # back 4xx/5xx says nothing about whether POST is accepted. Demote —
+            # a form endpoint may never be called broken on GET evidence alone.
+            r.bucket = "unverifiable"
+            r.label = "blocked"
+            r.priority = None
+            r.error = None
+            r.reason = (
+                f"This is a form endpoint. It answered a GET with {status}, which "
+                f"says nothing about whether it accepts submissions. Checking that "
+                f"would mean submitting the form, and we never do. Please check "
+                f"manually."
+            )
+            demoted += 1
             continue
+        else:
+            continue
+
         r.bucket = "ok"
         r.label = "ok"
         # Priority triages flagged items; this one is no longer flagged.
         r.priority = None
         r.error = None
-        r.reason = (
-            "Endpoint is live. It refuses GET with 405, which is exactly what a "
-            "POST-only form endpoint does. We never POST, so we do not test the "
-            "submission itself."
-        )
+        r.reason = reason
         promoted += 1
-    return promoted
+    return promoted + demoted
 
 
 def _is_lead_form(form) -> bool:
@@ -540,7 +676,7 @@ def audit_forms(forms, results, signals: dict = None, page_url: str = "") -> lis
     """
     results_by_url = {_get(r, "url"): r for r in (results or [])}
     delegated = bool((signals or {}).get("delegated"))
-    relabel_form_actions(results)
+    relabel_form_actions(results, (signals or {}).get("action_options"))
     findings = []
 
     for form in forms or []:

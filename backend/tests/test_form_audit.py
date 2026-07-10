@@ -553,3 +553,103 @@ def test_a_real_search_path_still_exempts(action):
             "fields": [{"tag": "input", "type": "text", "name": "term",
                         "placeholder": "", "required": False}]}
     assert _is_search_form(form) is True
+
+
+# ─── healthy forms are visible, not silent ───────────────────────────────────
+# "0 findings" used to mean both "we looked and it is fine" and "we never
+# looked". apexure.com's real contact form has no action attribute and submits
+# via fetch, so it produced no action link and no finding: it was absent from
+# the report entirely.
+_JS_CONTACT_FORM = """
+<form id="contact">
+  <input type="text" name="name" required placeholder="Full name">
+  <input type="email" name="email" required placeholder="Work email">
+  <button type="submit">Send</button>
+</form>
+"""
+
+
+def _rows(html, results=(), signals=None, **overrides):
+    forms = _forms(html, **overrides)
+    return audit_forms(forms, list(results), signals or {}, PAGE)
+
+
+def test_a_healthy_js_form_gets_a_visible_working_row():
+    rows = _rows(_JS_CONTACT_FORM, has_js_submit_listener=True)
+    assert len(rows) == 1
+    assert rows[0].bucket == "ok" and rows[0].label == "ok"
+    assert rows[0].category == "Form"
+
+
+def test_the_healthy_row_admits_it_cannot_see_where_a_js_form_posts():
+    row = _rows(_JS_CONTACT_FORM, has_js_submit_listener=True)[0]
+    assert "never submit" in row.reason
+    assert "cannot be verified" in row.reason
+
+
+def test_a_healthy_row_carries_no_priority_so_it_shows_no_chip():
+    assert _rows(_JS_CONTACT_FORM, has_js_submit_listener=True)[0].priority is None
+
+
+def test_a_healthy_form_is_never_a_diff_finding():
+    """bucket=ok is skipped by diffing.py, so it cannot enter a snapshot."""
+    from diffing import collect_findings
+    rows = _rows(_JS_CONTACT_FORM, has_js_submit_listener=True)
+    assert collect_findings(PAGE, rows) == []
+
+
+def test_a_search_box_gets_no_row_at_all():
+    html = '<form><input type="search" name="q"></form>'
+    assert _rows(html, has_js_submit_listener=True) == []
+
+
+def test_a_form_with_an_http_action_is_not_listed_twice():
+    """Its action is already a checked row; a second row would double-count it."""
+    html = ('<form action="https://forms.test/submit">'
+            '<input type="email" name="e" required><button type="submit">Go</button></form>')
+    assert _rows(html) == []
+
+
+def test_a_broken_form_still_reports_the_defect_not_a_healthy_row():
+    html = ('<form action="https://forms.test/gone">'
+            '<input type="email" name="e" required><button type="submit">Go</button></form>')
+    checked = [{"url": "https://forms.test/gone", "status_code": 404, "bucket": "broken",
+                "resource_type": "form_action"}]
+    rows = _rows(html, results=checked)
+    assert [r.bucket for r in rows] == ["dead_cta"]
+
+
+# ─── a 405 proves the endpoint is live ───────────────────────────────────────
+class _Row:
+    def __init__(self, **kw):
+        self.resource_type = "form_action"
+        self.bucket = "unverifiable"
+        self.label = "blocked"
+        self.priority = "critical"
+        self.status_code = 405
+        self.reason = None
+        self.error = "blocked"
+        self.url = "https://forms.test/submit"
+        self.__dict__.update(kw)
+
+
+def test_a_405_form_action_is_promoted_to_working():
+    rows = [_Row()]
+    assert form_audit.relabel_form_actions(rows) == 1
+    assert rows[0].bucket == "ok" and rows[0].label == "ok"
+    assert rows[0].priority is None and rows[0].error is None
+    assert "405" in rows[0].reason
+
+
+@pytest.mark.parametrize("status", [401, 403, 429, 500, 404])
+def test_only_405_is_promoted(status):
+    """403 is equally the fingerprint of a bot wall. It stays unverifiable."""
+    rows = [_Row(status_code=status)]
+    assert form_audit.relabel_form_actions(rows) == 0
+    assert rows[0].bucket == "unverifiable"
+
+
+def test_ordinary_links_are_never_touched():
+    rows = [_Row(resource_type="anchor")]
+    assert form_audit.relabel_form_actions(rows) == 0
+    assert rows[0].bucket == "unverifiable"

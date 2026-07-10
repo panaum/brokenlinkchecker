@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { DashboardSite } from "@/types";
 import NavBar from "@/components/NavBar";
+import MonitoringPanel from "@/components/MonitoringPanel";
 import Link from "next/link";
 
 // --- Helpers ---
@@ -460,6 +461,9 @@ export default function DashboardPage() {
                       {isScanning ? <Loader2 size={14} className="animate-spin text-white/50" /> : "Scan Now"}
                     </button>
                   </div>
+                </div>
+                <div className="mt-4">
+                  <MonitoringPanel siteId={site.id} />
                 </div>
               </div>
             );

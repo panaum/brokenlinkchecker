@@ -621,3 +621,57 @@ def _delete_site_sync(site_id: str):
 async def delete_site(site_id: str):
     import asyncio
     return await asyncio.to_thread(_delete_site_sync, site_id)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Phase 9 — monitoring
+#
+# Additive only: one nullable column, sites.monitoring_enabled (migrations/002).
+# The status/digest reads need no new storage — scan_snapshots.totals_json
+# already carries health_score / new / fixed / findings with a created_at.
+# ─────────────────────────────────────────────────────────────────────────────
+def _monitored_sites_sync() -> list:
+    client = _get_client()
+    try:
+        resp = client.table("sites")\
+            .select("id, url, user_email, freq, monitoring_enabled")\
+            .eq("monitoring_enabled", True)\
+            .execute()
+        return resp.data or []
+    except Exception as e:
+        # A project that has not run migrations/002 has no such column. Monitoring
+        # is simply off until it does — never a crash on startup.
+        print(f"[Monitor] could not load monitored sites: {e}")
+        return []
+
+
+async def get_monitored_sites() -> list:
+    import asyncio
+    return await asyncio.to_thread(_monitored_sites_sync)
+
+
+def _set_monitoring_sync(site_id: str, enabled: bool, freq: Optional[str]) -> dict:
+    client = _get_client()
+    patch = {"monitoring_enabled": enabled}
+    if freq:
+        patch["freq"] = freq
+    resp = client.table("sites").update(patch).eq("id", site_id).execute()
+    return (resp.data or [{}])[0]
+
+
+async def set_monitoring(site_id: str, enabled: bool, freq: Optional[str] = None) -> dict:
+    import asyncio
+    return await asyncio.to_thread(_set_monitoring_sync, site_id, enabled, freq)
+
+
+def _site_by_id_sync(site_id: str) -> Optional[dict]:
+    client = _get_client()
+    resp = client.table("sites")\
+        .select("id, url, user_email, freq, monitoring_enabled")\
+        .eq("id", site_id).limit(1).execute()
+    return resp.data[0] if resp.data else None
+
+
+async def get_site(site_id: str) -> Optional[dict]:
+    import asyncio
+    return await asyncio.to_thread(_site_by_id_sync, site_id)

@@ -50,18 +50,42 @@ def _save_scan_sync(site_url, user_email, results, health_score, pages_scanned=1
         "blocked_count": blocked,
         "health_score": health_score,
         "results_json": [r if isinstance(r, dict) else r.dict() for r in results],
+        # Optional: older deployments have no such column. See _insert_scan.
+        "pages_scanned": pages_scanned,
     }
-    
-    # Try adding pages_scanned if table schema has it
-    try:
-        scan_payload["pages_scanned"] = pages_scanned
-    except Exception:
-        pass
 
-    scan_resp = client.table("scans").insert(scan_payload).execute()
+    scan_resp = _insert_scan(client, scan_payload)
     scan_id = scan_resp.data[0]["id"]
 
-    # Save issues with uptime tracking
+    # Issue tracking is a bonus. It must never cost us the scan row, which is
+    # what the History panel reads.
+    try:
+        _track_issues(client, site_id, scan_id, results, get_val)
+    except Exception as e:
+        print(f"[DB] issue tracking failed (scan {scan_id} was still saved): {e}")
+
+    print(f"[DB] Saved scan for {site_url} — {total} links, score {health_score}")
+    return {"site_id": site_id, "scan_id": scan_id}
+
+
+# Columns that some deployments' `scans` table predates. Inserting one the
+# schema does not have makes PostgREST reject the whole row — which used to
+# throw away every scan, silently, leaving the History panel permanently empty.
+_OPTIONAL_SCAN_COLUMNS = ("pages_scanned",)
+
+
+def _insert_scan(client, payload: dict):
+    try:
+        return client.table("scans").insert(payload).execute()
+    except Exception as e:
+        trimmed = {k: v for k, v in payload.items() if k not in _OPTIONAL_SCAN_COLUMNS}
+        if trimmed == payload:
+            raise   # nothing optional to drop — a real failure
+        print(f"[DB] scans insert failed ({e}); retrying without {_OPTIONAL_SCAN_COLUMNS}")
+        return client.table("scans").insert(trimmed).execute()
+
+
+def _track_issues(client, site_id, scan_id, results, get_val):
     for r in results:
         label = get_val(r, "label")
         r_url = get_val(r, "url")
@@ -110,9 +134,6 @@ def _save_scan_sync(site_url, user_email, results, health_score, pages_scanned=1
                 .update({"resolved_at": "now()"})\
                 .eq("id", issue["id"])\
                 .execute()
-
-    print(f"[DB] Saved scan for {site_url} — {total} links, score {health_score}")
-    return {"site_id": site_id, "scan_id": scan_id}
 
 
 def save_scan_threaded(site_url, user_email, results, health_score, pages_scanned=1):
@@ -325,6 +346,42 @@ def _diffing_tables_ready_sync() -> dict:
 async def diffing_tables_ready() -> dict:
     import asyncio
     return await asyncio.to_thread(_diffing_tables_ready_sync)
+
+
+def _site_storage_report_sync(site_url: str, user_email: str) -> dict:
+    """How much of this site actually made it into storage.
+
+    Answers, in one request, both "why is History empty" (no scans rows) and
+    "why is there no baseline" (no scan_snapshots rows).
+    """
+    client = _get_client()
+
+    def count(table: str, column: str, value) -> object:
+        try:
+            resp = client.table(table).select("id", count="exact")\
+                .eq(column, value).limit(1).execute()
+            return resp.count
+        except Exception as e:
+            return f"error: {type(e).__name__}: {str(e)[:120]}"
+
+    site = client.table("sites").select("id")\
+        .eq("url", site_url).eq("user_email", user_email).limit(1).execute()
+    if not site.data:
+        return {"site_found": False, "site_url": site_url, "user_email": user_email}
+
+    site_id = site.data[0]["id"]
+    return {
+        "site_found": True,
+        "site_id": site_id,
+        "scans": count("scans", "site_id", site_id),
+        "scan_snapshots": count("scan_snapshots", "site_id", site_id),
+        "findings": count("findings", "site_id", site_id),
+    }
+
+
+async def site_storage_report(site_url: str, user_email: str) -> dict:
+    import asyncio
+    return await asyncio.to_thread(_site_storage_report_sync, site_url, user_email)
 
 
 def _delete_site_sync(site_id: str):

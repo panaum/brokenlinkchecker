@@ -10,6 +10,7 @@ import StatsBar from "@/components/StatsBar";
 import ReportHeader from "@/components/ReportHeader";
 import IssueSections from "@/components/IssueSections";
 import ResourcePanels from "@/components/ResourcePanels";
+import ScanHistoryPanel from "@/components/ScanHistoryPanel";
 import FilterBar from "@/components/FilterBar";
 import ResultsTable from "@/components/ResultsTable";
 import HealthScore from "@/components/HealthScore";
@@ -294,10 +295,21 @@ export default function HomePage() {
         );
         if (res.ok) {
           const data = (await res.json()) as { history?: HistoryScanEntry[] };
-          // Exclude the current scan (most recent) since it IS the current scan
           const allHistory = data.history ?? [];
-          // The first entry is the most recent scan we just did — skip it
-          setHistory(allHistory.length > 1 ? allHistory.slice(1) : []);
+
+          // The newest entry is normally the scan we just ran, so drop it —
+          // but only if it really is ours. If saving this scan failed, the
+          // newest row is a genuinely older scan and must not be discarded.
+          const isCurrentScan = (entry: HistoryScanEntry) =>
+            Math.abs(
+              new Date(entry.scanned_at).getTime() - scanMeta.scannedAt.getTime()
+            ) < 10 * 60 * 1000;
+
+          setHistory(
+            allHistory.length > 0 && isCurrentScan(allHistory[0])
+              ? allHistory.slice(1)
+              : allHistory
+          );
         }
       } catch {
         // Non-critical — silently ignore
@@ -492,9 +504,22 @@ export default function HomePage() {
               sortOption={sortOption}
               scannedUrl={scanMeta?.scannedUrl ?? url}
               healthScore={healthScore}
-              onScrollToHistory={scrollToHistory}
+              // Only offer the History button when there is a panel to scroll to.
+              onScrollToHistory={
+                historyLoading || history.length > 0 ? scrollToHistory : undefined
+              }
             />
           </section>
+
+          {/* Previous scans of this URL. The ref is what the History button
+              scrolls to — without it the button silently does nothing. */}
+          {(historyLoading || history.length > 0) && (
+            <ScanHistoryPanel
+              ref={historyPanelRef}
+              history={history}
+              loading={historyLoading}
+            />
+          )}
         </>
       )}
 

@@ -412,3 +412,46 @@ def test_diagnostics_survives_a_dead_database(monkeypatch):
     body = TestClient(main.app).get("/api/diagnostics/diffing").json()
     assert body["diffing_ready"] is False
     assert "supabase_url" in body["error"]
+
+
+def test_diagnostics_reports_per_site_storage(monkeypatch):
+    """Answers 'why is History empty' (scans) and 'why no baseline' (snapshots)."""
+    async def ready():
+        return {"scan_snapshots": "ok", "findings": "ok"}
+
+    async def report(url, email):
+        return {"site_found": True, "site_id": "site-1",
+                "scans": 0, "scan_snapshots": 3, "findings": 7}
+
+    monkeypatch.setattr(main, "diffing_tables_ready", ready)
+    monkeypatch.setattr(main, "site_storage_report", report)
+
+    body = TestClient(main.app).get(
+        "/api/diagnostics/diffing",
+        params={"url": "https://acme.test/", "email": "u@x.test"},
+    ).json()
+    assert body["site"]["scans"] == 0        # history would be empty
+    assert body["site"]["scan_snapshots"] == 3
+
+
+def test_diagnostics_omits_site_report_without_a_url(monkeypatch):
+    async def ready():
+        return {"scan_snapshots": "ok", "findings": "ok"}
+
+    monkeypatch.setattr(main, "diffing_tables_ready", ready)
+    assert "site" not in TestClient(main.app).get("/api/diagnostics/diffing").json()
+
+
+def test_diagnostics_site_report_survives_a_failure(monkeypatch):
+    async def ready():
+        return {"scan_snapshots": "ok", "findings": "ok"}
+
+    async def boom(url, email):
+        raise RuntimeError("relation \"scans\" does not exist")
+
+    monkeypatch.setattr(main, "diffing_tables_ready", ready)
+    monkeypatch.setattr(main, "site_storage_report", boom)
+
+    body = TestClient(main.app).get(
+        "/api/diagnostics/diffing", params={"url": "https://acme.test/"}).json()
+    assert "error" in body["site"]

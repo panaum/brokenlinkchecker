@@ -45,7 +45,7 @@ from database import (
     site_storage_report,
 )
 from correlation import enrich_reasons
-from form_audit import audit_forms
+from form_audit import audit_forms, probe_action_methods
 from fix_engine import build_fix_suggestion, choose_builder, render_client_message
 from fix_pack import build_fix_pack, build_rows
 from fix_verify import verify_finding
@@ -667,6 +667,9 @@ async def scan_events(url: str, email: str = "anonymous", notify: bool = True):
         # vanishes. Audited passively — nothing is ever submitted — and fed
         # into the same results list, so it diffs and scores like any other
         # finding.
+        # A 404 on a GET does not prove a POST-only endpoint is gone. Ask with
+        # OPTIONS before accusing. OPTIONS is not a submission.
+        signals["action_options"] = await probe_action_methods(results)
         results.extend(audit_forms(signals.get("forms"), results, signals, url))
 
         # Explain dead CTAs with what actually failed on the page. Only ever
@@ -829,6 +832,8 @@ async def scan_site(
                             async for i, res in check_all_links(links):
                                 page_results.append(res)
 
+                            page_signals["action_options"] = \
+                                await probe_action_methods(page_results)
                             page_results.extend(audit_forms(
                                 page_signals.get("forms"), page_results,
                                 page_signals, page_url,

@@ -1379,7 +1379,9 @@ async def site_monitoring_status(site_id: str):
         status = monitoring_status(snapshots)
         status["digest"] = weekly_digest(snapshots)
         site = await get_site(site_id)
-        status["freq"] = (site or {}).get("freq") or monitoring.DEFAULT_CADENCE
+        # Return a canonical cadence, so the panel highlights the right button
+        # even for a legacy site stored as "Every Hour" rather than "hourly".
+        status["freq"] = monitoring.normalize_cadence((site or {}).get("freq"))
         status["monitoring_enabled"] = bool((site or {}).get("monitoring_enabled"))
         return status
     except Exception as e:

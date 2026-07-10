@@ -47,7 +47,14 @@ from database import (
 from correlation import enrich_reasons
 from form_audit import audit_forms, probe_action_methods
 from tracking_audit import audit_tracking
-from database import get_expected_tracking, set_expected_tracking
+from watchdog import (
+    inventory_hosts, demote_third_party_failures, aggregate_outages, run_watchdog,
+)
+from database import (
+    get_expected_tracking, set_expected_tracking,
+    upsert_host_inventory, get_watchdog_inventory,
+    get_recently_alerted, record_host_alert,
+)
 from fix_engine import build_fix_suggestion, choose_builder, render_client_message
 from fix_pack import build_fix_pack, build_rows
 from fix_verify import verify_finding
@@ -76,6 +83,48 @@ from contextlib import asynccontextmanager
 # Monitoring wiring. The scheduler holds no scan logic; it calls these adapters,
 # each of which is the existing pipeline, not a reimplementation of it.
 # ─────────────────────────────────────────────────────────────────────────────
+async def _watchdog_slack(text: str, outage: dict = None) -> None:
+    """Post one third-party outage alert to Slack. Reuses the same webhook the
+    scan notifier uses; a distinct header so it is not mistaken for a scan."""
+    webhook_url = os.getenv("SLACK_WEBHOOK_URL")
+    if not webhook_url:
+        return
+    blocks = [
+        {"type": "header", "text": {"type": "plain_text",
+                                    "text": "🐕 LinkSpy Watchdog — third-party outage"}},
+        {"type": "section", "text": {"type": "mrkdwn", "text": text}},
+    ]
+    try:
+        async with httpx.AsyncClient() as client:
+            await client.post(webhook_url, json={"blocks": blocks}, timeout=5.0)
+    except Exception as e:
+        print(f"[Watchdog] Slack failed: {e}")
+
+
+async def _run_watchdog_after_scan(site_id, results, page_url: str) -> None:
+    """Record this scan's third-party hosts; alert on any cross-site outage.
+
+    Everything here is best-effort and wrapped: a watchdog or DB failure must
+    never affect the scan that triggered it.
+    """
+    try:
+        records = inventory_hosts(results, page_url)
+        if site_id:
+            await upsert_host_inventory(site_id, records)
+        # Only bother aggregating when this scan actually saw something down.
+        if not any(r.get("down") for r in records):
+            return
+        await run_watchdog(
+            get_inventory=get_watchdog_inventory,
+            get_recently_alerted=get_recently_alerted,
+            record_alert=lambda host, _ts: record_host_alert(host),
+            notify=_watchdog_slack,
+            now_ts=time.time(),
+        )
+    except Exception as e:
+        print(f"[Watchdog] skipped (non-critical): {type(e).__name__}: {e}")
+
+
 async def _expected_tracking(url: str, email: str) -> dict:
     """The site's stored GA4/Meta/GTM ids, or None. Best-effort: a lookup
     failure (no column, no site) never fails a scan — it just skips the
@@ -690,6 +739,13 @@ async def scan_events(url: str, email: str = "anonymous", notify: bool = True):
         expected = await _expected_tracking(url, email)
         results.extend(audit_tracking(signals, results, url, expected=expected))
 
+        # A third-party embed whose HOST is down is the provider's outage, not a
+        # broken link on the client's site. Demote it to unverifiable so it never
+        # turns their report red or dents their health score — the watchdog
+        # raises the outage separately. Runs before the diff and health score so
+        # the demoted verdict is what they see.
+        demote_third_party_failures(results, url)
+
         # Explain dead CTAs with what actually failed on the page. Only ever
         # appends to `reason` — never changes bucket or confidence.
         enrich_reasons(results, signals)
@@ -745,6 +801,11 @@ async def scan_events(url: str, email: str = "anonymous", notify: bool = True):
             # The scan still succeeds, but the next one will have no baseline.
             print(f"[DB] Snapshot save failed: {describe_exception(db_err)}")
             baseline_status = BASELINE_UNAVAILABLE
+
+        # Watchdog: record this scan's third-party hosts, and if any is down,
+        # aggregate across every site and alert once. Best-effort — a watchdog
+        # failure never touches the scan.
+        await _run_watchdog_after_scan(effective_site_id, results, url)
 
         diff_payload = _diff_payload(diff, link_counts, now, baseline_status)
 
@@ -863,6 +924,7 @@ async def scan_site(
                                 page_signals, page_results, page_url,
                                 expected=site_expected,
                             ))
+                            demote_third_party_failures(page_results, page_url)
 
                             # Console/request failures are per page.
                             enrich_reasons(page_results, page_signals)
@@ -979,6 +1041,9 @@ async def scan_site(
             except Exception as db_err:
                 print(f"[DB] Snapshot save failed: {describe_exception(db_err)}")
                 baseline_status = BASELINE_UNAVAILABLE
+
+            # Watchdog across the whole crawl's third-party hosts.
+            await _run_watchdog_after_scan(effective_site_id, final_results, url)
 
             diff_payload = _diff_payload(diff, link_counts, now, baseline_status)
 
@@ -1427,6 +1492,38 @@ async def set_site_tracking_ids(site_id: str, ga4: str = Query(default=""),
                             status_code=400)
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=500)
+
+
+@app.get("/api/watchdog/hosts")
+async def watchdog_hosts():
+    """Third-party host inventory across all sites, with per-host affected-site
+    counts and last-known status. Down hosts (an outage in progress) first."""
+    try:
+        inventory = await get_watchdog_inventory()
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+    # Group every host (up and down) so the UI can show the full dependency map,
+    # not only outages. aggregate_outages covers the down ones; do the rest here.
+    by_host = {}
+    for row in inventory:
+        h = by_host.setdefault(row["host"], {
+            "host": row["host"], "resource_type": row.get("resource_type"),
+            "status": row.get("status"), "down": False, "sites": [],
+        })
+        h["sites"].append({"site_id": row.get("site_id"),
+                           "site_url": row.get("site_url"),
+                           "client": row.get("client")})
+        if row.get("down"):
+            h["down"] = True
+            h["status"] = row.get("status")
+    hosts = sorted(by_host.values(),
+                   key=lambda h: (not h["down"], -len(h["sites"]), h["host"]))
+    return {
+        "hosts": [{**h, "affected_sites": len(h["sites"])} for h in hosts],
+        "outages": len([h for h in hosts if h["down"]]),
+        "total_hosts": len(hosts),
+    }
 
 
 @app.get("/preview")

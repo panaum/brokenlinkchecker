@@ -756,3 +756,116 @@ def _set_expected_tracking_sync(site_id: str, ids: dict) -> dict:
 async def set_expected_tracking(site_id: str, ids: dict) -> dict:
     import asyncio
     return await asyncio.to_thread(_set_expected_tracking_sync, site_id, ids)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Phase 7 — third-party watchdog (third_party_hosts + watchdog_alerts)
+#
+# All reads/writes are best-effort. Before migrations/004 the tables do not
+# exist; a scan must never fail because the watchdog could not record a host.
+# ─────────────────────────────────────────────────────────────────────────────
+def _tables_missing(e: Exception) -> bool:
+    detail = f"{describe_exception(e)}".lower()
+    return ("third_party_hosts" in detail or "watchdog_alerts" in detail
+            or "does not exist" in detail or "pgrst205" in detail
+            or "42p01" in detail)
+
+
+def _upsert_host_inventory_sync(site_id: str, records: list) -> int:
+    if not site_id or not records:
+        return 0
+    client = _get_client()
+    rows = [{
+        "host": r["host"], "site_id": site_id,
+        "resource_type": r.get("resource_type"),
+        "last_status": "down" if r.get("down") else "up",
+        "last_status_code": r.get("status"),
+        "sample_url": r.get("sample_url"),
+        "last_checked_at": "now()",
+    } for r in records if r.get("host")]
+    try:
+        client.table("third_party_hosts").upsert(
+            rows, on_conflict="host,site_id").execute()
+        return len(rows)
+    except Exception as e:
+        if _tables_missing(e):
+            print("[Watchdog] third_party_hosts missing — run migrations/004")
+            return 0
+        raise
+
+
+async def upsert_host_inventory(site_id: str, records: list) -> int:
+    import asyncio
+    return await asyncio.to_thread(_upsert_host_inventory_sync, site_id, records)
+
+
+def _watchdog_inventory_sync() -> list:
+    """Every host row joined to its site, for aggregation and the endpoint."""
+    client = _get_client()
+    try:
+        resp = client.table("third_party_hosts")\
+            .select("host, resource_type, last_status, last_status_code, "
+                    "sample_url, last_checked_at, sites(id, url, client)")\
+            .execute()
+    except Exception as e:
+        if _tables_missing(e):
+            return []
+        raise
+    out = []
+    for row in resp.data or []:
+        site = row.get("sites") or {}
+        out.append({
+            "host": row["host"],
+            "resource_type": row.get("resource_type"),
+            "status": row.get("last_status_code"),
+            "down": row.get("last_status") == "down",
+            "site_id": site.get("id"),
+            "site_url": site.get("url"),
+            "client": site.get("client"),
+            "last_checked_at": row.get("last_checked_at"),
+        })
+    return out
+
+
+async def get_watchdog_inventory() -> list:
+    import asyncio
+    return await asyncio.to_thread(_watchdog_inventory_sync)
+
+
+def _recently_alerted_sync() -> dict:
+    from datetime import datetime, timezone
+    client = _get_client()
+    try:
+        resp = client.table("watchdog_alerts").select("host, last_alerted_at").execute()
+    except Exception as e:
+        if _tables_missing(e):
+            return {}
+        raise
+    out = {}
+    for row in resp.data or []:
+        try:
+            ts = datetime.fromisoformat(str(row["last_alerted_at"]).replace("Z", "+00:00"))
+            out[row["host"]] = ts.timestamp()
+        except Exception:
+            continue
+    return out
+
+
+async def get_recently_alerted() -> dict:
+    import asyncio
+    return await asyncio.to_thread(_recently_alerted_sync)
+
+
+def _record_host_alert_sync(host: str) -> None:
+    client = _get_client()
+    try:
+        client.table("watchdog_alerts").upsert(
+            {"host": host, "last_alerted_at": "now()"}, on_conflict="host").execute()
+    except Exception as e:
+        if not _tables_missing(e):
+            raise
+
+
+async def record_host_alert(host: str) -> None:
+    import asyncio
+    await asyncio.to_thread(_record_host_alert_sync, host)

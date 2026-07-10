@@ -15,6 +15,7 @@ import {
 import { DashboardSite } from "@/types";
 import NavBar from "@/components/NavBar";
 import MonitoringPanel from "@/components/MonitoringPanel";
+import WatchdogPanel from "@/components/WatchdogPanel";
 import Link from "next/link";
 
 // --- Helpers ---
@@ -468,6 +469,11 @@ export default function DashboardPage() {
               </div>
             );
           })}
+        </div>
+
+        {/* Third-party dependency watchdog — one shared outage, all clients. */}
+        <div className="pt-6">
+          <WatchdogPanel />
         </div>
 
         {/* Lower section: League Table & Activity Feed */}

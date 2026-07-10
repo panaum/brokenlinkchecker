@@ -536,9 +536,31 @@ def _form_signature(form) -> tuple:
     )
 
 
+_SKIP_FRAME_URLS = ("about:blank", "about:srcdoc", "")
+
+
 def _collect_all_forms(page) -> list:
-    return (page.evaluate(_COLLECT_FORMS_JS) or []) + \
-           (page.evaluate(_COLLECT_FORMLESS_JS) or [])
+    """Every form in every frame.
+
+    HubSpot, Typeform and Jotform all render their form inside an iframe, so a
+    main-frame-only sweep found none of them. Playwright can evaluate inside a
+    cross-origin frame; plain page JS cannot. A frame that refuses is skipped,
+    not fatal.
+    """
+    forms = []
+    for frame in page.frames:
+        if frame.url in _SKIP_FRAME_URLS:
+            continue
+        try:
+            found = (frame.evaluate(_COLLECT_FORMS_JS) or []) + \
+                    (frame.evaluate(_COLLECT_FORMLESS_JS) or [])
+        except Exception:
+            continue          # detached, or a frame we may not touch
+        if frame is not page.main_frame:
+            for form in found:
+                form["frame_url"] = frame.url
+        forms.extend(found)
+    return forms
 
 
 def _reveal_forms(page) -> list:
@@ -715,10 +737,10 @@ def _scrape_sync(url: str) -> tuple[list[RawLink], list[str], dict]:
             stylesheets = []
         try:
             # Read-only. See _COLLECT_FORMS_JS: nothing here submits a form.
-            forms = page.evaluate(_COLLECT_FORMS_JS) or []
-            # <div>s that behave like forms. Most React and page-builder lead
-            # captures have no <form> tag at all.
-            forms += page.evaluate(_COLLECT_FORMLESS_JS) or []
+            # Every frame, not just the main one: HubSpot and Typeform render
+            # their forms in an iframe. Includes <div>s that behave like forms —
+            # most React and page-builder lead captures have no <form> tag.
+            forms = _collect_all_forms(page)
             # Still nothing to type into? A CTA may build the form on click.
             if not _has_lead_form(forms):
                 forms += _reveal_forms(page)

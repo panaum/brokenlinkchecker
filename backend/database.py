@@ -707,3 +707,52 @@ def _site_by_id_sync(site_id: str) -> Optional[dict]:
 async def get_site(site_id: str) -> Optional[dict]:
     import asyncio
     return await asyncio.to_thread(_site_by_id_sync, site_id)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Phase 5 — expected tracking ids (optional, per site)
+#
+# Additive: one nullable jsonb column, sites.expected_tracking (migrations/003).
+# Holds {"ga4": "...", "meta_pixel": "...", "gtm": "..."}. When present, the
+# tracking audit flags a page whose ids do not match. Every read is best-effort:
+# before the migration there is no column, and that must never fail a scan.
+# ─────────────────────────────────────────────────────────────────────────────
+def _expected_tracking_sync(site_url: str, user_email: str) -> Optional[dict]:
+    client = _get_client()
+    try:
+        resp = client.table("sites").select("expected_tracking")\
+            .eq("url", site_url).eq("user_email", user_email).limit(1).execute()
+    except Exception as e:
+        if _looks_like_missing_column(e):
+            return None
+        raise
+    if resp.data and resp.data[0].get("expected_tracking"):
+        return resp.data[0]["expected_tracking"]
+    return None
+
+
+async def get_expected_tracking(site_url: str, user_email: str) -> Optional[dict]:
+    import asyncio
+    return await asyncio.to_thread(_expected_tracking_sync, site_url, user_email)
+
+
+def _set_expected_tracking_sync(site_id: str, ids: dict) -> dict:
+    client = _get_client()
+    # Keep only the ids we audit; drop empties so "" never counts as configured.
+    clean = {k: v for k, v in (ids or {}).items()
+             if k in ("ga4", "meta_pixel", "gtm") and v}
+    try:
+        resp = client.table("sites").update({"expected_tracking": clean})\
+            .eq("id", site_id).execute()
+    except Exception as e:
+        if _looks_like_missing_column(e):
+            raise MonitoringColumnMissing(
+                "Expected-tracking storage is not set up yet. Run migrations/003 "
+                "in the Supabase SQL editor, then try again.")
+        raise
+    return (resp.data or [{}])[0]
+
+
+async def set_expected_tracking(site_id: str, ids: dict) -> dict:
+    import asyncio
+    return await asyncio.to_thread(_set_expected_tracking_sync, site_id, ids)

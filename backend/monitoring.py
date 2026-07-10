@@ -39,13 +39,29 @@ CADENCE_SECONDS = {
 }
 DEFAULT_CADENCE = "daily"
 
+# The add-site form historically stored "Every Hour" / "Daily" / "Weekly", while
+# the cadence table is keyed on "hourly" / "daily" / "weekly". Without this map,
+# "Every Hour" fell through to the daily default — a site set to hourly was
+# silently monitored once a day. Normalise every known spelling to a canonical
+# key so old rows and new ones agree.
+_CADENCE_ALIASES = {
+    "every hour": "hourly", "hourly": "hourly", "hour": "hourly",
+    "every day": "daily", "daily": "daily", "day": "daily",
+    "every week": "weekly", "weekly": "weekly", "week": "weekly",
+}
+
 # Provable. A finding in any other bucket (unverifiable) never alerts.
 _ALERTABLE_BREAK_BUCKETS = frozenset({"broken", "dead_cta"})
 
 
+def normalize_cadence(freq) -> str:
+    """Canonical cadence key for any known spelling of a freq. Default daily."""
+    return _CADENCE_ALIASES.get((freq or "").strip().lower(), DEFAULT_CADENCE)
+
+
 def cadence_seconds(freq) -> int:
     """Interval for a site's freq. Unknown or missing -> daily."""
-    return CADENCE_SECONDS.get((freq or "").lower(), CADENCE_SECONDS[DEFAULT_CADENCE])
+    return CADENCE_SECONDS[normalize_cadence(freq)]
 
 
 # ─── time ────────────────────────────────────────────────────────────────────

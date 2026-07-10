@@ -427,15 +427,10 @@ export default function DashboardPage() {
                       Last scan: {relTime(site.last_scanned_at)}
                       {isOverdue && " · overdue"}
                     </span>
-                    <span className="text-xs font-normal text-white/30">
-                      Next scan:{" "}
-                      {site.freq === "Daily"
-                        ? "Tomorrow at 9:00 AM"
-                        : site.freq === "Weekly"
-                        ? "Friday at 10:00 AM"
-                        : "Not scheduled"}{" "}
-                      · {site.freq || "Daily"}
-                    </span>
+                    {/* Scheduling is owned by the Monitoring panel below, which
+                        shows the real, live cadence. A second hardcoded "next
+                        scan at 9 AM" line here was fiction — there is no wall-
+                        clock scheduler; the monitor fires on an interval. */}
                   </div>
                   <div className="flex gap-2">
                     <button

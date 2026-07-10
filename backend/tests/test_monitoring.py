@@ -390,3 +390,22 @@ def test_reading_a_site_without_the_column_falls_back_instead_of_crashing(monkey
     monkeypatch.setattr(DB, "_get_client", lambda: _Client())
     site = DB._site_by_id_sync("s1")
     assert site["monitoring_enabled"] is False   # graceful default, no crash
+
+
+# ─── legacy freq spellings must not silently downgrade the cadence ───────────
+def test_the_add_form_spelling_every_hour_is_treated_as_hourly():
+    """The add-site form stores "Every Hour"; the cadence table keys on "hourly".
+    Without normalisation an hourly site was monitored once a day."""
+    assert M.normalize_cadence("Every Hour") == "hourly"
+    assert M.cadence_seconds("Every Hour") == 3600
+
+
+@pytest.mark.parametrize("freq,expected", [
+    ("Every Hour", "hourly"), ("hourly", "hourly"), ("HOURLY", "hourly"),
+    ("Daily", "daily"), ("daily", "daily"),
+    ("Weekly", "weekly"), ("week", "weekly"),
+    ("Every 2 Hours", "daily"),   # no cadence for it -> safe default, not a crash
+    (None, "daily"), ("", "daily"), ("nonsense", "daily"),
+])
+def test_cadence_normalisation_table(freq, expected):
+    assert M.normalize_cadence(freq) == expected

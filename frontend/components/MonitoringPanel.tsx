@@ -21,6 +21,26 @@ interface MonitoringStatus {
 
 const CADENCES = ["hourly", "daily", "weekly"];
 
+const CADENCE_SECONDS: Record<string, number> = {
+  hourly: 3600,
+  daily: 86400,
+  weekly: 604800,
+};
+
+// The scheduler fires on an interval, not at a wall-clock time. The next check
+// is roughly the last one plus the cadence — never an invented "9:00 AM".
+function nextCheck(lastIso?: string | null, freq?: string): string {
+  const interval = CADENCE_SECONDS[(freq || "daily").toLowerCase()] ?? 86400;
+  const base = lastIso ? new Date(lastIso).getTime() : Date.now();
+  const dueMs = (Number.isNaN(base) ? Date.now() : base) + interval * 1000;
+  const mins = Math.round((dueMs - Date.now()) / 60000);
+  if (mins <= 0) return "due now";
+  if (mins < 60) return `~in ${mins}m`;
+  const hrs = Math.round(mins / 60);
+  if (hrs < 24) return `~in ${hrs}h`;
+  return `~in ${Math.round(hrs / 24)}d`;
+}
+
 function timeAgo(iso?: string | null): string {
   if (!iso) return "never";
   const then = new Date(iso).getTime();
@@ -172,6 +192,14 @@ export default function MonitoringPanel({ siteId }: { siteId: string }) {
         <span style={{ textAlign: "right", color: "rgba(255,255,255,0.8)" }}>
           {timeAgo(status?.last_checked)}
         </span>
+        {enabled && (
+          <>
+            <span>Next check</span>
+            <span style={{ textAlign: "right", color: "rgba(255,255,255,0.8)" }}>
+              {nextCheck(status?.last_checked, status?.freq)}
+            </span>
+          </>
+        )}
         <span>Current health</span>
         <span style={{ textAlign: "right", color: "rgba(255,255,255,0.8)" }}>
           {status?.current_health ?? "—"}

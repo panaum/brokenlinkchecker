@@ -409,3 +409,50 @@ def test_the_add_form_spelling_every_hour_is_treated_as_hourly():
 ])
 def test_cadence_normalisation_table(freq, expected):
     assert M.normalize_cadence(freq) == expected
+
+
+# ─── manual "run a check now" skips the duplicate-fire guard ─────────────────
+def test_run_now_executes_even_when_a_scan_ran_seconds_ago():
+    """The scheduled path would skip; a manual trigger must actually run."""
+    scanned = []
+
+    async def run_scan(url, email):
+        scanned.append(url)
+        return _Outcome(_Diff())
+
+    async def get_last_snapshot(site_id):
+        return {"created_at": _iso(NOW - timedelta(minutes=1))}   # 1 min ago
+
+    async def notify(site, outcome, alert):
+        pass
+
+    site = {"id": "s1", "url": "https://acme.test", "freq": "hourly"}
+    result = asyncio.run(M.run_monitored_scan(
+        site, run_scan=run_scan, get_last_snapshot=get_last_snapshot,
+        recheck_link=_recheck_returning({}), notify=notify, now=NOW,
+        skip_guard=True))
+    assert scanned == ["https://acme.test"]          # it ran despite being too soon
+    assert result["status"] == "scanned_no_change"
+
+
+def test_the_scheduled_path_still_honours_the_guard():
+    """skip_guard defaults off — the scheduler must never bypass the window."""
+    scanned = []
+
+    async def run_scan(url, email):
+        scanned.append(url)
+        return _Outcome(_Diff())
+
+    async def get_last_snapshot(site_id):
+        return {"created_at": _iso(NOW - timedelta(minutes=1))}
+
+    site = {"id": "s1", "url": "https://acme.test", "freq": "hourly"}
+    result = asyncio.run(M.run_monitored_scan(
+        site, run_scan=run_scan, get_last_snapshot=get_last_snapshot,
+        recheck_link=_recheck_returning({}), notify=lambda *a: _async_none(), now=NOW))
+    assert result["status"] == "skipped_too_soon"
+    assert scanned == []
+
+
+async def _async_none():
+    return None

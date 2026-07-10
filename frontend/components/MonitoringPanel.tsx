@@ -58,6 +58,8 @@ export default function MonitoringPanel({ siteId }: { siteId: string }) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [checking, setChecking] = useState(false);
+  const [checkResult, setCheckResult] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -69,6 +71,23 @@ export default function MonitoringPanel({ siteId }: { siteId: string }) {
       setLoading(false);
     }
   }, [siteId]);
+
+  const runCheckNow = async () => {
+    setChecking(true);
+    setCheckResult(null);
+    try {
+      const res = await fetch(`/api/sites/${siteId}/monitoring/run-now`, {
+        method: "POST",
+      });
+      const body = await res.json();
+      setCheckResult(body.explanation || body.error || "Check complete.");
+      await load(); // "last checked" should have advanced — proof it ran
+    } catch {
+      setCheckResult("Could not reach the server.");
+    } finally {
+      setChecking(false);
+    }
+  };
 
   useEffect(() => {
     load();
@@ -230,6 +249,34 @@ export default function MonitoringPanel({ siteId }: { siteId: string }) {
               </span>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Verify it works without waiting for the cadence: this runs the exact
+          scheduled-check path once and reports what it decided. */}
+      {enabled && (
+        <div className="mt-3 pt-3" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+          <button
+            onClick={runCheckNow}
+            disabled={checking}
+            className="cursor-pointer w-full"
+            style={{
+              padding: "6px 12px",
+              borderRadius: 8,
+              fontSize: 12,
+              fontWeight: 500,
+              border: "1px solid rgba(96,165,250,0.3)",
+              background: "rgba(96,165,250,0.1)",
+              color: "#93c5fd",
+            }}
+          >
+            {checking ? "Running a check…" : "Run a check now"}
+          </button>
+          {checkResult && (
+            <p style={{ fontSize: 12, color: "rgba(255,255,255,0.6)", marginTop: 8, lineHeight: 1.5 }}>
+              {checkResult}
+            </p>
+          )}
         </div>
       )}
     </div>

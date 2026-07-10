@@ -149,7 +149,8 @@ async def surviving_breaks(breaks, recheck_link) -> list:
 
 # ─── the scheduled scan ──────────────────────────────────────────────────────
 async def run_monitored_scan(site, *, run_scan, get_last_snapshot,
-                             recheck_link, notify, now=None) -> dict:
+                             recheck_link, notify, now=None,
+                             skip_guard: bool = False) -> dict:
     """Scan one site on schedule; alert only on a proven change.
 
     All I/O is injected:
@@ -158,6 +159,10 @@ async def run_monitored_scan(site, *, run_scan, get_last_snapshot,
       recheck_link(url)           -> bucket        (a single fresh check)
       notify(site, outcome, alert)                 (the existing Slack sender)
 
+    `skip_guard` bypasses the duplicate-fire window — for a manual "run a check
+    now" trigger where the user explicitly wants it to run this instant. The
+    scheduler never sets it.
+
     Returns a small record of what it decided, for the caller to log.
     """
     site_id = site.get("id")
@@ -165,14 +170,15 @@ async def run_monitored_scan(site, *, run_scan, get_last_snapshot,
     email = site.get("user_email") or "monitor"
     freq = site.get("freq")
 
-    # 1. Duplicate-fire guard, before doing any work.
-    try:
-        last = await get_last_snapshot(site_id) if site_id else None
-    except Exception:
-        last = None
-    last_at = (last or {}).get("created_at") if isinstance(last, dict) else None
-    if already_scanned_within_window(last_at, freq, now):
-        return {"site_id": site_id, "status": "skipped_too_soon", "alerted": False}
+    # 1. Duplicate-fire guard, before doing any work. A manual trigger skips it.
+    if not skip_guard:
+        try:
+            last = await get_last_snapshot(site_id) if site_id else None
+        except Exception:
+            last = None
+        last_at = (last or {}).get("created_at") if isinstance(last, dict) else None
+        if already_scanned_within_window(last_at, freq, now):
+            return {"site_id": site_id, "status": "skipped_too_soon", "alerted": False}
 
     # 2. The same pipeline an interactive scan runs. It writes the snapshot and
     #    computes the diff itself — we do not reimplement any of that.

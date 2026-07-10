@@ -410,17 +410,104 @@ def _finding_url(form, page_url: str) -> str:
     return f"{page_url}#{identifier}"
 
 
+# A 405 is the only status that PROVES the endpoint is alive: the server routed
+# the request, recognised the resource, and refused the method. Every real form
+# endpoint we tested answers a GET this way. The generic checker cannot know
+# that and files it under "blocked", so the table renders a healthy Subscribe
+# form as "Can't Verify". Here we know it is a form action, so we can say so.
+#
+# 401/403/429 stay unverifiable on purpose: those are equally the fingerprint of
+# a bot wall in front of a page that may or may not exist.
+_PROVES_ENDPOINT_LIVE = frozenset({405})
+
+
+def relabel_form_actions(results) -> int:
+    """Promote form-action rows the checker could only call `blocked`.
+
+    Mutates in place. Returns how many rows were promoted.
+    """
+    promoted = 0
+    for r in results or []:
+        if _get(r, "resource_type") != FORM_ACTION_RESOURCE:
+            continue
+        if _get(r, "bucket") == "ok":
+            continue
+        if _get(r, "status_code") not in _PROVES_ENDPOINT_LIVE:
+            continue
+        r.bucket = "ok"
+        r.label = "ok"
+        # Priority triages flagged items; this one is no longer flagged.
+        r.priority = None
+        r.error = None
+        r.reason = (
+            "Endpoint is live. It refuses GET with 405, which is exactly what a "
+            "POST-only form endpoint does. We never POST, so we do not test the "
+            "submission itself."
+        )
+        promoted += 1
+    return promoted
+
+
+def _is_lead_form(form) -> bool:
+    """A form a visitor gives you something through. Search boxes do not count."""
+    return bool(_input_fields(form)) and not _is_search_form(form)
+
+
+def _healthy_reason(form, delegated: bool) -> str:
+    """Say what we proved, and name what we could not prove. No overclaiming."""
+    parts = []
+    if _get(form, "hidden_reason") == "css":
+        parts.append("Hidden until opened, as a modal form is.")
+    parts.append("The form renders, and it has a working submit path.")
+    if _has_any_submit_handler(form, delegated) and not _get(form, "action_url"):
+        parts.append(
+            "It submits through JavaScript, so where it posts cannot be verified "
+            "without submitting it — and we never submit."
+        )
+    return " ".join(parts)
+
+
+def _healthy_form_row(form, page_url: str, delegated: bool) -> LinkResult:
+    return LinkResult(
+        url=_finding_url(form, page_url),
+        source_element="form",
+        anchor_text=_get(form, "label") or "Form",
+        category=FORM_ZONE,
+        is_external=False,
+        zones=[FORM_ZONE],
+        link_kind=FORM_KIND,
+        resource_type=FORM_ACTION_RESOURCE,
+        priority=None,           # nothing to triage
+        bucket="ok",
+        confidence="high",
+        reason=_healthy_reason(form, delegated),
+        label="ok",
+        status_code=None,
+        response_ms=0,
+    )
+
+
 def audit_forms(forms, results, signals: dict = None, page_url: str = "") -> list:
-    """LinkResult findings for every problematic form. Healthy forms yield none.
+    """One LinkResult per form: the defect if there is one, else a healthy row.
 
     Reuses the checked results for the form actions rather than re-fetching.
+    A healthy form used to yield nothing at all, which made "we looked and it is
+    fine" indistinguishable from "we never looked".
     """
     results_by_url = {_get(r, "url"): r for r in (results or [])}
+    delegated = bool((signals or {}).get("delegated"))
+    relabel_form_actions(results)
     findings = []
 
     for form in forms or []:
         verdict = classify_form(form, results_by_url, signals, page_url)
+
         if not verdict:
+            # Healthy. Show it only if it is a real lead form whose action is not
+            # already a row of its own — otherwise the form appears twice.
+            action = _get(form, "action_url") or ""
+            if _is_lead_form(form) and not action.lower().startswith(("http://", "https://")):
+                findings.append(_healthy_form_row(form, page_url, delegated))
             continue
 
         label = _get(form, "label") or "Form"

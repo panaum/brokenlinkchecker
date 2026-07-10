@@ -16,8 +16,6 @@ import {
 import { LinkResult, SortOption } from "@/types";
 import StatusPill from "./StatusPill";
 import ExportButton from "./ExportButton";
-import PriorityBadge from "./PriorityBadge";
-import BusinessImpactBadge from "./BusinessImpactBadge";
 import SuggestionCard from "./SuggestionCard";
 import RedirectDownloadButton from "./RedirectDownload";
 
@@ -261,7 +259,7 @@ function RowDetail({ result }: { result: LinkResult }) {
       transition={{ duration: 0.15 }}
     >
       <td
-        colSpan={8}
+        colSpan={6}
         style={{ padding: 0, borderBottom: "1px solid rgba(255,255,255,0.06)" }}
       >
         <div
@@ -670,7 +668,7 @@ export default function ResultsTable({
           <table className="w-full min-w-[760px]">
             <thead>
               <tr style={{ borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
-                {["Status", "Priority", "Impact", "Link Text", "URL", "Where on Page", "Time", ""].map(
+                {["Status", "Link Text", "URL", "Where on Page", "Time", ""].map(
                   (col) => (
                     <th
                       key={col}
@@ -723,7 +721,7 @@ export default function ResultsTable({
                         "rgba(255,255,255,0.025)";
                     }}
                   >
-                    <td colSpan={8} style={{ padding: "8px 16px" }}>
+                    <td colSpan={6} style={{ padding: "8px 16px" }}>
                       <div className="flex items-center gap-3">
                         <span
                           className="w-2 h-2 rounded-full shrink-0"
@@ -825,20 +823,6 @@ export default function ResultsTable({
                             {/* Status */}
                             <td style={{ padding: "10px 16px", verticalAlign: "middle" }}>
                               <StatusPill label={result.label} />
-                            </td>
-
-                            {/* Priority */}
-                            <td style={{ padding: "10px 16px", verticalAlign: "middle" }}>
-                              <PriorityBadge priority={result.priority} />
-                            </td>
-
-                            {/* Impact */}
-                            <td style={{ padding: "10px 16px", verticalAlign: "middle" }}>
-                              {result.impact ? (
-                                <BusinessImpactBadge impact={result.impact} />
-                              ) : (
-                                <span style={{ color: "rgba(255,255,255,0.15)", fontSize: "12px" }}>—</span>
-                              )}
                             </td>
 
                             {/* Link text */}

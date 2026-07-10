@@ -46,6 +46,8 @@ from database import (
 )
 from correlation import enrich_reasons
 from form_audit import audit_forms, probe_action_methods
+from tracking_audit import audit_tracking
+from database import get_expected_tracking, set_expected_tracking
 from fix_engine import build_fix_suggestion, choose_builder, render_client_message
 from fix_pack import build_fix_pack, build_rows
 from fix_verify import verify_finding
@@ -74,6 +76,16 @@ from contextlib import asynccontextmanager
 # Monitoring wiring. The scheduler holds no scan logic; it calls these adapters,
 # each of which is the existing pipeline, not a reimplementation of it.
 # ─────────────────────────────────────────────────────────────────────────────
+async def _expected_tracking(url: str, email: str) -> dict:
+    """The site's stored GA4/Meta/GTM ids, or None. Best-effort: a lookup
+    failure (no column, no site) never fails a scan — it just skips the
+    mismatch check."""
+    try:
+        return await get_expected_tracking(url, email)
+    except Exception:
+        return None
+
+
 async def _recheck_link(url: str) -> str:
     """One fresh check of a single link, for flap protection. Returns a bucket.
 
@@ -672,6 +684,12 @@ async def scan_events(url: str, email: str = "anonymous", notify: bool = True):
         signals["action_options"] = await probe_action_methods(results)
         results.extend(audit_forms(signals.get("forms"), results, signals, url))
 
+        # Tracking & pixel integrity — passive, never `broken`. Uses the checked
+        # results' redirect_chain for UTM survival, so no new request. Optional
+        # per-site expected ids let it flag a page pointing at the wrong account.
+        expected = await _expected_tracking(url, email)
+        results.extend(audit_tracking(signals, results, url, expected=expected))
+
         # Explain dead CTAs with what actually failed on the page. Only ever
         # appends to `reason` — never changes bucket or confidence.
         enrich_reasons(results, signals)
@@ -805,6 +823,9 @@ async def scan_site(
             yield f"data: {json.dumps({'type': 'progress', 'message': f'Discovered {total_pages} pages. Starting scan...', 'percent': 15})}\n\n"
             await asyncio.sleep(0.1)
 
+            # The site's expected tracking ids, read once for the whole crawl.
+            site_expected = await _expected_tracking(url, email)
+
             sem = asyncio.Semaphore(5)
             queue = asyncio.Queue()
             completed_pages = 0
@@ -837,6 +858,10 @@ async def scan_site(
                             page_results.extend(audit_forms(
                                 page_signals.get("forms"), page_results,
                                 page_signals, page_url,
+                            ))
+                            page_results.extend(audit_tracking(
+                                page_signals, page_results, page_url,
+                                expected=site_expected,
                             ))
 
                             # Console/request failures are per page.
@@ -1382,6 +1407,24 @@ async def site_monitoring_status(site_id: str):
         status["freq"] = (site or {}).get("freq") or monitoring.DEFAULT_CADENCE
         status["monitoring_enabled"] = bool((site or {}).get("monitoring_enabled"))
         return status
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+
+@app.post("/api/sites/{site_id}/tracking-ids")
+async def set_site_tracking_ids(site_id: str, ga4: str = Query(default=""),
+                                meta_pixel: str = Query(default=""),
+                                gtm: str = Query(default="")):
+    """Store a site's own GA4 / Meta / GTM ids so the tracking audit can flag a
+    page pointing at the wrong account. All optional; empty clears that id."""
+    from database import MonitoringColumnMissing
+    try:
+        saved = await set_expected_tracking(
+            site_id, {"ga4": ga4, "meta_pixel": meta_pixel, "gtm": gtm})
+        return {"status": "ok", "expected_tracking": saved.get("expected_tracking")}
+    except MonitoringColumnMissing as e:
+        return JSONResponse({"error": str(e), "setup_required": True},
+                            status_code=400)
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=500)
 

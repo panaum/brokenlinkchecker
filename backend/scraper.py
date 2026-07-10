@@ -13,6 +13,7 @@ from dead_cta_detector import (
     is_functional_fragment,
 )
 from form_audit import form_action_links
+from tracking_audit import extract_tracking
 from resources import collect_resources, resources_from_stylesheets
 
 # Priority mapping based on page zone
@@ -755,6 +756,14 @@ def _scrape_sync(url: str) -> tuple[list[RawLink], list[str], dict]:
     # A document-level listener means handlers are delegated (React and friends),
     # so the absence of a listener on a form proves nothing about it.
     signals["delegated"] = bool(soup.find(attrs={"data-js-delegated": True}))
+
+    # Passive tracking/pixel inventory, read from the rendered HTML — the GTM/GA4/
+    # Meta snippets are inline scripts in the DOM by now. Never a network call.
+    try:
+        signals["tracking"] = extract_tracking(soup)
+    except Exception as e:
+        print(f"[Tracking] inventory failed (non-critical): {type(e).__name__}: {e}")
+        signals["tracking"] = {}
 
     results: list[RawLink] = _collect_links(soup, url)
     results.extend(find_dead_ctas(soup, url))

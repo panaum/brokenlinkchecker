@@ -39,13 +39,29 @@ CADENCE_SECONDS = {
 }
 DEFAULT_CADENCE = "daily"
 
+# The add-site form historically stored "Every Hour" / "Daily" / "Weekly", while
+# the cadence table is keyed on "hourly" / "daily" / "weekly". Without this map,
+# "Every Hour" fell through to the daily default — a site set to hourly was
+# silently monitored once a day. Normalise every known spelling to a canonical
+# key so old rows and new ones agree.
+_CADENCE_ALIASES = {
+    "every hour": "hourly", "hourly": "hourly", "hour": "hourly",
+    "every day": "daily", "daily": "daily", "day": "daily",
+    "every week": "weekly", "weekly": "weekly", "week": "weekly",
+}
+
 # Provable. A finding in any other bucket (unverifiable) never alerts.
 _ALERTABLE_BREAK_BUCKETS = frozenset({"broken", "dead_cta"})
 
 
+def normalize_cadence(freq) -> str:
+    """Canonical cadence key for any known spelling of a freq. Default daily."""
+    return _CADENCE_ALIASES.get((freq or "").strip().lower(), DEFAULT_CADENCE)
+
+
 def cadence_seconds(freq) -> int:
     """Interval for a site's freq. Unknown or missing -> daily."""
-    return CADENCE_SECONDS.get((freq or "").lower(), CADENCE_SECONDS[DEFAULT_CADENCE])
+    return CADENCE_SECONDS[normalize_cadence(freq)]
 
 
 # ─── time ────────────────────────────────────────────────────────────────────
@@ -133,7 +149,8 @@ async def surviving_breaks(breaks, recheck_link) -> list:
 
 # ─── the scheduled scan ──────────────────────────────────────────────────────
 async def run_monitored_scan(site, *, run_scan, get_last_snapshot,
-                             recheck_link, notify, now=None) -> dict:
+                             recheck_link, notify, now=None,
+                             skip_guard: bool = False) -> dict:
     """Scan one site on schedule; alert only on a proven change.
 
     All I/O is injected:
@@ -142,6 +159,10 @@ async def run_monitored_scan(site, *, run_scan, get_last_snapshot,
       recheck_link(url)           -> bucket        (a single fresh check)
       notify(site, outcome, alert)                 (the existing Slack sender)
 
+    `skip_guard` bypasses the duplicate-fire window — for a manual "run a check
+    now" trigger where the user explicitly wants it to run this instant. The
+    scheduler never sets it.
+
     Returns a small record of what it decided, for the caller to log.
     """
     site_id = site.get("id")
@@ -149,14 +170,15 @@ async def run_monitored_scan(site, *, run_scan, get_last_snapshot,
     email = site.get("user_email") or "monitor"
     freq = site.get("freq")
 
-    # 1. Duplicate-fire guard, before doing any work.
-    try:
-        last = await get_last_snapshot(site_id) if site_id else None
-    except Exception:
-        last = None
-    last_at = (last or {}).get("created_at") if isinstance(last, dict) else None
-    if already_scanned_within_window(last_at, freq, now):
-        return {"site_id": site_id, "status": "skipped_too_soon", "alerted": False}
+    # 1. Duplicate-fire guard, before doing any work. A manual trigger skips it.
+    if not skip_guard:
+        try:
+            last = await get_last_snapshot(site_id) if site_id else None
+        except Exception:
+            last = None
+        last_at = (last or {}).get("created_at") if isinstance(last, dict) else None
+        if already_scanned_within_window(last_at, freq, now):
+            return {"site_id": site_id, "status": "skipped_too_soon", "alerted": False}
 
     # 2. The same pipeline an interactive scan runs. It writes the snapshot and
     #    computes the diff itself — we do not reimplement any of that.

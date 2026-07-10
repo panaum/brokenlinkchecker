@@ -21,6 +21,26 @@ interface MonitoringStatus {
 
 const CADENCES = ["hourly", "daily", "weekly"];
 
+const CADENCE_SECONDS: Record<string, number> = {
+  hourly: 3600,
+  daily: 86400,
+  weekly: 604800,
+};
+
+// The scheduler fires on an interval, not at a wall-clock time. The next check
+// is roughly the last one plus the cadence — never an invented "9:00 AM".
+function nextCheck(lastIso?: string | null, freq?: string): string {
+  const interval = CADENCE_SECONDS[(freq || "daily").toLowerCase()] ?? 86400;
+  const base = lastIso ? new Date(lastIso).getTime() : Date.now();
+  const dueMs = (Number.isNaN(base) ? Date.now() : base) + interval * 1000;
+  const mins = Math.round((dueMs - Date.now()) / 60000);
+  if (mins <= 0) return "due now";
+  if (mins < 60) return `~in ${mins}m`;
+  const hrs = Math.round(mins / 60);
+  if (hrs < 24) return `~in ${hrs}h`;
+  return `~in ${Math.round(hrs / 24)}d`;
+}
+
 function timeAgo(iso?: string | null): string {
   if (!iso) return "never";
   const then = new Date(iso).getTime();
@@ -38,6 +58,8 @@ export default function MonitoringPanel({ siteId }: { siteId: string }) {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [checking, setChecking] = useState(false);
+  const [checkResult, setCheckResult] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -49,6 +71,23 @@ export default function MonitoringPanel({ siteId }: { siteId: string }) {
       setLoading(false);
     }
   }, [siteId]);
+
+  const runCheckNow = async () => {
+    setChecking(true);
+    setCheckResult(null);
+    try {
+      const res = await fetch(`/api/sites/${siteId}/monitoring/run-now`, {
+        method: "POST",
+      });
+      const body = await res.json();
+      setCheckResult(body.explanation || body.error || "Check complete.");
+      await load(); // "last checked" should have advanced — proof it ran
+    } catch {
+      setCheckResult("Could not reach the server.");
+    } finally {
+      setChecking(false);
+    }
+  };
 
   useEffect(() => {
     load();
@@ -172,6 +211,14 @@ export default function MonitoringPanel({ siteId }: { siteId: string }) {
         <span style={{ textAlign: "right", color: "rgba(255,255,255,0.8)" }}>
           {timeAgo(status?.last_checked)}
         </span>
+        {enabled && (
+          <>
+            <span>Next check</span>
+            <span style={{ textAlign: "right", color: "rgba(255,255,255,0.8)" }}>
+              {nextCheck(status?.last_checked, status?.freq)}
+            </span>
+          </>
+        )}
         <span>Current health</span>
         <span style={{ textAlign: "right", color: "rgba(255,255,255,0.8)" }}>
           {status?.current_health ?? "—"}
@@ -202,6 +249,34 @@ export default function MonitoringPanel({ siteId }: { siteId: string }) {
               </span>
             </div>
           ))}
+        </div>
+      )}
+
+      {/* Verify it works without waiting for the cadence: this runs the exact
+          scheduled-check path once and reports what it decided. */}
+      {enabled && (
+        <div className="mt-3 pt-3" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+          <button
+            onClick={runCheckNow}
+            disabled={checking}
+            className="cursor-pointer w-full"
+            style={{
+              padding: "6px 12px",
+              borderRadius: 8,
+              fontSize: 12,
+              fontWeight: 500,
+              border: "1px solid rgba(96,165,250,0.3)",
+              background: "rgba(96,165,250,0.1)",
+              color: "#93c5fd",
+            }}
+          >
+            {checking ? "Running a check…" : "Run a check now"}
+          </button>
+          {checkResult && (
+            <p style={{ fontSize: 12, color: "rgba(255,255,255,0.6)", marginTop: 8, lineHeight: 1.5 }}>
+              {checkResult}
+            </p>
+          )}
         </div>
       )}
     </div>

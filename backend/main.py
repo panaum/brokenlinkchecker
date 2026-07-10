@@ -1469,9 +1469,42 @@ async def site_monitoring_status(site_id: str):
         status = monitoring_status(snapshots)
         status["digest"] = weekly_digest(snapshots)
         site = await get_site(site_id)
-        status["freq"] = (site or {}).get("freq") or monitoring.DEFAULT_CADENCE
+        # Return a canonical cadence, so the panel highlights the right button
+        # even for a legacy site stored as "Every Hour" rather than "hourly".
+        status["freq"] = monitoring.normalize_cadence((site or {}).get("freq"))
         status["monitoring_enabled"] = bool((site or {}).get("monitoring_enabled"))
         return status
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+
+@app.post("/api/sites/{site_id}/monitoring/run-now")
+async def run_monitoring_check_now(site_id: str):
+    """Run the real monitored-scan path once, right now, and report what it
+    decided. This is the exact code the scheduler runs — same scan, same diff,
+    same change-only alert rule — with the duplicate-fire window skipped so a
+    manual test always executes. Lets you verify monitoring end to end without
+    waiting for the cadence.
+    """
+    try:
+        site = await get_site(site_id)
+        if not site:
+            return JSONResponse({"error": "site not found"}, status_code=404)
+        result = await run_monitored_scan(
+            site, run_scan=run_scan_once, get_last_snapshot=get_latest_snapshot,
+            recheck_link=_recheck_link, notify=_notify_change,
+            skip_guard=True,
+        )
+        # Plain-language reading of the decision, for the UI.
+        explain = {
+            "scanned_no_change": "Ran a full check. Nothing changed since the "
+                                 "last scan, so no alert was sent — this is the "
+                                 "healthy, silent case.",
+            "scanned_alerted": "Ran a full check and found a change. An alert "
+                               "was sent.",
+            "skipped_too_soon": "A scan ran very recently, so this was skipped.",
+        }.get(result.get("status"), "Check complete.")
+        return {**result, "explanation": explain, "ran_at": utcnow_iso()}
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=500)
 

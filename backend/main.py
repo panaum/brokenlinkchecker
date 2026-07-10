@@ -1529,6 +1529,53 @@ async def set_site_tracking_ids(site_id: str, ga4: str = Query(default=""),
         return JSONResponse({"error": str(e)}, status_code=500)
 
 
+# ─── Phase 10: self-heal auto-PR (MOST GUARDED — flag off + allowlist) ───────
+@app.get("/api/self-heal/status")
+async def self_heal_status():
+    """Whether self-heal is armed, and on which repos. Read-only, safe to call.
+    Reflects only the flag and the allowlist — it never touches a repo."""
+    from self_heal import self_heal_enabled, allowlist
+    return {"enabled": self_heal_enabled(), "allowlist": sorted(allowlist())}
+
+
+@app.post("/api/self-heal/run")
+async def self_heal_run(repo: str = Query(...), scan_id: str = Query(...),
+                        url: str = Query(...), fix_type: str = Query(default="redirect")):
+    """Open PR(s) of PROVABLE fixes on an ALLOWLISTED repo. Refuses unless the
+    SELF_HEAL flag is on AND the repo is on the allowlist. Never merges."""
+    from self_heal import self_heal_enabled, is_allowed_repo
+    # Rails 1 & 2, checked before any work (and before we even scan).
+    if not self_heal_enabled():
+        return JSONResponse({"error": "SELF_HEAL is off.", "refused": True}, status_code=403)
+    if not is_allowed_repo(repo):
+        return JSONResponse({"error": f"{repo} is not on the self-heal allowlist.",
+                             "refused": True}, status_code=403)
+    token = os.getenv("SELF_HEAL_GITHUB_TOKEN")
+    if not token:
+        return JSONResponse({"error": "No SELF_HEAL_GITHUB_TOKEN configured.",
+                             "refused": True}, status_code=400)
+    try:
+        outcome = await run_scan_once(url, "self-heal")
+        from self_heal_pr import run_self_heal
+        from self_heal_github import GitHubRepoOps
+        result = await run_self_heal(
+            repo=repo, scan_id=scan_id, results=outcome.results,
+            recheck=lambda u: _recheck_status(u), repo_ops=GitHubRepoOps(repo, token),
+            now_iso=utcnow_iso(), fix_type=fix_type)
+        return result
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+
+async def _recheck_status(url: str):
+    """Status int for verify-before-PR, via the same single-link checker."""
+    link = RawLink(url=url, source_element="a", anchor_text="", category="Other",
+                   is_external=True, zones=["Other"], link_kind="http")
+    async with httpx.AsyncClient(follow_redirects=True, timeout=20) as client:
+        result = await check_single(client, link)
+    return getattr(result, "status_code", None)
+
+
 # ─── Phase 4: opt-in active form testing (DANGEROUS — every rail enforced) ───
 @app.get("/api/sites/{site_id}/forms/optin")
 async def list_active_form_optins(site_id: str):

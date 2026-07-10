@@ -1348,6 +1348,7 @@ async def set_site_monitoring(site_id: str, enabled: bool = Query(...),
     The scheduler is updated in the same request, so a toggle takes effect
     without waiting for a restart.
     """
+    from database import MonitoringColumnMissing
     try:
         await set_monitoring(site_id, enabled, freq or None)
         site = await get_site(site_id)
@@ -1361,6 +1362,11 @@ async def set_site_monitoring(site_id: str, enabled: bool = Query(...),
             _scheduler.unschedule_site(site_id)
         return {"status": "ok", "monitoring_enabled": enabled,
                 "freq": site.get("freq")}
+    except MonitoringColumnMissing as e:
+        # Not a server fault — a setup step. Say exactly what to run, so the
+        # toggle does not just silently snap back to off.
+        return JSONResponse({"error": str(e), "setup_required": True},
+                            status_code=400)
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=500)
 

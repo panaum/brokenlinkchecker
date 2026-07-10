@@ -16,6 +16,7 @@ import { DashboardSite } from "@/types";
 import NavBar from "@/components/NavBar";
 import MonitoringPanel from "@/components/MonitoringPanel";
 import WatchdogPanel from "@/components/WatchdogPanel";
+import ActiveTestingPanel from "@/components/ActiveTestingPanel";
 import Link from "next/link";
 
 // --- Helpers ---
@@ -460,6 +461,9 @@ export default function DashboardPage() {
                 </div>
                 <div className="mt-4">
                   <MonitoringPanel siteId={site.id} />
+                </div>
+                <div className="mt-4">
+                  <ActiveTestingPanel siteId={site.id} siteUrl={site.url} />
                 </div>
               </div>
             );

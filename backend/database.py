@@ -650,12 +650,33 @@ async def get_monitored_sites() -> list:
     return await asyncio.to_thread(_monitored_sites_sync)
 
 
+class MonitoringColumnMissing(RuntimeError):
+    """The sites.monitoring_enabled column does not exist — migrations/002 has
+    not been applied. Raised with a message a user can act on, because the raw
+    PostgREST error is the unhelpful string "Bad Request"."""
+
+
+def _looks_like_missing_column(e: Exception) -> bool:
+    detail = f"{describe_exception(e)}".lower()
+    return "monitoring_enabled" in detail or ("column" in detail and "does not exist" in detail) \
+        or "pgrst204" in detail or "42703" in detail
+
+
 def _set_monitoring_sync(site_id: str, enabled: bool, freq: Optional[str]) -> dict:
     client = _get_client()
     patch = {"monitoring_enabled": enabled}
     if freq:
         patch["freq"] = freq
-    resp = client.table("sites").update(patch).eq("id", site_id).execute()
+    try:
+        resp = client.table("sites").update(patch).eq("id", site_id).execute()
+    except Exception as e:
+        if _looks_like_missing_column(e):
+            raise MonitoringColumnMissing(
+                "Monitoring is not set up in the database yet. Run migrations/002 "
+                "in the Supabase SQL editor (adds the sites.monitoring_enabled "
+                "column), then try again."
+            ) from e
+        raise
     return (resp.data or [{}])[0]
 
 
@@ -666,9 +687,20 @@ async def set_monitoring(site_id: str, enabled: bool, freq: Optional[str] = None
 
 def _site_by_id_sync(site_id: str) -> Optional[dict]:
     client = _get_client()
-    resp = client.table("sites")\
-        .select("id, url, user_email, freq, monitoring_enabled")\
-        .eq("id", site_id).limit(1).execute()
+    try:
+        resp = client.table("sites")\
+            .select("id, url, user_email, freq, monitoring_enabled")\
+            .eq("id", site_id).limit(1).execute()
+    except Exception as e:
+        # Before migrations/002 there is no monitoring_enabled column. Read what
+        # exists so the status endpoint still works and can report "not set up".
+        if not _looks_like_missing_column(e):
+            raise
+        resp = client.table("sites")\
+            .select("id, url, user_email, freq")\
+            .eq("id", site_id).limit(1).execute()
+        if resp.data:
+            resp.data[0]["monitoring_enabled"] = False
     return resp.data[0] if resp.data else None
 
 

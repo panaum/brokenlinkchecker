@@ -333,3 +333,60 @@ def test_a_short_cadence_does_not_produce_a_zero_grace_time():
         assert job.misfire_grace_time >= 1
     finally:
         MM.cadence_seconds = orig
+
+
+# ─── the toggle must fail loudly, not silently snap back to off ──────────────
+def test_a_missing_column_is_detected_from_the_postgrest_error():
+    import database as DB
+    class _Err(Exception):
+        pass
+    e = _Err("Could not find the 'monitoring_enabled' column of 'sites'")
+    assert DB._looks_like_missing_column(e) is True
+
+
+def test_an_unrelated_error_is_not_mistaken_for_a_missing_column():
+    import database as DB
+    assert DB._looks_like_missing_column(Exception("connection refused")) is False
+
+
+def test_setting_monitoring_without_the_column_raises_an_actionable_error(monkeypatch):
+    import database as DB
+    from database import MonitoringColumnMissing
+
+    class _Table:
+        def update(self, *a, **k): return self
+        def eq(self, *a, **k): return self
+        def execute(self):
+            raise Exception("Could not find the 'monitoring_enabled' column of 'sites'")
+
+    class _Client:
+        def table(self, *a, **k): return _Table()
+
+    monkeypatch.setattr(DB, "_get_client", lambda: _Client())
+    with pytest.raises(MonitoringColumnMissing) as exc:
+        DB._set_monitoring_sync("s1", True, None)
+    # The message must tell the user what to run, not surface "Bad Request".
+    assert "migrations/002" in str(exc.value)
+
+
+def test_reading_a_site_without_the_column_falls_back_instead_of_crashing(monkeypatch):
+    import database as DB
+
+    class _Sel:
+        def __init__(self, cols): self.cols = cols
+        def eq(self, *a, **k): return self
+        def limit(self, *a, **k): return self
+        def execute(self):
+            if "monitoring_enabled" in self.cols:
+                raise Exception("column sites.monitoring_enabled does not exist")
+            return type("R", (), {"data": [{"id": "s1", "url": "u", "freq": "daily"}]})()
+
+    class _Table:
+        def select(self, cols): return _Sel(cols)
+
+    class _Client:
+        def table(self, *a, **k): return _Table()
+
+    monkeypatch.setattr(DB, "_get_client", lambda: _Client())
+    site = DB._site_by_id_sync("s1")
+    assert site["monitoring_enabled"] is False   # graceful default, no crash

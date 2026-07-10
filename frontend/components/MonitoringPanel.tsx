@@ -37,6 +37,7 @@ export default function MonitoringPanel({ siteId }: { siteId: string }) {
   const [status, setStatus] = useState<MonitoringStatus | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     try {
@@ -55,13 +56,22 @@ export default function MonitoringPanel({ siteId }: { siteId: string }) {
 
   const update = async (enabled: boolean, freq?: string) => {
     setSaving(true);
+    setError(null);
     try {
-      await fetch(`/api/sites/${siteId}/monitoring`, {
+      const res = await fetch(`/api/sites/${siteId}/monitoring`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ enabled, freq: freq ?? status?.freq ?? "daily" }),
       });
+      // A failed save must not silently revert the toggle to off. Say why.
+      if (!res.ok) {
+        const body = await res.json().catch(() => ({}));
+        setError(body.error || `Could not save (HTTP ${res.status}).`);
+        return;
+      }
       await load();
+    } catch (e) {
+      setError(e instanceof Error ? e.message : "Could not reach the server.");
     } finally {
       setSaving(false);
     }
@@ -106,6 +116,21 @@ export default function MonitoringPanel({ siteId }: { siteId: string }) {
           {saving ? "…" : enabled ? "On" : "Off"}
         </button>
       </div>
+
+      {error && (
+        <div
+          className="mb-3 rounded-lg px-3 py-2"
+          style={{
+            background: "rgba(248,113,113,0.1)",
+            border: "1px solid rgba(248,113,113,0.3)",
+            color: "#fca5a5",
+            fontSize: 12,
+            lineHeight: 1.4,
+          }}
+        >
+          {error}
+        </div>
+      )}
 
       {enabled && (
         <div className="flex items-center gap-2 mb-3">

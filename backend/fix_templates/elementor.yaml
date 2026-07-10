@@ -1,0 +1,87 @@
+# DRAFT — needs human review
+#
+# Elementor (WordPress page builder). Steps assume Elementor Free or Pro on a
+# standard WP install. Where Pro-only widgets matter (Popup Builder, Forms),
+# that is called out rather than assumed.
+
+display_name: Elementor
+issues:
+  broken_link:
+    issue_type: broken_link
+    title: 'Fix the broken link "{anchor_text}"'
+    est_time_minutes: 5
+    requires_dev: false
+    steps:
+      - 'Open {page_url} and click "Edit with Elementor" in the WordPress admin bar.'
+      - 'Use the Navigator (⌘/Ctrl + I) to find the element containing "{anchor_text}" — faster than hunting through the canvas.'
+      - 'Select the widget. In the left panel, open the Content tab and find the Link field (on a Button widget it is "Link"; on a Text Editor it is the anchor inside the rich-text toolbar).'
+      - 'The link currently points at {url}, which returns {status_code}.'
+      - 'Replace it. Type a few words of the destination page title into the Link field — Elementor searches your published posts and pages, which avoids typos.'
+      - '{suggestion_sentence}'
+      - 'Click Update. If you use a caching plugin (WP Rocket, LiteSpeed, W3TC), purge the cache for this page, or the old link keeps being served.'
+      - 'Re-check this finding to confirm.'
+
+  dead_cta:
+    issue_type: dead_cta
+    title: 'Give the "{anchor_text}" button a destination'
+    est_time_minutes: 10
+    requires_dev: false
+    steps:
+      - 'Open {page_url} with "Edit with Elementor".'
+      - 'Find the button labelled "{anchor_text}" via the Navigator (⌘/Ctrl + I).'
+      - 'Select it, then Content tab → Link. If the field is empty or contains only "#", the button goes nowhere.'
+      - 'If this button is meant to OPEN A POPUP (Elementor Pro): set the Link field to Dynamic Tags → Actions → Popup, then choose the popup. Do not type a "#" link and hope. Confirm the popup itself is Published and that its Display Conditions include this page.'
+      - 'If it is meant to SCROLL TO A SECTION on this page: give the target section an ID under Advanced → CSS ID (for example "pricing", no "#"), then set the button link to "#pricing".'
+      - 'If it is meant to SUBMIT A FORM: the button must be the Form widget''s own submit button. A separate Button widget placed next to a form does not submit it.'
+      - 'If it is meant to GO TO A PAGE: type the page title into the Link field and pick it from the dropdown.'
+      - 'Update, purge your page cache, then click the button on the live page yourself. If nothing happens, it is still dead.'
+      - 'Common trap: Elementor buttons inside a Popup or a Sticky header sometimes have their link set on the parent container instead of the button. Check the container''s Link field too.'
+
+  redirect_chain:
+    issue_type: redirect_chain
+    title: 'Collapse the redirect chain on {url}'
+    est_time_minutes: 15
+    requires_dev: true
+    steps:
+      - 'This link takes {hops} hops before landing on {redirect_target}.'
+      - 'First, fix the link itself: edit {page_url} in Elementor and point the element at {redirect_target} directly.'
+      - 'Then collapse the server-side chain. If you use Rank Math or Yoast Premium, open its Redirections manager and look for overlapping rules — a chain is usually two rules where one should exist.'
+      - 'Delete the intermediate rule and point the original source straight at {redirect_target}.'
+      - 'Keep the first redirect: external sites still link to the original address.'
+      - 'The Fix Pack contains a ready-made .htaccess ruleset for this. On Apache hosting, add it above the "# BEGIN WordPress" block, never inside it — WordPress rewrites that block.'
+
+  mixed_content:
+    issue_type: mixed_content
+    title: 'Load {resource_type} over HTTPS, not HTTP'
+    est_time_minutes: 10
+    requires_dev: true
+    steps:
+      - 'The page {page_url} is HTTPS but loads {url} over plain HTTP. The browser blocks it.'
+      - 'If the asset is on your own domain, this is usually a leftover absolute URL from a migration. Install Better Search Replace and replace "http://yourdomain.com" with "https://yourdomain.com" across wp_posts and wp_postmeta. Elementor stores its data as serialized JSON in wp_postmeta — use the plugin, never a raw SQL UPDATE, or you will corrupt the page.'
+      - 'After replacing, go to Elementor → Tools → Regenerate CSS & Data, and also run Replace URL there.'
+      - 'If the asset is on someone else''s http:// host, you cannot fix it by rewriting: download the file, upload it to your Media Library, and reference it from there.'
+      - 'Reload with DevTools open. A blocked asset logs "Mixed Content" in the console.'
+
+  missing_asset:
+    issue_type: missing_asset
+    title: 'Replace the missing {resource_type}'
+    est_time_minutes: 10
+    requires_dev: false
+    steps:
+      - 'The page {page_url} references {url}, which returns {status_code}. It is a {resource_type}.'
+      - 'If this is an image: it was probably deleted from the Media Library while still placed on the page. Re-upload it, then re-select it in the Image widget. Replacing the file on disk with the same name is not enough — Elementor stores the attachment ID.'
+      - 'If this is a script or stylesheet: it is almost certainly enqueued by a plugin or the theme, not by Elementor. Check whether the plugin was deactivated or updated. A broken stylesheet will visibly break the page layout; a broken script breaks buttons, sliders and forms while the page still looks fine.'
+      - 'Check Elementor → Tools → Regenerate CSS & Data if the missing file is under /uploads/elementor/css/. Those files are generated and can be rebuilt.'
+      - 'Reload the page with DevTools → Network and confirm the asset returns 200.'
+
+  external_down:
+    issue_type: external_down
+    title: 'The external link to {url} is not responding'
+    est_time_minutes: 5
+    requires_dev: false
+    steps:
+      - 'The link "{anchor_text}" on {page_url} points at {url}, which returned {status_code}.'
+      - 'This is a third-party site. You cannot fix it, only decide what to do.'
+      - 'Open it yourself first. Many sites (LinkedIn, Clutch, Cloudflare-protected sites) block automated checkers while working perfectly for people. If it loads, ignore this finding.'
+      - 'If it is genuinely gone, edit the element in Elementor and either point it at a replacement, link to a Wayback Machine snapshot, or remove the link and leave the text.'
+      - 'Purge your page cache after updating.'

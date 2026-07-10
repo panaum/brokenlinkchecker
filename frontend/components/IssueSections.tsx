@@ -4,9 +4,12 @@ import { motion } from "framer-motion";
 import { AlertOctagon, Ghost, HelpCircle } from "lucide-react";
 import { Bucket, LinkResult } from "@/types";
 import { inBucket } from "@/lib/buckets";
+import FixPanel from "./FixPanel";
 
 interface IssueSectionsProps {
   results: LinkResult[];
+  /** Findings can only be addressed once the scan has been saved. */
+  siteId?: string | null;
 }
 
 interface SectionSpec {
@@ -55,7 +58,7 @@ const SECTIONS: SectionSpec[] = [
   },
 ];
 
-export default function IssueSections({ results }: IssueSectionsProps) {
+export default function IssueSections({ results, siteId }: IssueSectionsProps) {
   const sections = SECTIONS.map((spec) => ({
     spec,
     items: inBucket(results, spec.bucket),
@@ -66,13 +69,13 @@ export default function IssueSections({ results }: IssueSectionsProps) {
   return (
     <div className="w-full max-w-5xl mx-auto mt-8 px-4 space-y-6">
       {sections.map(({ spec, items }) => (
-        <Section key={spec.bucket} spec={spec} items={items} />
+        <Section key={spec.bucket} spec={spec} items={items} siteId={siteId} />
       ))}
     </div>
   );
 }
 
-function Section({ spec, items }: { spec: SectionSpec; items: LinkResult[] }) {
+function Section({ spec, items, siteId }: { spec: SectionSpec; items: LinkResult[]; siteId?: string | null }) {
   const Icon = spec.icon;
 
   return (
@@ -98,14 +101,14 @@ function Section({ spec, items }: { spec: SectionSpec; items: LinkResult[] }) {
 
       <ul className="divide-y" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
         {items.map((r, i) => (
-          <IssueRow key={`${r.url}-${r.anchor_text}-${i}`} result={r} spec={spec} />
+          <IssueRow key={`${r.url}-${r.anchor_text}-${i}`} result={r} spec={spec} siteId={siteId} />
         ))}
       </ul>
     </motion.section>
   );
 }
 
-function IssueRow({ result, spec }: { result: LinkResult; spec: SectionSpec }) {
+function IssueRow({ result, spec, siteId }: { result: LinkResult; spec: SectionSpec; siteId?: string | null }) {
   const label = result.anchor_text?.trim() || "[no text]";
   // A dead CTA has no destination — showing its page URL as a link is noise.
   const showUrl = spec.bucket !== "dead_cta" && result.url;
@@ -169,6 +172,11 @@ function IssueRow({ result, spec }: { result: LinkResult; spec: SectionSpec }) {
           >
             {result.url}
           </a>
+        )}
+
+        {/* Unverifiable items are not defects, so they get no fix workflow. */}
+        {spec.bucket !== "unverifiable" && (
+          <FixPanel result={result} findingId={result.fingerprint} siteId={siteId} />
         )}
       </div>
     </li>

@@ -481,6 +481,68 @@ async def site_storage_report(site_url: str, user_email: str) -> dict:
     return await asyncio.to_thread(_site_storage_report_sync, site_url, user_email)
 
 
+# ─── Phase 6: fix verification ───────────────────────────────────────────────
+_FINDING_COLUMNS_SELECT = (
+    "id, site_id, snapshot_id, fingerprint, bucket, confidence, url, "
+    "anchor_text, zone, reason, first_seen_at, resolved_at, status"
+)
+
+
+def _finding_lookup_sync(finding_id: str, site_id: str = "") -> Optional[dict]:
+    """By database id, or — since the UI only ever holds a fingerprint — by
+    (site_id, fingerprint). A fingerprint alone is not enough: it is scoped to a
+    page, not to a site, so two sites could share one."""
+    client = _get_client()
+
+    try:
+        resp = client.table("findings").select(_FINDING_COLUMNS_SELECT)\
+            .eq("id", finding_id).limit(1).execute()
+        if resp.data:
+            return resp.data[0]
+    except Exception:
+        # Not a uuid: PostgREST rejects the cast. Fall through to fingerprint.
+        pass
+
+    if not site_id:
+        return None
+
+    resp = client.table("findings").select(_FINDING_COLUMNS_SELECT)\
+        .eq("site_id", site_id).eq("fingerprint", finding_id)\
+        .is_("resolved_at", "null").limit(1).execute()
+    return resp.data[0] if resp.data else None
+
+
+async def get_finding(finding_id: str, site_id: str = "") -> Optional[dict]:
+    import asyncio
+    return await asyncio.to_thread(_finding_lookup_sync, finding_id, site_id)
+
+
+def _mark_verified_sync(finding_id: str, resolved_at: str) -> dict:
+    client = _get_client()
+    resp = client.table("findings").update({
+        "resolved_at": resolved_at,
+        "status": "verified_fixed",
+    }).eq("id", finding_id).execute()
+    return (resp.data or [{}])[0]
+
+
+async def mark_finding_verified(finding_id: str, resolved_at: str) -> dict:
+    """Only ever called after a live re-check came back clean."""
+    import asyncio
+    return await asyncio.to_thread(_mark_verified_sync, finding_id, resolved_at)
+
+
+def _site_url_sync(site_id: str) -> Optional[str]:
+    client = _get_client()
+    resp = client.table("sites").select("url").eq("id", site_id).limit(1).execute()
+    return resp.data[0]["url"] if resp.data else None
+
+
+async def get_site_url(site_id: str) -> Optional[str]:
+    import asyncio
+    return await asyncio.to_thread(_site_url_sync, site_id)
+
+
 def _snapshot_write_probe_sync(site_url: str, user_email: str) -> dict:
     """Actually try to write a snapshot + finding, then delete them.
 

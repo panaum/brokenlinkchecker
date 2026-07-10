@@ -1,0 +1,84 @@
+# DRAFT — needs human review
+#
+# Unbounce landing pages. Unbounce pages are single-purpose and conversion-
+# critical, so a dead CTA here costs money immediately. Classic Builder and
+# Smart Builder differ; steps note where.
+
+display_name: Unbounce
+issues:
+  broken_link:
+    issue_type: broken_link
+    title: 'Fix the broken link "{anchor_text}"'
+    est_time_minutes: 5
+    requires_dev: false
+    steps:
+      - 'Open the page for {page_url} in the Unbounce builder.'
+      - 'Click the element containing "{anchor_text}". In the Properties panel, open Actions → Click Action.'
+      - 'It currently points at {url}, which returns {status_code}.'
+      - 'Set Click Action to "Go to URL" and enter the correct address. Keep "Open in new window" for external destinations so you do not lose the visitor.'
+      - '{suggestion_sentence}'
+      - 'Save, then Publish. An Unbounce page must be republished for changes to reach the live domain.'
+      - 'If the page is in an A/B test, fix EVERY variant. Fixing variant A while variant B still has the dead link means half your traffic still hits it — this is the mistake that gets missed.'
+
+  dead_cta:
+    issue_type: dead_cta
+    title: 'Give the "{anchor_text}" button a destination'
+    est_time_minutes: 10
+    requires_dev: false
+    steps:
+      - 'Open the page for {page_url} in the Unbounce builder.'
+      - 'Select the button labelled "{anchor_text}" and open Actions → Click Action.'
+      - 'If Click Action is "None", the button does nothing. On a landing page this is the whole page failing.'
+      - 'Choose the action that matches intent: "Go to URL", "Scroll to Section", "Open Lightbox", or "Submit Form".'
+      - 'If it should SUBMIT A FORM: the button must be the Form element''s own submit button. A Button element placed under the form does not submit it, and Unbounce will not warn you.'
+      - 'If it should OPEN A LIGHTBOX: create the lightbox first, then set Click Action → Open Lightbox and select it. A "#lightbox" URL does not open it.'
+      - 'If it should SCROLL: give the target section an ID in Properties, then use Click Action → Scroll to Section.'
+      - 'Save and Publish, then click it on the live domain — not in Preview. Preview can behave differently from the published page.'
+      - 'Fix every A/B variant, not just the one you have open.'
+
+  redirect_chain:
+    issue_type: redirect_chain
+    title: 'Collapse the redirect chain on {url}'
+    est_time_minutes: 15
+    requires_dev: true
+    steps:
+      - 'This link takes {hops} hops before landing on {redirect_target}.'
+      - 'Fix the link on {page_url} first: point it straight at {redirect_target}.'
+      - 'Unbounce chains usually come from the domain layer: a root domain redirecting to www, then to the Unbounce-hosted page.'
+      - 'Check Settings → Domains, and your DNS/CDN (Cloudflare page rules are a common culprit) for a rule that duplicates what Unbounce already does.'
+      - 'Keep the first redirect — your ad destination URLs may still use the original address, and breaking that stops paid traffic.'
+      - 'Changing an ad''s final URL requires ad review on some networks, so fix the redirect rather than the ad.'
+
+  mixed_content:
+    issue_type: mixed_content
+    title: 'Load {resource_type} over HTTPS, not HTTP'
+    est_time_minutes: 10
+    requires_dev: false
+    steps:
+      - 'The page {page_url} is HTTPS but loads {url} over plain HTTP, so the browser blocks it.'
+      - 'In Unbounce this is nearly always a Custom HTML/JavaScript block: a chat widget, a pixel, or a video embed pasted from vendor docs.'
+      - 'Open Settings → Javascripts and check every snippet for "http://".'
+      - 'Also check any Custom HTML elements on the canvas.'
+      - 'Get the https:// version from the vendor. A blocked chat widget or video on a landing page is lost conversion.'
+
+  missing_asset:
+    issue_type: missing_asset
+    title: 'Replace the missing {resource_type}'
+    est_time_minutes: 10
+    requires_dev: false
+    steps:
+      - 'The page {page_url} references {url}, which returns {status_code}. It is a {resource_type}.'
+      - 'If it is an image: re-upload it through the builder and re-select it in the Image element. Pages duplicated from a template sometimes keep references to assets in another account.'
+      - 'If it is a script: check Settings → Javascripts. A dead tracking script means your conversion data is wrong, and you may be optimising ad spend against nothing.'
+      - 'Save, Publish, and confirm on the live domain with DevTools → Network.'
+
+  external_down:
+    issue_type: external_down
+    title: 'The external link to {url} is not responding'
+    est_time_minutes: 5
+    requires_dev: false
+    steps:
+      - 'The link "{anchor_text}" on {page_url} points at {url}, which returned {status_code}.'
+      - 'Open it yourself first — checkout, calendar and webinar hosts commonly block automated checkers.'
+      - 'If it is genuinely dead and it is the page''s primary CTA destination, this is an emergency: the landing page has no working conversion path.'
+      - 'Replace it, Save, Publish, and fix every A/B variant.'

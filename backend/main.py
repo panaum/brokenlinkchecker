@@ -8,7 +8,17 @@ import json
 import time
 import base64
 import os
+from urllib.parse import quote
+
 import httpx
+
+DEFAULT_FRONTEND_URL = "https://brokenlinkchecker-olive.vercel.app"
+
+
+def _frontend_url() -> str:
+    """Where "View Full Report" points. Configurable so a preview deploy or a
+    local frontend doesn't send people to production."""
+    return os.getenv("FRONTEND_URL", DEFAULT_FRONTEND_URL).rstrip("/")
 
 from fastapi import FastAPI, Query
 from models import FindingRecord, LinkResult, SiteCreate
@@ -190,7 +200,10 @@ async def send_slack_notification(
                     "type": "plain_text",
                     "text": "View Full Report →"
                 },
-                "url": f"https://brokenlinkchecker-olive.vercel.app?url={url}",
+                # The scanned URL must be percent-encoded: it carries "://" and
+                # may carry its own ?query, which would otherwise terminate ours.
+                # Slack rejects a button whose URL it cannot parse.
+                "url": f"{_frontend_url()}/?url={quote(url, safe='')}",
                 "style": "primary"
             }
         ]

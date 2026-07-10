@@ -79,7 +79,7 @@ function ParticleBg() {
 }
 
 export default function HomePage() {
-  const { data: session } = useSession();
+  const { data: session, status: sessionStatus } = useSession();
   const [url, setUrl] = useState("");
   const [scanning, setScanning] = useState(false);
   const [progress, setProgress] = useState({ message: "", percent: 0 });
@@ -324,6 +324,35 @@ export default function HomePage() {
   const scrollToHistory = useCallback(() => {
     historyPanelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   }, []);
+
+  // ─── Deep link: /?url=… ────────────────────────────────────────────────────
+  // Slack's "View Full Report" button lands here. Prefill and scan straight
+  // away, otherwise the button just opens an empty scanner.
+  //
+  // Read from window.location rather than useSearchParams(): the latter opts the
+  // whole page into dynamic rendering unless it sits behind a Suspense boundary.
+  const deepLinkHandled = useRef(false);
+  useEffect(() => {
+    if (deepLinkHandled.current) return;
+    // Wait for the session, or the scan is attributed to "anonymous" and its
+    // history is stored under a different key than the signed-in user's.
+    if (sessionStatus === "loading") return;
+
+    const target = new URLSearchParams(window.location.search).get("url");
+    if (!target) return;
+
+    let parsed: URL;
+    try {
+      parsed = new URL(target);
+    } catch {
+      return;
+    }
+    if (parsed.protocol !== "https:" && parsed.protocol !== "http:") return;
+
+    deepLinkHandled.current = true;
+    setUrl(target);
+    startScan(target);
+  }, [sessionStatus, startScan]);
 
   return (
     <main className="min-h-screen relative overflow-hidden">

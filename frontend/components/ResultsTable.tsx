@@ -31,6 +31,7 @@ interface ResultsTableProps {
 
 // ─── Zone config ─────────────────────────────────────────────────────────────
 const ZONE_ORDER = [
+  "Form",
   "Navigation",
   "Header",
   "CTA",
@@ -41,6 +42,8 @@ const ZONE_ORDER = [
 ];
 
 const ZONE_DOT_COLORS: Record<string, string> = {
+  // A broken form is the most expensive defect on a lead-gen site.
+  Form: "#f472b6",
   Navigation: "#60a5fa",
   Header: "#a78bfa",
   Footer: "#94a3b8",

@@ -26,8 +26,11 @@ from models import RawLink
 LISTENER_PROBE_JS = r"""
 (function () {
   try {
+    // 'submit' is here so a <form> whose handler is attached in JS can be
+    // observed. This RECORDS that a listener was registered; it never fires
+    // one. Nothing in this probe submits anything.
     var CLICKY = ['click', 'pointerdown', 'pointerup', 'mousedown',
-                  'mouseup', 'touchstart', 'touchend', 'keydown'];
+                  'mouseup', 'touchstart', 'touchend', 'keydown', 'submit'];
     var orig = EventTarget.prototype.addEventListener;
     EventTarget.prototype.addEventListener = function (type, listener, options) {
       try {

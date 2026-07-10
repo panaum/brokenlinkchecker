@@ -26,6 +26,7 @@ from database import (
     get_site_id,
     save_scan,
     save_snapshot,
+    site_storage_report,
 )
 from correlation import enrich_reasons
 from redirect_rules import FORMATS, collapse_rules, redirect_summary, render
@@ -813,12 +814,15 @@ async def latest_diff(site_id: str):
 
 
 @app.get("/api/diagnostics/diffing")
-async def diffing_diagnostics():
-    """Is baseline diffing actually working?
+async def diffing_diagnostics(
+    url: str = Query(default="", description="Optional: report storage for this site"),
+    email: str = Query(default="anonymous"),
+):
+    """Is scan storage actually working?
 
-    Diffing needs the tables from backend/migrations/001. Without them every
-    scan silently reports "no previous scan". This probes them directly so the
-    answer is one request away rather than buried in a server log.
+    Diffing needs the tables from backend/migrations/001; History needs rows in
+    `scans`. Both used to fail silently. Pass ?url= to see exactly how much of a
+    given site reached storage.
     """
     try:
         checks = await diffing_tables_ready()
@@ -842,6 +846,13 @@ async def diffing_diagnostics():
             "Supabase project, then rescan twice: the first scan writes the "
             "baseline, the second one diffs against it."
         )
+
+    if url:
+        try:
+            body["site"] = await site_storage_report(url, email)
+        except Exception as e:
+            body["site"] = {"error": f"{type(e).__name__}: {e}"}
+
     return body
 
 

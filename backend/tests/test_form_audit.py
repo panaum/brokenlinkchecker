@@ -701,8 +701,10 @@ def test_ordinary_links_are_never_touched():
 # lands somewhere unintended cannot send anything.
 # ─────────────────────────────────────────────────────────────────────────────
 class _FakeRequest:
-    def __init__(self, method="GET", navigation=False, top_level=True):
+    def __init__(self, method="GET", navigation=False, top_level=True,
+                 url="https://acme.test/asset.js"):
         self.method = method
+        self.url = url
         self._nav = navigation
         parent = None if top_level else object()
         self.frame = type("F", (), {"parent_frame": parent})()
@@ -936,3 +938,38 @@ def test_an_unrelated_button_is_not_a_submit_control(text):
 
 def test_a_container_with_an_email_box_qualifies_whatever_the_button_says():
     assert "LEAD_FIELD" in scraper._COLLECT_FORMLESS_JS
+
+
+# ─── pressing a CTA must not be counted by the client's analytics ────────────
+# A conversion pixel is a GET, so blocking non-GET was not enough. Pressing
+# "Join The Next Cohort" would have logged a visitor who does not exist and
+# inflated the click-through on the client's own funnel.
+@pytest.mark.parametrize("url", [
+    "https://www.google-analytics.com/collect?v=1&t=event",
+    "https://www.googletagmanager.com/gtag/js?id=G-XYZ",
+    "https://www.facebook.com/tr?id=1&ev=Lead",
+    "https://analytics.tiktok.com/i18n/pixel/events.js",
+    "https://bat.bing.com/action/0?ti=1",
+    "https://eu.posthog.com/e/?ip=1",
+    "https://sites.leadconnectorhq.com/tracking/click",
+])
+def test_an_analytics_beacon_is_aborted_during_reveal(url):
+    route = _FakeRoute(_FakeRequest(url=url))
+    scraper._block_non_get(route)
+    assert route.action == "abort", url
+
+
+@pytest.mark.parametrize("url", [
+    "https://acme.test/app.js",
+    "https://cdn.acme.test/modal.css",
+    "https://api.leadconnectorhq.com/widget/form/abc123",   # the form itself
+])
+def test_the_assets_a_modal_needs_still_load(url):
+    """Blocking analytics must not block the form we are trying to reveal."""
+    route = _FakeRoute(_FakeRequest(url=url))
+    scraper._block_non_get(route)
+    assert route.action == "continue", url
+
+
+def test_analytics_matching_is_case_insensitive():
+    assert scraper._is_analytics("https://WWW.Google-Analytics.COM/collect")

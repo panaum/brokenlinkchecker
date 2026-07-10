@@ -448,14 +448,38 @@ MAX_REVEAL_CLICKS = 6
 REVEAL_BUDGET_SECONDS = 20
 
 
+# Analytics fires on click. A conversion pixel is a GET, so blocking non-GET is
+# not enough: pressing a CTA would log a visitor who does not exist and inflate
+# the client's click-through on their own funnel. We are auditing their site,
+# not participating in it.
+_ANALYTICS_HOSTS = (
+    "google-analytics.com", "googletagmanager.com", "analytics.google.com",
+    "doubleclick.net", "googleadservices.com", "googlesyndication.com",
+    "facebook.com/tr", "facebook.net", "connect.facebook",
+    "segment.io", "segment.com", "mixpanel.com", "amplitude.com",
+    "hotjar.com", "hotjar.io", "clarity.ms", "fullstory.com", "logrocket",
+    "analytics.tiktok.com", "ads.linkedin.com", "px.ads", "bat.bing.com",
+    "matomo", "plausible.io", "posthog.com", "heap.io", "intercom.io",
+    "leadconnectorhq.com/tracking", "msgsndr.com/tracking",
+)
+
+
+def _is_analytics(url: str) -> bool:
+    low = url.lower()
+    return any(host in low for host in _ANALYTICS_HOSTS)
+
+
 def _block_non_get(route) -> None:
-    """Abort anything that could send data or leave the page. GETs pass.
+    """Abort anything that could send data, leave the page, or be counted.
 
     Fails closed: if we cannot tell what a request is, it does not go out.
     """
     try:
         request = route.request
         if request.method.upper() != "GET":
+            route.abort()
+            return
+        if _is_analytics(request.url):
             route.abort()
             return
         if request.is_navigation_request() and request.frame.parent_frame is None:

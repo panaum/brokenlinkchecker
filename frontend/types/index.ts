@@ -193,6 +193,8 @@ export interface ScanResultPayload {
   top_hosts?: HostCount[]
   schemes?: Record<string, number>
   redirects?: RedirectSummary
+  /** Needed to address findings (fix / verify / client message / fix pack). */
+  site_id?: string | null
 }
 
 /** Diff filter in the results toolbar, alongside the bucket filters. */

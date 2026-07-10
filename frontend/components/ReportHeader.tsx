@@ -8,13 +8,15 @@ interface ReportHeaderProps {
   results: LinkResult[];
   detectedBuilders: string[];
   diff?: ScanDiff | null;
+  /** The Fix Pack is built from the saved scan, so it needs the site. */
+  siteId?: string | null;
 }
 
 /**
  * Report header:
  *   🏗️ Built with: Elementor · 47 links scanned · 2 broken · 1 dead CTA · 3 unverifiable
  */
-export default function ReportHeader({ results, detectedBuilders, diff }: ReportHeaderProps) {
+export default function ReportHeader({ results, detectedBuilders, diff, siteId }: ReportHeaderProps) {
   if (results.length === 0) return null;
 
   const { broken, dead_cta, unverifiable } = countBuckets(results);
@@ -73,6 +75,21 @@ export default function ReportHeader({ results, detectedBuilders, diff }: Report
             <span aria-hidden>🏗️</span>
             Built with: {detectedBuilders.join(", ")}
           </span>
+        )}
+
+        {siteId && (broken > 0 || dead_cta > 0) && (
+          <a
+            href={`/api/sites/${encodeURIComponent(siteId)}/fix-pack`}
+            className="ml-auto inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium"
+            style={{
+              background: "rgba(74,222,128,0.12)",
+              color: "#4ade80",
+              border: "1px solid rgba(74,222,128,0.25)",
+            }}
+            title="fixes.csv, instructions.md, and the redirect ruleset"
+          >
+            <span aria-hidden>⬇</span> Download Fix Pack
+          </a>
         )}
 
         {chips.map((chip, i) => (

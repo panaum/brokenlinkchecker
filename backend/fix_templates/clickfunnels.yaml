@@ -1,0 +1,85 @@
+# DRAFT — needs human review
+#
+# ClickFunnels. Steps cover both CF 2.0 and CF Classic where they differ, since
+# agencies still run both. CF's element actions are the usual source of dead
+# CTAs: a button with no "Set Action" looks fine and does nothing.
+
+display_name: ClickFunnels
+issues:
+  broken_link:
+    issue_type: broken_link
+    title: 'Fix the broken link "{anchor_text}"'
+    est_time_minutes: 5
+    requires_dev: false
+    steps:
+      - 'Open the funnel step for {page_url} and click Edit Page.'
+      - 'Click the element containing "{anchor_text}", then open Settings → Set Action (CF Classic) or the Link panel (CF 2.0).'
+      - 'It currently points at {url}, which returns {status_code}.'
+      - 'If the destination is the next step of this funnel, choose the step by name rather than pasting a URL. A pasted URL breaks when the funnel is cloned or the path changes — and cloned funnels are how most CF sites are built.'
+      - '{suggestion_sentence}'
+      - 'Save, then Publish the step. The editor preview does not reflect the live page.'
+      - 'Check the live URL in a private window — CF serves cached pages to logged-in editors differently.'
+
+  dead_cta:
+    issue_type: dead_cta
+    title: 'Give the "{anchor_text}" button a destination'
+    est_time_minutes: 10
+    requires_dev: false
+    steps:
+      - 'Open the funnel step for {page_url} in the page editor.'
+      - 'Select the button labelled "{anchor_text}". Open Settings → Set Action.'
+      - 'If no action is set, the button renders and does nothing. This is the most common broken CTA in ClickFunnels.'
+      - 'Choose the action that matches intent: "Go to Website URL", "Go to Next Step in Funnel", "Show/Hide Element", "Open Popup", or "Submit Form / Purchase".'
+      - 'If it should SUBMIT AN ORDER: the button must be inside the Order Form element and its action must be "Submit Order". A standalone button styled to look like a buy button will take payment from nobody. Test with a real card in test mode.'
+      - 'If it should OPEN A POPUP: add the Popup element to this step first, then set the button action to Open Popup. A hand-typed "#open-popup" link does nothing on its own.'
+      - 'If it should JUMP TO A SECTION: give the target section a CSS ID under Advanced, then set the action to "Go to Website URL" with the value "#your-id".'
+      - 'Save and Publish, then click the button on the live page yourself.'
+
+  redirect_chain:
+    issue_type: redirect_chain
+    title: 'Collapse the redirect chain on {url}'
+    est_time_minutes: 15
+    requires_dev: false
+    steps:
+      - 'This link takes {hops} hops before landing on {redirect_target}.'
+      - 'In ClickFunnels, chains usually come from a custom domain → myclickfunnels.com → funnel path, or from an old funnel step redirecting to a new one.'
+      - 'Fix the link on {page_url} first: point it directly at {redirect_target}.'
+      - 'Then check the funnel step''s own settings for a redirect that is no longer needed.'
+      - 'Keep the outermost redirect — your ads and emails may still use the original address, and breaking that costs live traffic.'
+      - 'CF domain settings can take up to an hour to propagate; re-check later rather than immediately.'
+
+  mixed_content:
+    issue_type: mixed_content
+    title: 'Load {resource_type} over HTTPS, not HTTP'
+    est_time_minutes: 10
+    requires_dev: false
+    steps:
+      - 'The page {page_url} is HTTPS but loads {url} over plain HTTP, so the browser blocks it.'
+      - 'In CF this is nearly always a pasted embed: a VSL player, a tracking pixel, or a testimonial widget dropped into a Custom JS/HTML element.'
+      - 'Open the page and inspect every Custom JS/HTML element for "http://".'
+      - 'Ask the vendor for the https:// embed. Most have one and their docs are simply out of date.'
+      - 'A blocked video player is a blocked sale. Treat this as high priority on a sales page.'
+
+  missing_asset:
+    issue_type: missing_asset
+    title: 'Replace the missing {resource_type}'
+    est_time_minutes: 10
+    requires_dev: false
+    steps:
+      - 'The page {page_url} references {url}, which returns {status_code}. It is a {resource_type}.'
+      - 'If the funnel was cloned or imported from a share URL, images frequently point back at the original account and break once that account changes or closes. Re-upload the file into this account.'
+      - 'If it is a script: check your tracking code blocks under Settings → Tracking Codes. A dead pixel means your ad platform is optimising on nothing.'
+      - 'Replace the file, Save, Publish.'
+      - 'Confirm on the live URL with DevTools → Network that it returns 200.'
+
+  external_down:
+    issue_type: external_down
+    title: 'The external link to {url} is not responding'
+    est_time_minutes: 5
+    requires_dev: false
+    steps:
+      - 'The link "{anchor_text}" on {page_url} points at {url}, which returned {status_code}.'
+      - 'Open it yourself first — payment and booking hosts often block automated checkers.'
+      - 'If it is a checkout, calendar or webinar link and it really is dead, treat it as urgent: it is on the money path.'
+      - 'Replace it in the editor and Publish.'
+      - 'If it belongs to a partner, tell them.'

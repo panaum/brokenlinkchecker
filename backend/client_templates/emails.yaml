@@ -1,0 +1,150 @@
+# DRAFT — needs human review
+#
+# Client-facing messages, one per issue category. Plain language: the reader is
+# the business owner, not the developer. Each says what broke, why it costs them
+# something, what we will do, and when.
+#
+# SECURITY: every interpolated value ({anchor_text}, {url}, {page_url}) comes
+# from a scanned page and is attacker-controlled. The renderer HTML-escapes all
+# of them. Never add a value here that bypasses that.
+#
+# Placeholders: {anchor_text} {url} {page_url} {status_code} {resource_type}
+#               {redirect_target} {hops} {eta} {site_url} {age_phrase}
+
+report_summary:
+  subject: 'Website health check for {site_url} — {new_count} new issue(s)'
+  body: |
+    Hi,
+
+    We ran our automated check across {site_url} and here is where things stand:
+
+    {summary_line}
+
+    Below are the items worth your attention. We have already worked out how to
+    fix each one, and none of them require you to do anything technical.
+
+    We will start on these straight away and let you know as they are resolved.
+
+issues:
+  broken_link:
+    subject: 'A link on your site leads to a dead page'
+    body: |
+      Hi,
+
+      While checking {site_url} we found a link that no longer works.
+
+      On the page {page_url}, the link labelled "{anchor_text}" points to a page
+      that no longer exists ({url}). Anyone clicking it sees an error instead of
+      what they expected. {age_phrase}
+
+      Why this matters: visitors who hit a dead link usually leave rather than go
+      looking for the right page, and search engines treat dead links as a sign
+      the site is not maintained.
+
+      What we will do: point that link at the correct page, or remove it if the
+      destination is genuinely gone. We will confirm it works afterwards.
+
+      Estimated time: {eta}.
+
+  dead_cta:
+    subject: 'A button on your site does nothing when clicked'
+    body: |
+      Hi,
+
+      While checking {site_url} we found a button that is not connected to
+      anything.
+
+      On the page {page_url}, the button labelled "{anchor_text}" looks clickable
+      but has no destination. Visitors who click it stay exactly where they are.
+      {age_phrase}
+
+      Why this matters: this is usually the button you most want people to press.
+      Every click on it is a person who tried to take you up on your offer and got
+      nothing. It costs you enquiries silently, because nothing is logged when a
+      button does nothing.
+
+      What we will do: work out where the button should lead, connect it, and test
+      it on the live page ourselves.
+
+      Estimated time: {eta}.
+
+  redirect_chain:
+    subject: 'Some links on your site take a slow, indirect route'
+    body: |
+      Hi,
+
+      While checking {site_url} we found links that bounce through several
+      addresses before arriving.
+
+      The link on {page_url} passes through {hops} redirects before it reaches
+      {redirect_target}.
+
+      Why this matters: each hop adds a delay before the page appears, which is
+      most noticeable on mobile. It also dilutes the search-engine value passed
+      through the link.
+
+      What we will do: point the link straight at its destination and tidy up the
+      redirect rules behind the scenes. Nothing changes for your visitors except
+      that pages arrive faster.
+
+      Estimated time: {eta}.
+
+  mixed_content:
+    subject: 'Part of your page is being blocked by web browsers'
+    body: |
+      Hi,
+
+      While checking {site_url} we found content that browsers refuse to load.
+
+      Your page {page_url} is served securely (https), but it tries to load
+      {resource_type} from an insecure address ({url}). Browsers block this on
+      purpose.
+
+      Why this matters: visitors do not see the blocked content at all — an image,
+      a video, or a chat widget simply is not there. Some browsers also show a
+      "not secure" warning on the whole page, which undermines trust.
+
+      What we will do: load that content securely, or replace it if the source
+      does not support secure connections.
+
+      Estimated time: {eta}.
+
+  missing_asset:
+    subject: 'A file your page depends on is missing'
+    body: |
+      Hi,
+
+      While checking {site_url} we found a missing file.
+
+      The page {page_url} asks for {url}, which is no longer there.
+
+      Why this matters: depending on what the file is, this either leaves a broken
+      image on the page, or quietly stops part of the page working — a menu that
+      will not open, a slider that will not move, a form that will not send. The
+      page still loads, so nothing warns you it is happening.
+
+      What we will do: restore the missing file, or update the page to point at
+      the correct one, then confirm the page behaves properly again.
+
+      Estimated time: {eta}.
+
+  external_down:
+    subject: 'A link to another website is not responding'
+    body: |
+      Hi,
+
+      While checking {site_url} we found a link to another company's website that
+      is not responding.
+
+      The link labelled "{anchor_text}" on {page_url} points to {url}, which
+      returned an error.
+
+      Why this matters: it is not your website that is broken, but it is your
+      visitor who hits the dead end. If the link sits on a booking or payment
+      path, that matters a great deal.
+
+      What we will do: confirm whether the other site is genuinely down or simply
+      blocking automated checks. If it is really gone, we will replace the link or
+      remove it, and let you know either way.
+
+      Estimated time: {eta}.

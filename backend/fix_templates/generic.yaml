@@ -1,0 +1,87 @@
+# DRAFT — needs human review
+#
+# Fallback template. Used whenever no builder is detected, or a detected builder
+# has no entry for the issue type. Steps must be true for ANY stack, so they
+# describe intent rather than which button to click.
+#
+# Placeholders available to every step:
+#   {url} {anchor_text} {page_url} {status_code} {resource_type}
+#   {fragment} {suggestion_sentence} {redirect_target} {hops} {builder}
+# {suggestion_sentence} is filled with either the suggested replacement and a
+# warning to confirm it, or a sentence saying no replacement could be suggested.
+# A placeholder with no value renders as "(not available)" — never a stray brace.
+
+display_name: Generic
+issues:
+  broken_link:
+    issue_type: broken_link
+    title: 'Fix the broken link "{anchor_text}"'
+    est_time_minutes: 5
+    requires_dev: false
+    steps:
+      - 'Open the page {page_url} in your editor or CMS.'
+      - 'Find the link with the text "{anchor_text}". It currently points at {url}, which returns {status_code}.'
+      - 'Decide where it should go. If the page moved, use the new address. If it no longer exists, link to the closest equivalent page, or remove the link and leave the text as plain copy.'
+      - '{suggestion_sentence}'
+      - 'Save, publish, then use the Re-check button on this finding to confirm.'
+
+  dead_cta:
+    issue_type: dead_cta
+    title: 'Give the "{anchor_text}" button a destination'
+    est_time_minutes: 10
+    requires_dev: false
+    steps:
+      - 'Open {page_url} in your editor.'
+      - 'Locate the button or link labelled "{anchor_text}". It has no working destination — its link is empty, a placeholder (#), or a script that does nothing.'
+      - 'Decide what should happen when a visitor clicks it: go to a page, jump to a section on this page, open a form, or start a purchase.'
+      - 'Set that destination on the element. If it is meant to open a popup or modal, confirm the popup is published and its trigger is enabled.'
+      - 'Click the button yourself on the live page. If nothing happens, it is still broken.'
+      - 'Re-check this finding once published.'
+
+  redirect_chain:
+    issue_type: redirect_chain
+    title: 'Collapse the redirect chain on {url}'
+    est_time_minutes: 15
+    requires_dev: true
+    steps:
+      - 'This link takes {hops} hops before it lands on {redirect_target}. Every hop costs the visitor time and loses a little SEO value.'
+      - 'Update the link on {page_url} to point straight at {redirect_target}.'
+      - 'Then collapse the server-side rule: replace the chain with a single redirect from the original address to the final one.'
+      - 'Download the Fix Pack for a ready-made ruleset (Cloudflare CSV, Netlify _redirects, or .htaccess) containing this rule.'
+      - 'Keep the first redirect in place — old links elsewhere on the internet still use it. You are shortening the chain, not deleting it.'
+
+  mixed_content:
+    issue_type: mixed_content
+    title: 'Load {resource_type} over HTTPS, not HTTP'
+    est_time_minutes: 10
+    requires_dev: true
+    steps:
+      - 'The page {page_url} is served over HTTPS but loads {url} over plain HTTP.'
+      - 'Browsers block this. The asset silently fails to load, and some browsers show a "not secure" warning on the whole page.'
+      - 'Change the address to https:// and load the page again.'
+      - 'If the host does not support HTTPS, host the file yourself or find a replacement — there is no safe way to keep an http:// asset on an https:// page.'
+      - 'Check the browser console after fixing: a blocked resource logs a "Mixed Content" error.'
+
+  missing_asset:
+    issue_type: missing_asset
+    title: 'Replace the missing {resource_type}'
+    est_time_minutes: 10
+    requires_dev: false
+    steps:
+      - 'The page {page_url} references {url}, which returns {status_code}.'
+      - 'This is a {resource_type}. A missing script or stylesheet breaks how the page behaves or looks, even though the page itself still returns 200 — so nothing else will warn you about it.'
+      - 'Check whether the file was renamed, moved, or deleted. Look for the same filename elsewhere in your media library or repository.'
+      - 'Re-upload the file at the expected path, or update the reference to the new path.'
+      - 'Reload the page and confirm the asset now loads (browser DevTools, Network tab, should show 200).'
+
+  external_down:
+    issue_type: external_down
+    title: 'The external link to {url} is not responding'
+    est_time_minutes: 5
+    requires_dev: false
+    steps:
+      - 'The link "{anchor_text}" on {page_url} points at {url}, which returned {status_code}.'
+      - 'This is someone else''s website. You cannot fix it — you can only decide what to do about it.'
+      - 'Open the address yourself. If it loads for you, the site may simply be blocking automated checks, and you can safely ignore this.'
+      - 'If it is genuinely gone, either link to an archived copy, link to a replacement source, or remove the link and keep the text.'
+      - 'If it is a partner or client link, tell them — they probably do not know.'

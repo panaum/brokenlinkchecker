@@ -92,6 +92,7 @@ export default function HomePage() {
   const [topHosts, setTopHosts] = useState<HostCount[]>([]);
   const [schemes, setSchemes] = useState<Record<string, number>>({});
   const [redirects, setRedirects] = useState<RedirectSummary | null>(null);
+  const [siteId, setSiteId] = useState<string | null>(null);
   const [diffFilter, setDiffFilter] = useState<DiffFilter>("all");
   const [filter, setFilter] = useState<FilterType>("all");
   const [sortOption, setSortOption] = useState<SortOption>("status");
@@ -150,6 +151,7 @@ export default function HomePage() {
       setTopHosts([]);
       setSchemes({});
       setRedirects(null);
+      setSiteId(null);
       setScanComplete(false);
       setScanning(true);
       scanningRef.current = true;
@@ -202,6 +204,7 @@ export default function HomePage() {
             setTopHosts((data.top_hosts as HostCount[]) ?? []);
             setSchemes((data.schemes as Record<string, number>) ?? {});
             setRedirects((data.redirects as RedirectSummary) ?? null);
+            setSiteId((data.site_id as string) ?? null);
             setScanComplete(true);
             setScanning(false);
             scanningRef.current = false;
@@ -471,7 +474,7 @@ export default function HomePage() {
 
           {/* Report header: builder badge + bucket counts */}
           <section className="relative z-10">
-            <ReportHeader results={results} detectedBuilders={detectedBuilders} diff={diff} />
+            <ReportHeader results={results} detectedBuilders={detectedBuilders} diff={diff} siteId={siteId} />
           </section>
 
           {/* Health score */}
@@ -504,7 +507,7 @@ export default function HomePage() {
 
           {/* Triage: broken / dead CTA / unverifiable */}
           <section className="relative z-10">
-            <IssueSections results={results} />
+            <IssueSections results={results} siteId={siteId} />
           </section>
 
           {/* Filter bar */}

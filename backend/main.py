@@ -31,7 +31,10 @@ from suggester import process_suggestions
 from database import (
     describe_exception,
     diffing_tables_ready,
+    get_finding,
+    get_site_url,
     last_snapshot_error,
+    mark_finding_verified,
     snapshot_write_probe,
     get_findings_for_snapshot,
     get_latest_snapshot,
@@ -42,6 +45,9 @@ from database import (
     site_storage_report,
 )
 from correlation import enrich_reasons
+from fix_engine import build_fix_suggestion, choose_builder, render_client_message
+from fix_pack import build_fix_pack, build_rows
+from fix_verify import verify_finding
 from redirect_rules import FORMATS, collapse_rules, redirect_summary, render
 from resources import host_breakdown, link_type_breakdown, scheme_breakdown
 from diffing import (
@@ -383,7 +389,8 @@ async def _resolve_site_id(saved: dict, site_id, site_url: str, user_email: str)
 
 async def _persist_snapshot(site_id, scan_id, diff, link_counts,
                             current_findings, current_fps, health_score,
-                            redirect_rules=None, saved=None) -> None:
+                            redirect_rules=None, saved=None,
+                            detected_builders=None) -> None:
     if not site_id:
         # Never silent. A skipped snapshot means no baseline next scan, and this
         # used to be the one path that produced zero rows and zero explanation.
@@ -405,6 +412,8 @@ async def _persist_snapshot(site_id, scan_id, diff, link_counts,
         # Collapsed first-hop -> final-destination rules, so the redirect-rules
         # endpoint can serve a ruleset without rescanning.
         "redirect_rules": redirect_rules or [],
+        # The Fix Pack needs to know which builder's instructions to render.
+        "detected_builders": detected_builders or [],
     }
     # Recurring findings must persist with their ORIGINAL first_seen_at, or age
     # resets every scan and "broken for 12 days" never happens.
@@ -587,6 +596,7 @@ async def scan(
 
             # Save to Supabase (non-blocking — never fail the scan)
             saved = {}
+            effective_site_id = site_id
             try:
                 saved = await save_scan(
                     site_url=url,
@@ -604,6 +614,7 @@ async def scan(
                     diff, link_counts, current_findings, current_fps, health_score,
                     redirect_rules=collapse_rules(results, url),
                     saved=saved,
+                    detected_builders=detected_builders,
                 )
             except Exception as db_err:
                 # The scan still succeeds, but the next one will have no baseline.
@@ -620,7 +631,7 @@ async def scan(
             # nav and footer is fetched once but counted in both places.
             total_placements = sum(getattr(r, "occurrences", 1) or 1 for r in results)
 
-            yield f"data: {json.dumps({'type': 'result', 'data': [r.dict() for r in results], 'health_score': health_score, 'detected_builders': detected_builders, 'total_links': len(results), 'total_placements': total_placements, 'diff': diff_payload, **_breakdowns(results, url)})}\n\n"
+            yield f"data: {json.dumps({'type': 'result', 'data': [r.dict() for r in results], 'health_score': health_score, 'detected_builders': detected_builders, 'total_links': len(results), 'total_placements': total_placements, 'diff': diff_payload, 'site_id': effective_site_id, **_breakdowns(results, url)})}\n\n"
 
         except Exception as e:
             yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
@@ -766,6 +777,7 @@ async def scan_site(
 
             # Save full site scan to Supabase (non-blocking)
             saved = {}
+            effective_site_id = site_id
             try:
                 saved = await save_scan(
                     site_url=url,
@@ -784,6 +796,7 @@ async def scan_site(
                     diff, link_counts, current_findings, current_fps, health_score,
                     redirect_rules=collapse_rules(final_results, url),
                     saved=saved,
+                    detected_builders=site_builders,
                 )
             except Exception as db_err:
                 print(f"[DB] Snapshot save failed: {describe_exception(db_err)}")
@@ -803,7 +816,7 @@ async def scan_site(
             # Yield final result event
             total_placements = sum(r.get("occurrences", 1) or 1 for r in final_results)
 
-            yield f"data: {json.dumps({'type': 'result', 'data': final_results, 'health_score': health_score, 'pages_scanned': total_pages, 'detected_builders': site_builders, 'total_links': len(final_results), 'total_placements': total_placements, 'diff': diff_payload, **_breakdowns(final_results, url)})}\n\n"
+            yield f"data: {json.dumps({'type': 'result', 'data': final_results, 'health_score': health_score, 'pages_scanned': total_pages, 'detected_builders': site_builders, 'total_links': len(final_results), 'total_placements': total_placements, 'diff': diff_payload, 'site_id': effective_site_id, **_breakdowns(final_results, url)})}\n\n"
 
         except Exception as e:
             yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
@@ -928,6 +941,128 @@ async def snapshot_write_test(
             {"ok": False, "stage": "probe", "error": describe_exception(e)},
             status_code=500,
         )
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Phase 6 — fix engine
+# ─────────────────────────────────────────────────────────────────────────────
+def _snapshot_context(snapshot: dict) -> tuple:
+    totals = (snapshot or {}).get("totals_json") or {}
+    # Contradictory detection means at least one builder is wrong. choose_builder
+    # falls back to generic rather than sending a client into the wrong editor.
+    builder = choose_builder(totals.get("detected_builders") or [])
+    return builder, totals.get("redirect_rules") or []
+
+
+@app.get("/api/sites/{site_id}/fix-pack")
+async def fix_pack(site_id: str):
+    """A zip the operator opens and works through: fixes.csv, instructions.md,
+    and the redirect ruleset."""
+    try:
+        snapshot = await get_latest_snapshot(site_id)
+        site_url = await get_site_url(site_id) or ""
+    except Exception as e:
+        return JSONResponse({"error": describe_exception(e)}, status_code=500)
+
+    if not snapshot:
+        return JSONResponse(
+            {"error": "no scan snapshot for this site yet — run a scan first"},
+            status_code=404,
+        )
+
+    try:
+        findings = await get_findings_for_snapshot(snapshot["id"])
+    except Exception as e:
+        return JSONResponse({"error": describe_exception(e)}, status_code=500)
+
+    builder, redirect_rules = _snapshot_context(snapshot)
+
+    # Working URLs on the site are the candidate pool a 404'd link is matched
+    # against. Without them the engine proposes nothing, which is correct.
+    site_urls = [f.get("url") for f in findings if f.get("bucket") == "ok"]
+
+    rows = build_rows(
+        [{**f, "page_url": site_url} for f in findings if f.get("bucket") != "ok"],
+        builder, site_url, site_urls=site_urls,
+    )
+    body = build_fix_pack(rows, site_url=site_url, builder=builder,
+                          redirect_rules=redirect_rules)
+
+    filename = "linkspy-fix-pack.zip"
+    return Response(
+        content=body,
+        media_type="application/zip",
+        headers={"Content-Disposition": f'attachment; filename="{filename}"'},
+    )
+
+
+@app.get("/api/findings/{finding_id}/fix")
+async def finding_fix(finding_id: str, builder: str = Query(default=""),
+                      site_id: str = Query(default="")):
+    """The "How to fix" panel: hand-authored steps for this finding."""
+    try:
+        finding = await get_finding(finding_id, site_id)
+    except Exception as e:
+        return JSONResponse({"error": describe_exception(e)}, status_code=500)
+    if not finding:
+        return JSONResponse({"error": "finding not found"}, status_code=404)
+
+    site_url = await get_site_url(finding["site_id"]) or ""
+    suggestion = build_fix_suggestion(finding, builder, page_url=site_url)
+    return suggestion.model_dump()
+
+
+@app.get("/api/findings/{finding_id}/client-message")
+async def finding_client_message(finding_id: str, site_id: str = Query(default="")):
+    """Copy-pasteable client message. Every value is HTML-escaped."""
+    try:
+        finding = await get_finding(finding_id, site_id)
+    except Exception as e:
+        return JSONResponse({"error": describe_exception(e)}, status_code=500)
+    if not finding:
+        return JSONResponse({"error": "finding not found"}, status_code=404)
+
+    site_url = await get_site_url(finding["site_id"]) or ""
+    age = issue_age_days(finding.get("first_seen_at"), utcnow_iso())
+    age_phrase = (
+        f"It has been like this for {age} day{'s' if age != 1 else ''}."
+        if age else ""
+    )
+    return render_client_message(finding, page_url=site_url, site_url=site_url,
+                                 age_phrase=age_phrase)
+
+
+@app.post("/api/findings/{finding_id}/verify")
+async def verify_fix(finding_id: str, site_id: str = Query(default="")):
+    """Re-check one finding live.
+
+    Flips to "verified_fixed" only on a clean check. If it is still broken, it
+    says so — the point of this endpoint is that it does not take anyone's word.
+    """
+    try:
+        finding = await get_finding(finding_id, site_id)
+    except Exception as e:
+        return JSONResponse({"error": describe_exception(e)}, status_code=500)
+    if not finding:
+        return JSONResponse({"error": "finding not found"}, status_code=404)
+
+    outcome = await verify_finding(finding)
+
+    if outcome["verified"]:
+        resolved_at = utcnow_iso()
+        try:
+            await mark_finding_verified(finding["id"], resolved_at)
+            outcome["resolved_at"] = resolved_at
+        except Exception as e:
+            # The check passed but the write did not. Do not claim it is saved.
+            outcome["verified"] = False
+            outcome["status"] = finding.get("status", "open")
+            outcome["reason"] = (
+                "The link is fixed, but recording that failed: "
+                f"{describe_exception(e).get('message') or describe_exception(e)['str']}"
+            )
+
+    return {"finding_id": finding_id, **outcome}
 
 
 @app.get("/api/sites/{site_id}/redirect-rules")

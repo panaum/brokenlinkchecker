@@ -1,0 +1,98 @@
+# DRAFT — needs human review
+#
+# WordPress without a page builder (Gutenberg / Classic Editor / theme
+# templates). Also the fallback for Divi, WPBakery, Beaver Builder, Bricks,
+# Oxygen, Brizy and Gutenberg, whose editors differ but whose underlying causes
+# and fixes are the same.
+
+display_name: WordPress
+issues:
+  broken_link:
+    issue_type: broken_link
+    title: Fix the broken link "{anchor_text}"
+    est_time_minutes: 5
+    requires_dev: false
+    steps:
+    - Open {page_url} in the WordPress editor.
+    - Find the link with the text "{anchor_text}". In Gutenberg, click the link and press ⌘/Ctrl + K to edit it.
+    - It currently points at {url}, which returns {status_code}.
+    - Start typing the destination page's title — WordPress searches your published content, which avoids typos and keeps
+      the link internal.
+    - '{suggestion_sentence}'
+    - Update the page. If you use a caching plugin or a CDN, purge the cache for this URL.
+    - If this link appears in a menu, a widget, or the theme footer rather than in the page content, editing the page will
+      not fix it. Check Appearance → Menus and Appearance → Widgets — that is where sitewide broken links usually live.
+  dead_cta:
+    issue_type: dead_cta
+    title: Give the "{anchor_text}" button a destination
+    est_time_minutes: 10
+    requires_dev: false
+    steps:
+    - Open {page_url} in the editor and find the button labelled "{anchor_text}".
+    - Select the Button block and check its Link field. If it is empty or "#", the button does nothing.
+    - 'If it should GO TO A PAGE: type the page title and pick it from the dropdown.'
+    - 'If it should SCROLL TO A SECTION: give the target block an HTML anchor (Block → Advanced → HTML anchor, e.g. "pricing"),
+      then link the button to "#pricing".'
+    - 'If it should OPEN A POPUP or MODAL: that behaviour comes from a plugin (Popup Maker, Elementor Pro, etc.). Follow that
+      plugin''s trigger setup — a "#" link alone never opens a popup.'
+    - 'If it should SUBMIT A FORM: it must be the form plugin''s own submit button (Contact Form 7, Gravity Forms, WPForms).
+      A Button block next to a form does not submit it.'
+    - Update, purge cache, and click the button on the live page yourself.
+  redirect_chain:
+    issue_type: redirect_chain
+    title: Collapse the redirect chain on {url}
+    est_time_minutes: 15
+    requires_dev: true
+    steps:
+    - This link takes {hops} hops before landing on {redirect_target}.
+    - 'Fix the link on {page_url} first: point it directly at {redirect_target}.'
+    - Then collapse the server rule. If you use Redirection, Rank Math or Yoast Premium, open its redirect manager and look
+      for two rules chaining into each other.
+    - Delete the intermediate rule; point the original source straight at {redirect_target}.
+    - Keep the first redirect — external sites still link to the original address.
+    - The Fix Pack includes a ready .htaccess ruleset. On Apache, place it ABOVE the "# BEGIN WordPress" block; WordPress
+      rewrites everything inside that block.
+    - A very common WP chain is http → https → www → trailing slash. Fixing that at the server or CDN removes three hops for
+      every visitor on the site, not just this link.
+  mixed_content:
+    issue_type: mixed_content
+    title: Load {resource_type} over HTTPS, not HTTP
+    est_time_minutes: 10
+    requires_dev: true
+    steps:
+    - The page {page_url} is HTTPS but loads {url} over plain HTTP. Browsers block it.
+    - If the asset is on your own domain, this is a leftover from an http → https migration. Use Better Search Replace to
+      replace "http://yourdomain.com" with "https://yourdomain.com" across wp_posts, wp_postmeta and wp_options.
+    - 'Never run a raw SQL UPDATE for this: page builders and theme options store serialized PHP, and a plain string replace
+      corrupts the length prefixes. The plugin handles serialization correctly.'
+    - Take a database backup before running it.
+    - If the asset lives on a third-party http:// host, download it and re-host it in your Media Library.
+    - Reload with DevTools open — blocked assets appear as "Mixed Content" errors in the console.
+  missing_asset:
+    issue_type: missing_asset
+    title: Replace the missing {resource_type}
+    est_time_minutes: 10
+    requires_dev: false
+    steps:
+    - The page {page_url} references {url}, which returns {status_code}. It is a {resource_type}.
+    - 'If it is an image: it was probably deleted from the Media Library while still in use. Re-upload it and re-insert it
+      — replacing the file on disk is not enough, because WordPress references the attachment ID.'
+    - 'If it is a stylesheet or script from a plugin: the plugin was likely deactivated, deleted, or updated with renamed
+      files. A broken stylesheet visibly breaks the layout; a broken script silently breaks sliders, forms and menus while
+      the page still looks correct.'
+    - Check Plugins for anything recently deactivated. If the plugin is gone for good, remove the leftover enqueue from the
+      theme's functions.php — a child theme, never the parent.
+    - Confirm with DevTools → Network that the asset now returns 200.
+  external_down:
+    issue_type: external_down
+    title: The external link to {url} is not responding
+    est_time_minutes: 5
+    requires_dev: false
+    steps:
+    - The link "{anchor_text}" on {page_url} points at {url}, which returned {status_code}.
+    - This is a third-party site. Open it yourself before changing anything — many sites block automated checkers while working
+      fine for people.
+    - 'If it is genuinely gone: link to a replacement source, link to a Wayback Machine snapshot, or remove the link and keep
+      the text.'
+    - If the link is in a menu or widget rather than page content, fix it under Appearance → Menus or Widgets.
+    - Purge your cache after updating.

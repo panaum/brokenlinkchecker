@@ -85,7 +85,8 @@ BUILDER_CASES = [
      '<button class="shopify-payment-button__button">Buy</button>' + DEAD,
      False),
     ("Framer",
-     '<div class="framer-abc123">Framed</div>'
+     '<div data-framer-name="Hero">Framed</div>'
+     '<img src="https://framerusercontent.com/x.png">'
      '<button aria-haspopup="true">Menu</button>' + DEAD,
      True),
     ("Duda",
@@ -232,3 +233,44 @@ def test_every_builder_profile_has_a_test_case():
     covered = {c[0] for c in BUILDER_CASES}
     declared = {p["name"] for p in BUILDER_PROFILES}
     assert declared == covered, f"untested: {declared - covered}, stale: {covered - declared}"
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Regression (found generating a real Fix Pack for apexure.com, a landing-page
+# agency): bare vendor markers matched the agency's own MARKETING COPY and a
+# link in its nav —
+#     "...high converting landing pages, unbounce landing pages..."
+#     <a href="/framer-development-agency/">
+# The site is neither Unbounce nor Framer, and the Fix Pack rendered Unbounce
+# instructions for it. Wrong instructions on a live page are the one thing this
+# feature must never do.
+# ─────────────────────────────────────────────────────────────────────────────
+AGENCY_COPY = """
+<!doctype html><html><body>
+  <script type="application/ld+json">
+    {"keywords": "high converting landing pages, unbounce landing pages"}
+  </script>
+  <p>Partnered with Headway managing 50+ unbounce pages and marketo forms.</p>
+  <nav><a href="/framer-development-agency/">Framer development</a></nav>
+  <a href="/unbounce-landing-pages/">Unbounce landing pages</a>
+</body></html>
+"""
+
+
+def test_an_agency_writing_about_builders_is_not_built_with_them():
+    detected = {b["name"] for b in detect_builders(BeautifulSoup(AGENCY_COPY, "lxml"))}
+    assert "Unbounce" not in detected
+    assert "Framer" not in detected
+
+
+def test_a_real_unbounce_page_is_still_detected():
+    html = _wrap('<div id="lp-pom-root"><div class="lp-pom-block"></div></div>')
+    detected = {b["name"] for b in detect_builders(BeautifulSoup(html, "lxml"))}
+    assert "Unbounce" in detected
+
+
+def test_a_real_framer_page_is_still_detected():
+    html = _wrap('<div data-framer-name="Hero"></div>'
+                 '<img src="https://framerusercontent.com/x.png">')
+    detected = {b["name"] for b in detect_builders(BeautifulSoup(html, "lxml"))}
+    assert "Framer" in detected

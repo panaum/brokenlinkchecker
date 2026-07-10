@@ -1,0 +1,76 @@
+# DRAFT — needs human review
+#
+# THIN DRAFT. Correct but shallow: verify against the live editor before
+# sending these to a client. The five priority builders (elementor, ghl,
+# clickfunnels, unbounce, wordpress) carry the detailed steps.
+#
+# HubSpot CTAs are managed objects: editing the button on the page does not change the CTA. Edit it under Marketing -> CTAs.
+
+display_name: HubSpot CMS
+issues:
+  broken_link:
+    issue_type: broken_link
+    title: Fix the broken link "{anchor_text}"
+    est_time_minutes: 5
+    requires_dev: false
+    steps:
+    - Open {page_url} in the HubSpot page editor.
+    - Find the link with the text "{anchor_text}". It points at {url}, which returns {status_code}.
+    - Set the correct destination. {suggestion_sentence}
+    - Update, then Publish. Clear the CDN cache if the change does not appear.
+  dead_cta:
+    issue_type: dead_cta
+    title: Give the "{anchor_text}" button a destination
+    est_time_minutes: 10
+    requires_dev: false
+    steps:
+    - Open {page_url} in the HubSpot page editor.
+    - Select the button labelled "{anchor_text}". Its link is empty, a bare "#", or a script that does nothing.
+    - 'Decide what a click should do: open a page, scroll to a section, open a popup, or submit a form.'
+    - If it should submit a form, it must be that form block's own submit control. A button placed beside a form does not
+      submit it.
+    - If it should open a popup, configure the popup element and point the button at it. A hand-typed '#' link never opens
+      a popup.
+    - Update, then Publish. Clear the CDN cache if the change does not appear.
+    - Then click it yourself on the live page. If nothing happens, it is still dead.
+  redirect_chain:
+    issue_type: redirect_chain
+    title: Collapse the redirect chain on {url}
+    est_time_minutes: 15
+    requires_dev: true
+    steps:
+    - This link takes {hops} hops before landing on {redirect_target}.
+    - Point the link on {page_url} straight at {redirect_target}.
+    - Then collapse the server rule so visitors take one hop, not {hops}.
+    - The Fix Pack contains a ready-made ruleset for this.
+    - Keep the first redirect — external sites still link to the original address.
+  mixed_content:
+    issue_type: mixed_content
+    title: Load {resource_type} over HTTPS, not HTTP
+    est_time_minutes: 10
+    requires_dev: true
+    steps:
+    - '{page_url} is served over HTTPS but loads {url} over plain HTTP, so the browser blocks it.'
+    - Change the reference to https://. Check any custom code or embed blocks first — that is where http:// usually survives.
+    - If the host offers no HTTPS, re-host the file yourself. There is no safe way to keep an http:// asset on an https://
+      page.
+  missing_asset:
+    issue_type: missing_asset
+    title: Replace the missing {resource_type}
+    est_time_minutes: 10
+    requires_dev: false
+    steps:
+    - '{page_url} references {url}, which returns {status_code}. It is a {resource_type}.'
+    - A missing script or stylesheet breaks behaviour or layout while the page itself still returns 200 — nothing else will
+      warn you.
+    - Re-upload the file, or update the reference to its new path.
+    - Confirm with DevTools → Network that it now returns 200.
+  external_down:
+    issue_type: external_down
+    title: The external link to {url} is not responding
+    est_time_minutes: 5
+    requires_dev: false
+    steps:
+    - The link "{anchor_text}" on {page_url} points at {url}, which returned {status_code}.
+    - Open it yourself first — many sites block automated checkers while working fine for people.
+    - If it is genuinely gone, replace it, link to an archived copy, or remove the link and keep the text.

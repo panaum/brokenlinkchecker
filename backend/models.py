@@ -84,6 +84,29 @@ class FindingRecord(BaseModel):
     status: str = "open"             # open | resolved | verified_fixed
 
 
+class FixSuggestion(BaseModel):
+    """A deterministic fix for one finding. Produced by fix_engine, never by a
+    model: a client follows these steps on a live page."""
+    finding_id: str
+    issue_type: str          # broken_link | dead_cta | redirect_chain |
+                             # mixed_content | missing_asset | external_down
+    fix_type: str
+    # None when the fix needs a human decision. Always validated before it is
+    # written into a CSV, a markdown file, or a code change.
+    proposed_value: Optional[str] = None
+    title: str = ""
+    steps: list[str] = Field(default_factory=list)
+    instructions: str = ""
+    est_time_minutes: int = 10
+    requires_dev: bool = False
+    # Describes the PROPOSED VALUE, not the instructions. The steps are always
+    # trustworthy; the suggested replacement may be a near-miss.
+    confidence: str = "low"
+    match_score: int = 0
+    builder: str = "Generic"
+    template_source: str = ""
+
+
 class ScanDiff(BaseModel):
     """Result of comparing this scan's findings against the previous snapshot.
 

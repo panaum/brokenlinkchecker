@@ -7,6 +7,10 @@ httpx[http2]>=0.27.0
 pydantic>=2.7.1
 python-dotenv>=1.0.1
 rank-bm25==0.2.2
+# Phase 6 fix engine: fuzzy-matching a missing #fragment against real page ids.
+rapidfuzz>=3.9.0
+# Phase 6 template libraries (fix_templates/, client_templates/).
+PyYAML>=6.0
 
 # After pip install, also run:
 # playwright install chromium

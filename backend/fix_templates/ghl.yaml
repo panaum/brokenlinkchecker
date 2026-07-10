@@ -1,0 +1,86 @@
+# DRAFT — needs human review
+#
+# GoHighLevel (HighLevel) funnels and websites. GHL distinguishes Funnels from
+# Websites; both use the same page editor. Steps reference the editor's own
+# wording ("Actions", "Open Popup", "Go to URL") rather than generic advice.
+
+display_name: GoHighLevel
+issues:
+  broken_link:
+    issue_type: broken_link
+    title: 'Fix the broken link "{anchor_text}"'
+    est_time_minutes: 5
+    requires_dev: false
+    steps:
+      - 'In GHL, open Sites → Funnels (or Websites) and find the page for {page_url}. Click into the step, then Edit Page.'
+      - 'Click the element containing "{anchor_text}". In the right-hand panel, open the Link / Action settings.'
+      - 'It currently points at {url}, which returns {status_code}.'
+      - 'If the destination is another step in the same funnel, do NOT paste a full URL. Choose Action → "Go to next step" or select the step by name — a hard-coded URL breaks the moment the funnel path changes.'
+      - 'If it is an external page, set Action → "Go to URL" and paste the new address.'
+      - '{suggestion_sentence}'
+      - 'Click Save, then Publish the funnel step. Changes are not live until you publish.'
+      - 'GHL caches aggressively at the CDN. Open the live page in a private window to confirm, not the editor preview.'
+
+  dead_cta:
+    issue_type: dead_cta
+    title: 'Give the "{anchor_text}" button a destination'
+    est_time_minutes: 10
+    requires_dev: false
+    steps:
+      - 'Open the page for {page_url} in the GHL page editor.'
+      - 'Select the button labelled "{anchor_text}". Open its Actions panel on the right.'
+      - 'An empty Actions list is the whole problem: in GHL a button with no action renders and looks clickable, but does nothing.'
+      - 'Pick the action that matches intent: "Go to URL", "Go to next step", "Open Popup", "Submit form", or "Start call/SMS".'
+      - 'If it should OPEN A POPUP: the popup must exist on this same step. Add it under the step''s Popup settings first, then set the button''s action to Open Popup and select it. A "#popup-..." link typed by hand will not work.'
+      - 'If it should SUBMIT A FORM or SURVEY: the button must be the form/survey element''s own submit button. A Button element placed underneath a form does not submit it — this is the single most common dead CTA in GHL funnels.'
+      - 'If it should BOOK A CALL: use the Calendar element, or set the action to open the calendar popup. Linking to the calendar URL in a new tab loses the funnel''s contact context and the booking will not attribute.'
+      - 'Save, Publish, then click it yourself on the live URL in a private window.'
+
+  redirect_chain:
+    issue_type: redirect_chain
+    title: 'Collapse the redirect chain on {url}'
+    est_time_minutes: 15
+    requires_dev: false
+    steps:
+      - 'This link takes {hops} hops before landing on {redirect_target}.'
+      - 'In GHL, chains usually come from stacked funnel-step redirects, or from a custom domain redirecting to the funnel domain.'
+      - 'Open Sites → URL Redirects and look for two rules that hand off to each other. Delete the middle one and point the source straight at {redirect_target}.'
+      - 'Also fix the link on {page_url} itself so visitors never enter the chain.'
+      - 'Keep the first redirect — ads, emails and external sites may still point at the original address.'
+      - 'GHL redirects can take a few minutes to propagate. Re-check after publishing rather than immediately.'
+
+  mixed_content:
+    issue_type: mixed_content
+    title: 'Load {resource_type} over HTTPS, not HTTP'
+    est_time_minutes: 10
+    requires_dev: false
+    steps:
+      - 'The page {page_url} is HTTPS but loads {url} over plain HTTP, so the browser blocks it.'
+      - 'In GHL this is almost always a hand-pasted image URL, an embedded tracking pixel, or a custom-code block copied from an old site.'
+      - 'Open the page editor and check your Custom CSS/JS blocks and any Custom HTML elements for "http://".'
+      - 'For images: re-upload the file through the GHL Media Library and re-select it, rather than editing the URL by hand.'
+      - 'For third-party scripts on http:// hosts: get the https:// version from the vendor. If the vendor has none, remove it — it has not been loading for your visitors anyway.'
+
+  missing_asset:
+    issue_type: missing_asset
+    title: 'Replace the missing {resource_type}'
+    est_time_minutes: 10
+    requires_dev: false
+    steps:
+      - 'The page {page_url} references {url}, which returns {status_code}. It is a {resource_type}.'
+      - 'If it is an image: the file was likely deleted from the Media Library, or the funnel was cloned from another sub-account and the image did not come with it. Cloning across sub-accounts is the usual cause.'
+      - 'Re-upload through Media Library and re-select the image in the element. Do not paste the old URL back in.'
+      - 'If it is a script: check Settings → Tracking Code and any Custom Code elements. A tracking snippet whose host has changed will silently stop firing, and your conversion data quietly stops.'
+      - 'Publish, then confirm in DevTools → Network that the asset returns 200 on the live URL.'
+
+  external_down:
+    issue_type: external_down
+    title: 'The external link to {url} is not responding'
+    est_time_minutes: 5
+    requires_dev: false
+    steps:
+      - 'The link "{anchor_text}" on {page_url} points at {url}, which returned {status_code}.'
+      - 'Open it yourself before acting. Calendly, Stripe and Zoom links often reject automated checkers while working normally for visitors.'
+      - 'If it is genuinely dead and it is a booking or payment link, treat it as urgent — it sits on a conversion path.'
+      - 'Replace it in the page editor, then Publish.'
+      - 'If it is a client''s own external page, tell them; they almost certainly do not know.'

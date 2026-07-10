@@ -204,7 +204,10 @@ BUILDER_PROFILES = [
     _profile("Squarespace", ["squarespace-cdn", "static1.squarespace", "sqs-"],
              widget_hints=["sqs-block-accordion", "sqs-popup", "sqs-pill",
                            "header-burger", "sqs-announcement"]),
-    _profile("Unbounce", ["lp-pom", "unbounce", "ub-emb"],
+    # NOT the bare word "unbounce": an agency that *builds* Unbounce pages says
+    # so in its copy ("...managing 50+ unbounce pages..."), and its own site is
+    # not Unbounce. Detecting it there renders the wrong fix instructions.
+    _profile("Unbounce", ["lp-pom", "ub-emb", "unbouncepages.com", "ubembed.com"],
              widget_hints=["ub-emb"], data_prefixes=["data-ub"]),
     _profile("ClickFunnels", ["clickfunnels", "containerwrapper", "data-page-element"],
              widget_hints=["elmodal", "eltimer", "elvideo"],
@@ -226,7 +229,10 @@ BUILDER_PROFILES = [
                          "shopify-features", "shopify-section", "shopify-payment"],
              widget_hints=["shopify-payment", "cart-drawer", "product-form",
                            "quick-add", "predictive-search", "deferred-media"]),
-    _profile("Framer", ["framerusercontent", "framer-"], spa=True),
+    # NOT bare "framer-": it matches an ordinary link like
+    # href="/framer-development-agency/". Framer's own markup emits
+    # data-framer-* attributes and loads assets from framerusercontent.com.
+    _profile("Framer", ["framerusercontent", "data-framer-", "__framer"], spa=True),
     _profile("Duda", ["irp.cdn-website.com", "dudamobile", "dmalbum", 'content="duda'],
              widget_hints=["dmnav", "dmmenu"]),
     _profile("Carrd", ['content="carrd', "carrd.co"], spa=True),

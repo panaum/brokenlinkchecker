@@ -200,9 +200,15 @@ async def add_site(url: str, name: str, client_name: str, freq: str, user_email:
 # ─────────────────────────────────────────────────────────────────────────────
 # Phase 1: baseline diffing (scan_snapshots + findings)
 #
-# All of it is best-effort: a project that has not run migrations/001 yet must
-# keep scanning normally, so every call is wrapped and returns a neutral value
-# on failure rather than taking the scan down with it.
+# These raise on failure. They used to swallow every exception and return a
+# neutral value, which made "the tables do not exist" indistinguishable from
+# "this site has no previous snapshot" — so a project that never ran
+# migrations/001 was told "No previous scan to compare against" forever, on
+# every scan, with the real error buried in a server log.
+#
+# Every caller already wraps these, and a failure still never takes a scan down.
+# It is now *reported* rather than hidden: the scan returns
+# baseline_status="unavailable" instead of pretending it is the first scan.
 # ─────────────────────────────────────────────────────────────────────────────
 def _latest_snapshot_sync(site_id: str) -> Optional[dict]:
     client = _get_client()
@@ -265,42 +271,27 @@ def _recent_snapshots_sync(site_id: str, limit: int) -> list:
 
 
 async def get_recent_snapshots(site_id: str, limit: int = 2) -> list:
-    """Newest first. The diff endpoint compares [0] against [1]."""
+    """Newest first. The diff endpoint compares [0] against [1]. Raises on failure."""
     import asyncio
-    try:
-        return await asyncio.to_thread(_recent_snapshots_sync, site_id, limit)
-    except Exception as e:
-        print(f"[DB] snapshot history lookup failed (non-critical): {e}")
-        return []
+    return await asyncio.to_thread(_recent_snapshots_sync, site_id, limit)
 
 
 async def get_latest_snapshot(site_id: str) -> Optional[dict]:
+    """None means the site has no snapshot yet. Raises if the lookup failed."""
     import asyncio
-    try:
-        return await asyncio.to_thread(_latest_snapshot_sync, site_id)
-    except Exception as e:
-        print(f"[DB] latest snapshot lookup failed (non-critical): {e}")
-        return None
+    return await asyncio.to_thread(_latest_snapshot_sync, site_id)
 
 
 async def get_findings_for_snapshot(snapshot_id: str) -> list:
     import asyncio
-    try:
-        return await asyncio.to_thread(_findings_for_snapshot_sync, snapshot_id)
-    except Exception as e:
-        print(f"[DB] findings lookup failed (non-critical): {e}")
-        return []
+    return await asyncio.to_thread(_findings_for_snapshot_sync, snapshot_id)
 
 
 async def save_snapshot(site_id, scan_id, totals, findings, resolved) -> Optional[str]:
     import asyncio
-    try:
-        return await asyncio.to_thread(
-            _save_snapshot_sync, site_id, scan_id, totals, findings, resolved
-        )
-    except Exception as e:
-        print(f"[DB] snapshot save failed (non-critical): {e}")
-        return None
+    return await asyncio.to_thread(
+        _save_snapshot_sync, site_id, scan_id, totals, findings, resolved
+    )
 
 
 def _site_id_for_url_sync(site_url: str, user_email: str) -> Optional[str]:
@@ -311,12 +302,29 @@ def _site_id_for_url_sync(site_url: str, user_email: str) -> Optional[str]:
 
 
 async def get_site_id(site_url: str, user_email: str) -> Optional[str]:
+    """None means the site has never been scanned. Raises if the lookup failed."""
     import asyncio
-    try:
-        return await asyncio.to_thread(_site_id_for_url_sync, site_url, user_email)
-    except Exception as e:
-        print(f"[DB] site lookup failed (non-critical): {e}")
-        return None
+    return await asyncio.to_thread(_site_id_for_url_sync, site_url, user_email)
+
+
+def _diffing_tables_ready_sync() -> dict:
+    """Probe the Phase 1 tables. A valid-but-absent id returns [] when the table
+    exists, and raises when it does not."""
+    client = _get_client()
+    probe_id = "00000000-0000-0000-0000-000000000000"
+    checks = {}
+    for table, column in (("scan_snapshots", "site_id"), ("findings", "snapshot_id")):
+        try:
+            client.table(table).select("id").eq(column, probe_id).limit(1).execute()
+            checks[table] = "ok"
+        except Exception as e:
+            checks[table] = f"error: {type(e).__name__}: {str(e)[:200]}"
+    return checks
+
+
+async def diffing_tables_ready() -> dict:
+    import asyncio
+    return await asyncio.to_thread(_diffing_tables_ready_sync)
 
 
 def _delete_site_sync(site_id: str):

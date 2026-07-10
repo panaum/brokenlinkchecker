@@ -74,6 +74,8 @@ REQUIRED_TOP_LEVEL_FIELDS: dict = {
 
 REQUIRED_DIFF_FIELDS: dict = {
     "has_baseline": bool,
+    # Distinguishes a genuine first scan from a failed baseline lookup.
+    "baseline_status": str,
     "summary": str,
     "new": int,
     "fixed": int,

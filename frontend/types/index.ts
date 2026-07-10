@@ -145,8 +145,18 @@ export interface Finding {
  * could not be read). Render new/removed link counts as "n/a" — they are null,
  * not zero, because zero would claim we compared and found nothing.
  */
+/**
+ * Why there is no baseline.
+ *  - `ok`          a baseline exists and was compared against
+ *  - `first_scan`  genuinely the site's first scan
+ *  - `unavailable` the lookup failed (usually migrations/001 not applied).
+ *                  Never render this as "no previous scan" — it is an error.
+ */
+export type BaselineStatus = 'ok' | 'first_scan' | 'unavailable'
+
 export interface ScanDiff {
   has_baseline: boolean
+  baseline_status?: BaselineStatus
   /** "3 new · 1 fixed · 7 still open" — leads every report and email. */
   summary: string
   new: number

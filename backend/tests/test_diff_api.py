@@ -300,3 +300,115 @@ def test_scan_survives_a_dead_database(monkeypatch):
     assert payload["type"] == "result"
     assert payload["diff"]["has_baseline"] is False
     assert len(payload["data"]) == 3
+
+
+# ─── baseline_status: a failed lookup is not a first scan ───────────────────
+# The bug this guards: get_latest_snapshot swallowed every exception and
+# returned None, which is exactly what "this site has no snapshot" looks like.
+# With migrations/001 unapplied, a site scanned fifty times reported
+# "No previous scan to compare against" every single time.
+def test_first_scan_reports_baseline_status_first_scan(db, monkeypatch):
+    _install_scrape(monkeypatch, SCAN_1)
+    assert _scan(TestClient(main.app))["diff"]["baseline_status"] == "first_scan"
+
+
+def test_second_scan_reports_baseline_status_ok(db, monkeypatch):
+    _, second = _two_scans(db, monkeypatch)
+    assert second["diff"]["baseline_status"] == "ok"
+
+
+def test_missing_diffing_tables_report_unavailable_not_first_scan(monkeypatch):
+    """The scan still succeeds, but it must not pretend it is the first one."""
+    async def missing_table(*args, **kwargs):
+        raise RuntimeError('relation "scan_snapshots" does not exist')
+
+    async def fake_save_scan(**kwargs):
+        return {"site_id": "site-1", "scan_id": "scan-1"}
+
+    async def fake_site_id(*args, **kwargs):
+        return "site-1"
+
+    monkeypatch.setattr(main, "get_site_id", fake_site_id)
+    monkeypatch.setattr(main, "get_latest_snapshot", missing_table)
+    monkeypatch.setattr(main, "save_snapshot", missing_table)
+    monkeypatch.setattr(main, "save_scan", fake_save_scan)
+
+    async def passthrough(results):
+        return results
+
+    async def noop(*args, **kwargs):
+        return None
+
+    monkeypatch.setattr(main, "process_suggestions", passthrough)
+    monkeypatch.setattr(main, "send_slack_notification", noop)
+    _install_scrape(monkeypatch, SCAN_1)
+
+    payload = _scan(TestClient(main.app))
+    assert payload["type"] == "result"          # the scan still succeeds
+    assert payload["diff"]["has_baseline"] is False
+    assert payload["diff"]["baseline_status"] == "unavailable"
+
+
+def test_snapshot_write_failure_reports_unavailable(monkeypatch):
+    """Reads work, the write fails: the next scan will have no baseline, so say so."""
+    async def fake_site_id(*args, **kwargs):
+        return "site-1"
+
+    async def no_snapshot(site_id):
+        return None
+
+    async def write_fails(*args, **kwargs):
+        raise RuntimeError('relation "findings" does not exist')
+
+    async def fake_save_scan(**kwargs):
+        return {"site_id": "site-1", "scan_id": "scan-1"}
+
+    monkeypatch.setattr(main, "get_site_id", fake_site_id)
+    monkeypatch.setattr(main, "get_latest_snapshot", no_snapshot)
+    monkeypatch.setattr(main, "save_snapshot", write_fails)
+    monkeypatch.setattr(main, "save_scan", fake_save_scan)
+
+    async def passthrough(results):
+        return results
+
+    async def noop(*args, **kwargs):
+        return None
+
+    monkeypatch.setattr(main, "process_suggestions", passthrough)
+    monkeypatch.setattr(main, "send_slack_notification", noop)
+    _install_scrape(monkeypatch, SCAN_1)
+
+    assert _scan(TestClient(main.app))["diff"]["baseline_status"] == "unavailable"
+
+
+# ─── GET /api/diagnostics/diffing ───────────────────────────────────────────
+def test_diagnostics_reports_ready_when_tables_exist(monkeypatch):
+    async def ready():
+        return {"scan_snapshots": "ok", "findings": "ok"}
+
+    monkeypatch.setattr(main, "diffing_tables_ready", ready)
+    body = TestClient(main.app).get("/api/diagnostics/diffing").json()
+    assert body["diffing_ready"] is True
+    assert "hint" not in body
+
+
+def test_diagnostics_names_the_missing_table_and_the_migration(monkeypatch):
+    async def missing():
+        return {"scan_snapshots": "error: relation does not exist", "findings": "ok"}
+
+    monkeypatch.setattr(main, "diffing_tables_ready", missing)
+    body = TestClient(main.app).get("/api/diagnostics/diffing").json()
+    assert body["diffing_ready"] is False
+    assert "scan_snapshots" in body["checks"]
+    assert "001" in body["migration"]
+    assert "hint" in body
+
+
+def test_diagnostics_survives_a_dead_database(monkeypatch):
+    async def boom():
+        raise RuntimeError("supabase_url is required")
+
+    monkeypatch.setattr(main, "diffing_tables_ready", boom)
+    body = TestClient(main.app).get("/api/diagnostics/diffing").json()
+    assert body["diffing_ready"] is False
+    assert "supabase_url" in body["error"]

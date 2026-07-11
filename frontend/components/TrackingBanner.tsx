@@ -108,7 +108,7 @@ export default function TrackingBanner({
                     height: 36,
                     borderRadius: 10,
                     background:
-                      "linear-gradient(132deg, rgb(65,0,153), rgb(138,26,155))",
+                      "linear-gradient(132deg, rgb(23,184,148), rgb(52,230,192))",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
@@ -177,7 +177,7 @@ export default function TrackingBanner({
                       padding: "8px 20px",
                       borderRadius: 8,
                       background:
-                        "linear-gradient(132deg, rgb(65,0,153), rgb(138,26,155))",
+                        "linear-gradient(132deg, rgb(23,184,148), rgb(52,230,192))",
                       color: "white",
                       fontFamily: "var(--font-poppins), Poppins, sans-serif",
                       fontWeight: 600,

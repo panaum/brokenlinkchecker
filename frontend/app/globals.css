@@ -1,17 +1,13 @@
 @import "tailwindcss";
 
 @theme {
-  --font-sans: "Poppins", sans-serif;
-  --color-brand-purple-dark: #410099;
-  --color-brand-purple-mid: #8a1a9b;
-  --color-brand-purple-deep: #231e46;
-  --color-brand-purple-dark2: #560060;
+  --font-sans: var(--font-body), system-ui, sans-serif;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   DESIGN TOKENS — the single source of truth. Use these variables, not ad-hoc
-   values. Tokens are theme-scoped (:root) so a light theme is *possible* later
-   without touching components — but no light theme ships today.
+   MISSION CONTROL — design tokens. LinkSpy is a surveillance instrument:
+   dominant near-black with a blue-green cast, ONE signal color (radar teal)
+   reserved for life / health / action, data in mono. Use these variables.
    ═══════════════════════════════════════════════════════════════════════════ */
 :root {
   /* Spacing — 8px scale */
@@ -19,58 +15,108 @@
   --space-5: 24px; --space-6: 32px; --space-7: 48px; --space-8: 64px;
 
   /* Type — 4-step scale. Nothing data-bearing below 13px. */
-  --text-display: 30px;   /* page verdict / hero */
-  --text-heading: 19px;   /* section headings */
-  --text-body: 14px;      /* body + table */
-  --text-caption: 13px;   /* smallest interactive/data text */
+  --text-display: 30px;
+  --text-heading: 19px;
+  --text-body: 14px;
+  --text-caption: 13px;
   --leading-tight: 1.2; --leading-normal: 1.55;
+
+  /* Font families (self-hosted via next/font) */
+  --font-stack-display: var(--font-display), "Bricolage Grotesque", sans-serif;
+  --font-stack-body: var(--font-body), system-ui, sans-serif;
+  --font-stack-mono: var(--font-mono), "JetBrains Mono", ui-monospace, monospace;
 
   /* Radius — one family */
   --radius-sm: 8px; --radius-md: 12px; --radius-lg: 16px; --radius-pill: 999px;
 
-  /* Surfaces — cards get a visible step above the page (no black-on-black) */
-  --surface-page: #0a0612;
-  --surface-card: #17111f;      /* lighter than page */
-  --surface-raised: #1e1729;    /* dropdowns, expanded rows */
-  --border-subtle: rgba(255, 255, 255, 0.10);
-  --border-strong: rgba(255, 255, 255, 0.16);
+  /* Surfaces — near-black with a blue-green cast; cards lift a visible step. */
+  --surface-page: #070b0d;
+  --surface-card: #0d1417;
+  --surface-raised: #131c20;
+  --border-subtle: rgba(140, 200, 190, 0.12);   /* hairline w/ slight luminosity */
+  --border-strong: rgba(150, 210, 200, 0.22);
 
-  /* Text — 3 tiers, all AA (4.5:1) on --surface-card */
-  --text-primary: rgba(255, 255, 255, 0.90);
-  --text-secondary: rgba(255, 255, 255, 0.64);
-  --text-muted: rgba(255, 255, 255, 0.42);
+  /* Text — 3 tiers, all AA on --surface-card */
+  --text-primary: rgba(233, 244, 241, 0.92);
+  --text-secondary: rgba(200, 216, 212, 0.60);
+  --text-muted: rgba(180, 200, 196, 0.40);
 
   /* Elevation ramp */
-  --elev-1: 0 1px 2px rgba(0,0,0,0.30);
-  --elev-2: 0 6px 20px rgba(0,0,0,0.35);
-  --elev-3: 0 14px 44px rgba(0,0,0,0.50);
+  --elev-1: 0 1px 2px rgba(0,0,0,0.40);
+  --elev-2: 0 8px 24px rgba(0,0,0,0.45);
+  --elev-3: 0 18px 50px rgba(0,0,0,0.55);
 
-  /* Status — one language everywhere. green healthy · red broken(provable) ·
-     amber needs-attention · gray neutral (unverifiable/unknown/first-scan). */
-  --status-healthy: #4ade80;   --status-healthy-bg: rgba(74,222,128,0.12);
-  --status-broken: #f87171;    --status-broken-bg: rgba(248,113,113,0.12);
-  --status-attention: #fbbf24; --status-attention-bg: rgba(251,191,36,0.12);
-  --status-neutral: #9aa4b2;   --status-neutral-bg: rgba(154,164,178,0.12);
+  /* THE signal color — radar teal. Life, health, activity, the primary action,
+     the score ring. Nowhere decorative. */
+  --signal: #22d3aa;
+  --signal-bright: #45efc9;
+  --signal-dim: #0f423a;         /* atmospheric only (glows), never a status */
+  --signal-ink: #03130f;         /* dark text that sits on a signal fill */
+  --signal-gradient: linear-gradient(135deg, #17b894 0%, #34e6c0 100%);
 
-  /* The single accent gradient — primary action + score ring ONLY */
-  --accent-gradient: linear-gradient(132deg, #6d28d9 0%, #a855f7 100%);
-  --accent-solid: #a855f7;
+  /* Status — one language. healthy = signal · broken = red (confirmed kill) ·
+     attention = amber (suspect) · neutral = gray (unverifiable / first scan). */
+  --status-healthy: var(--signal);   --status-healthy-bg: rgba(34,211,170,0.12);
+  --status-broken: #ff6b6b;          --status-broken-bg: rgba(255,107,107,0.12);
+  --status-attention: #f6c445;       --status-attention-bg: rgba(246,196,69,0.12);
+  --status-neutral: #8b9ba0;         --status-neutral-bg: rgba(139,155,160,0.12);
+
+  --accent-solid: var(--signal);
+
+  /* Legacy alias: many components still set font-family: var(--font-poppins).
+     Point it at the new body stack so they inherit the identity font. */
+  --font-poppins: var(--font-stack-body);
 
   --content-max: 1140px;
-  --motion: 170ms cubic-bezier(0.4, 0, 0.2, 1);
+
+  /* Motion — ONE easing curve, used exclusively. All motion ≤300ms except the
+     score reveal (600ms). */
+  --ease-out-quart: cubic-bezier(0.165, 0.84, 0.44, 1);
+  --motion: 170ms var(--ease-out-quart);
+  --motion-fast: 120ms var(--ease-out-quart);
 }
 
 @layer base {
-  * {
-    box-sizing: border-box;
-  }
+  * { box-sizing: border-box; }
+
   body {
     background: var(--surface-page);
     color: var(--text-primary);
-    font-family: "Poppins", sans-serif;
+    font-family: var(--font-stack-body);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    position: relative;
+    min-height: 100vh;
   }
+
+  /* ── ATMOSPHERE ── a darkened ops room, not a black rectangle. A fixed
+     dot-grid at whisper volume + a faint blue-green vignette. */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    background-image:
+      radial-gradient(circle at 50% 0%, rgba(34,211,170,0.05), transparent 55%),
+      radial-gradient(rgba(120,190,180,0.9) 0.7px, transparent 0.7px);
+    background-size: 100% 100%, 26px 26px;
+    opacity: 0.5;
+  }
+  /* Faint scan-grain overlay. */
+  body::after {
+    content: "";
+    position: fixed;
+    inset: 0;
+    z-index: 0;
+    pointer-events: none;
+    opacity: 0.025;
+    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    background-size: 220px 220px;
+  }
+  /* Keep app content above the atmosphere layers. */
+  body > * { position: relative; z-index: 1; }
+
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after {
       animation-duration: 0.001ms !important;
@@ -78,55 +124,61 @@
       transition-duration: 0.001ms !important;
     }
   }
-  ::-webkit-scrollbar {
-    width: 6px;
-  }
-  ::-webkit-scrollbar-track {
-    background: transparent;
-  }
-  ::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.15);
-    border-radius: 3px;
-  }
+
+  ::-webkit-scrollbar { width: 8px; height: 8px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: rgba(140,200,190,0.16); border-radius: 4px; }
 }
 
-/* ═══ Design-system component classes — built on the tokens above ═══ */
+/* ═══ Typography utilities ═══ */
+.font-display { font-family: var(--font-stack-display); letter-spacing: -0.01em; }
+.font-mono, .mono { font-family: var(--font-stack-mono); font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1; }
+/* Every number is tabular so counts don't jitter as they change. */
+.tabular { font-variant-numeric: tabular-nums; font-feature-settings: "tnum" 1; }
 
-/* Card: a visible step above the page — lighter surface + 1px border + elevation.
-   No more black-on-black. */
+/* ═══ Component classes ═══ */
+
+/* Card — lifts a visible step above the page; hover raises elevation and
+   brightens the hairline. */
 .ds-card {
   background: var(--surface-card);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-lg);
   box-shadow: var(--elev-1);
+  transition: box-shadow var(--motion), border-color var(--motion), transform var(--motion);
+}
+.ds-card-hover:hover {
+  box-shadow: var(--elev-2);
+  border-color: var(--border-strong);
+  transform: translateY(-2px);
 }
 .ds-card-pad { padding: var(--space-5); }
 
-/* Text tiers */
 .ds-text-primary { color: var(--text-primary); }
 .ds-text-secondary { color: var(--text-secondary); }
 .ds-text-muted { color: var(--text-muted); }
 
-/* The single primary action per view — the ONLY place the accent gradient lives
-   besides the score ring. */
+/* Primary action — solid signal, dark ink. Real click physics: presses down
+   1px with a brightness lift, 120ms on the one easing curve. */
 .ds-btn-primary {
-  background: var(--accent-gradient);
-  color: #fff;
+  background: var(--signal);
+  color: var(--signal-ink);
   border: none;
   border-radius: var(--radius-md);
   padding: 10px 18px;
   font-size: var(--text-body);
-  font-weight: 600;
+  font-weight: 700;
   cursor: pointer;
-  transition: filter var(--motion), transform var(--motion);
+  transition: filter var(--motion-fast), transform var(--motion-fast), box-shadow var(--motion);
+  box-shadow: 0 0 0 rgba(34,211,170,0);
 }
-.ds-btn-primary:hover { filter: brightness(1.08); }
-.ds-btn-primary:active { transform: translateY(1px); }
-.ds-btn-primary:disabled { opacity: 0.5; cursor: not-allowed; filter: none; }
+.ds-btn-primary:hover { filter: brightness(1.08); box-shadow: 0 6px 22px rgba(34,211,170,0.22); }
+.ds-btn-primary:active { transform: translateY(1px); filter: brightness(0.96); }
+.ds-btn-primary:disabled { opacity: 0.45; cursor: not-allowed; filter: none; box-shadow: none; }
 
-/* Secondary / ghost actions — no gradient, quieter than primary */
+/* Ghost action — no fill, quiet. Same press physics. */
 .ds-btn-ghost {
-  background: rgba(255, 255, 255, 0.06);
+  background: rgba(150, 210, 200, 0.05);
   color: var(--text-primary);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
@@ -134,17 +186,17 @@
   font-size: var(--text-body);
   font-weight: 500;
   cursor: pointer;
-  transition: background var(--motion), border-color var(--motion);
+  transition: background var(--motion), border-color var(--motion), transform var(--motion-fast);
 }
-.ds-btn-ghost:hover { background: rgba(255, 255, 255, 0.10); border-color: var(--border-strong); }
-.ds-btn-ghost:disabled { opacity: 0.5; cursor: not-allowed; }
+.ds-btn-ghost:hover { background: rgba(150, 210, 200, 0.10); border-color: var(--border-strong); }
+.ds-btn-ghost:active { transform: translateY(1px); }
+.ds-btn-ghost:disabled { opacity: 0.45; cursor: not-allowed; }
 
-/* Status: always a dot + a word. Neutral (unverifiable / no-baseline) is gray,
-   NEVER amber. */
+/* Status — dot + word. Healthy dots breathe (the board feels alive). */
 .ds-status { display: inline-flex; align-items: center; gap: 6px; font-size: var(--text-caption); font-weight: 500; }
 .ds-status-dot { width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0; }
 .ds-status-healthy   { color: var(--status-healthy); }
-.ds-status-healthy   .ds-status-dot { background: var(--status-healthy); }
+.ds-status-healthy   .ds-status-dot { background: var(--status-healthy); animation: ds-breathe 3s var(--ease-out-quart) infinite; }
 .ds-status-broken    { color: var(--status-broken); }
 .ds-status-broken    .ds-status-dot { background: var(--status-broken); }
 .ds-status-attention { color: var(--status-attention); }
@@ -152,155 +204,186 @@
 .ds-status-neutral   { color: var(--status-neutral); }
 .ds-status-neutral   .ds-status-dot { background: var(--status-neutral); }
 
-/* Skeleton loaders — not spinners. */
+@keyframes ds-breathe {
+  0%, 100% { box-shadow: 0 0 0 0 rgba(34,211,170,0.45); opacity: 1; }
+  50%      { box-shadow: 0 0 0 4px rgba(34,211,170,0);   opacity: 0.7; }
+}
+
+/* Skeleton — matches final layout, no jump. */
 @keyframes ds-shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
 .ds-skeleton {
-  background: linear-gradient(90deg, rgba(255,255,255,0.04) 25%, rgba(255,255,255,0.09) 50%, rgba(255,255,255,0.04) 75%);
+  background: linear-gradient(90deg, rgba(150,210,200,0.04) 25%, rgba(150,210,200,0.10) 50%, rgba(150,210,200,0.04) 75%);
   background-size: 200% 100%;
   animation: ds-shimmer 1.4s ease-in-out infinite;
   border-radius: var(--radius-sm);
 }
 
-/* Consistent keyboard focus ring */
+/* Keyboard focus ring — the signal color. */
 .ds-focusable:focus-visible,
 button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible {
-  outline: 2px solid var(--accent-solid);
+  outline: 2px solid var(--signal);
   outline-offset: 2px;
 }
 
 .ds-container { max-width: var(--content-max); margin-left: auto; margin-right: auto; }
 
-/* Gradient utility classes */
-.bg-gradient-1 {
-  background: linear-gradient(
-    132deg,
-    rgb(65, 0, 153) 0%,
-    rgb(138, 26, 155) 100%
-  );
-}
-.bg-gradient-2 {
-  background: linear-gradient(
-    132deg,
-    rgb(65, 0, 153) 0%,
-    rgb(86, 16, 96) 100%
-  );
-}
-.bg-gradient-3 {
-  background: linear-gradient(
-    132deg,
-    rgb(138, 26, 155) 0%,
-    rgb(35, 30, 70) 100%
-  );
-}
+/* Staggered content reveal on mount (page transitions feel intentional). */
+@keyframes ds-rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
+.ds-rise { animation: ds-rise 320ms var(--ease-out-quart) both; }
 
-/* Glass card */
+/* ═══ Signature: the radar scan ═══ */
+@keyframes radar-sweep { to { transform: rotate(360deg); } }
+@keyframes radar-blip {
+  0% { transform: scale(0.4); opacity: 0.9; }
+  100% { transform: scale(2.4); opacity: 0; }
+}
+.radar-sweep {
+  position: absolute; inset: 0; border-radius: 50%;
+  background: conic-gradient(from 0deg, transparent 0deg, transparent 300deg, rgba(34,211,170,0.05) 330deg, rgba(34,211,170,0.55) 360deg);
+  animation: radar-sweep 2.4s linear infinite;
+}
+.radar-sweep-locking { animation: radar-sweep 2.4s var(--ease-out-quart) forwards; }
+
+/* ═══ Legacy utility classes, recolored to the signal palette (purple retired) ═══ */
+.bg-gradient-1 { background: linear-gradient(135deg, rgba(23,184,148,0.9) 0%, rgba(52,230,192,0.9) 100%); }
+/* Atmospheric (decorative) — dim, desaturated so the bright signal stays meaningful. */
+.bg-gradient-2 { background: linear-gradient(135deg, #0c2a28 0%, #10201f 100%); }
+.bg-gradient-3 { background: linear-gradient(135deg, #123a34 0%, #0a1416 100%); }
+
 .glass-card {
-  background: rgba(255, 255, 255, 0.05);
+  background: rgba(150, 210, 200, 0.035);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  border: 1px solid var(--border-subtle);
   border-radius: 16px;
 }
 
-/* Gradient text */
 .gradient-text {
-  background: linear-gradient(
-    132deg,
-    rgb(138, 26, 155) 0%,
-    rgb(200, 100, 255) 100%
-  );
+  background: var(--signal-gradient);
   -webkit-background-clip: text;
   -webkit-text-fill-color: transparent;
   background-clip: text;
 }
 
-/* Animated gradient border */
-@keyframes gradient-rotate {
-  0% {
-    background-position: 0% 50%;
-  }
-  50% {
-    background-position: 100% 50%;
-  }
-  100% {
-    background-position: 0% 50%;
-  }
-}
-
-.animated-border {
-  position: relative;
-  z-index: 0;
-}
-
+/* Animated signal border (URL input). Purple retired -> radar teal. */
+.animated-border { position: relative; z-index: 0; }
 .animated-border::before {
-  content: "";
-  position: absolute;
-  z-index: -1;
-  inset: -2px;
-  border-radius: 18px;
-  background: linear-gradient(
-    132deg,
-    rgb(65, 0, 153),
-    rgb(138, 26, 155),
-    rgb(86, 16, 96),
-    rgb(65, 0, 153)
-  );
+  content: ""; position: absolute; z-index: -1; inset: -1px; border-radius: 18px;
+  background: linear-gradient(135deg, #17b894, #34e6c0, #0f766e, #17b894);
   background-size: 300% 300%;
-  animation: gradient-rotate 4s ease infinite;
-  opacity: 0.6;
+  animation: gradient-rotate 5s ease infinite;
+  opacity: 0.5;
 }
-
 .animated-border::after {
-  content: "";
-  position: absolute;
-  z-index: -1;
-  inset: 0;
-  border-radius: 16px;
-  background: rgba(10, 6, 18, 0.95);
+  content: ""; position: absolute; z-index: -1; inset: 0; border-radius: 16px;
+  background: var(--surface-card);
+}
+@keyframes gradient-rotate {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
 }
 
-/* Noise texture overlay */
 .noise-overlay::before {
   content: "";
-  position: absolute;
-  inset: 0;
-  opacity: 0.03;
-  pointer-events: none;
-  z-index: 1;
+  position: absolute; inset: 0; opacity: 0.02; pointer-events: none; z-index: 1;
   background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
-  background-repeat: repeat;
-  background-size: 256px 256px;
+  background-repeat: repeat; background-size: 256px 256px;
 }
 
-/* Pulse animation for green dot */
 @keyframes pulse-dot {
-  0%,
-  100% {
-    opacity: 1;
-    transform: scale(1);
-  }
-  50% {
-    opacity: 0.5;
-    transform: scale(1.5);
-  }
+  0%, 100% { opacity: 1; transform: scale(1); }
+  50% { opacity: 0.5; transform: scale(1.5); }
 }
-.animate-pulse-dot {
-  animation: pulse-dot 2s ease-in-out infinite;
-}
+.animate-pulse-dot { animation: pulse-dot 2s var(--ease-out-quart) infinite; }
 
-/* Progress bar transition */
-.progress-fill {
-  transition: width 0.5s ease;
-}
+.progress-fill { transition: width 0.5s var(--ease-out-quart); }
 
-/* Fade-in animation for preview tooltips */
 @keyframes fadeIn {
-  from {
-    opacity: 0;
-    transform: translateY(4px);
+  from { opacity: 0; transform: translateY(4px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+/* ═══ Command palette (cmdk) ═══ */
+[cmdk-overlay] {
+  position: fixed; inset: 0; z-index: 200;
+  background: rgba(3, 8, 9, 0.66);
+  backdrop-filter: blur(4px);
+  animation: fadeIn 120ms var(--ease-out-quart);
+}
+.cmdk-root {
+  position: fixed; z-index: 201;
+  top: 18vh; left: 50%; transform: translateX(-50%);
+  width: min(92vw, 580px);
+  background: var(--surface-raised);
+  border: 1px solid var(--border-strong);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--elev-3), 0 0 0 1px rgba(34,211,170,0.06);
+  overflow: hidden;
+  animation: ds-rise 180ms var(--ease-out-quart) both;
+}
+.cmdk-input-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 14px 16px; border-bottom: 1px solid var(--border-subtle);
+}
+.cmdk-input {
+  flex: 1; background: transparent; border: none; outline: none;
+  color: var(--text-primary); font-family: var(--font-stack-body);
+  font-size: 15px;
+}
+.cmdk-input::placeholder { color: var(--text-muted); }
+.cmdk-kbd {
+  font-family: var(--font-stack-mono); font-size: 10px; color: var(--text-muted);
+  border: 1px solid var(--border-subtle); border-radius: 5px; padding: 2px 6px;
+}
+.cmdk-list { max-height: 340px; overflow-y: auto; padding: 8px; }
+.cmdk-empty { padding: 24px; text-align: center; color: var(--text-muted); font-size: var(--text-body); }
+.cmdk-group [cmdk-group-heading] {
+  font-family: var(--font-stack-mono); font-size: 10px; letter-spacing: 0.08em;
+  text-transform: uppercase; color: var(--text-muted);
+  padding: 10px 10px 6px;
+}
+.cmdk-item {
+  display: flex; align-items: center; gap: 10px;
+  padding: 10px 12px; border-radius: var(--radius-sm);
+  color: var(--text-primary); font-size: var(--text-body); cursor: pointer;
+  transition: background var(--motion-fast);
+}
+.cmdk-item[data-selected="true"] {
+  background: rgba(34,211,170,0.12);
+  box-shadow: inset 2px 0 0 var(--signal);
+}
+.cmdk-dim { color: var(--text-muted); }
+
+/* ═══ Print — agency-grade PDF from any report view (Ctrl+P) ═══ */
+.print-only { display: none; }
+@media print {
+  /* Force our colors through — status colors, score, backgrounds. */
+  * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+  /* Drop the ops-room atmosphere and app chrome. */
+  body::before, body::after { display: none !important; }
+  nav, .no-print, [cmdk-overlay], .cmdk-root { display: none !important; }
+  body { background: #070b0d !important; }
+
+  .print-only { display: flex !important; }
+  /* Running header on every printed page: domain · date · score. */
+  .report-print-header {
+    position: fixed; top: 0; left: 0; right: 0;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 8px 16px; font-family: var(--font-stack-mono); font-size: 11px;
+    color: var(--text-secondary); border-bottom: 1px solid var(--border-subtle);
   }
-  to {
-    opacity: 1;
-    transform: translateY(0);
-  }
+  main { padding-top: 40px !important; }
+
+  /* No finding split across a page break; keep cards intact. */
+  .report-issue, .report-verdict { break-inside: avoid; page-break-inside: avoid; }
+  .ds-card { box-shadow: none !important; }
+  a { text-decoration: none; color: inherit; }
+}
+
+/* ═══ Keyboard-triage active row ═══ */
+[data-triage-active] {
+  box-shadow: inset 3px 0 0 var(--signal);
+  background: rgba(34, 211, 170, 0.06) !important;
+  transition: background var(--motion), box-shadow var(--motion);
 }

@@ -8,6 +8,9 @@ import { DashboardSite, DashboardScan } from "@/types";
 import NavBar from "@/components/NavBar";
 import MonitoringPanel from "@/components/MonitoringPanel";
 import ActiveTestingPanel from "@/components/ActiveTestingPanel";
+import BadgeEmbed from "@/components/BadgeEmbed";
+import TimeMachine from "@/components/TimeMachine";
+import { cleanStreakDays } from "@/lib/history";
 
 function domainOf(url: string): string {
   try {
@@ -71,6 +74,7 @@ export default function SiteDetailPage() {
     : [];
   const latest = scans[0] ?? null;
   const score = latest?.health_score ?? null;
+  const streak = cleanStreakDays(scans);
   const name = site?.name?.trim() || (site ? domainOf(site.url) : "");
 
   return (
@@ -98,12 +102,20 @@ export default function SiteDetailPage() {
                   {domainOf(site.url)} <ExternalLink size={13} />
                 </a>
               </div>
-              {score !== null && (
-                <div style={{ textAlign: "right" }}>
-                  <div style={{ fontSize: "var(--text-display)", fontWeight: 700, color: scoreColor(score), lineHeight: 1 }}>{score}</div>
-                  <div className="ds-text-muted" style={{ fontSize: "var(--text-caption)" }}>health score</div>
-                </div>
-              )}
+              <div style={{ display: "flex", alignItems: "center", gap: 24 }}>
+                {streak !== null && streak > 0 && (
+                  <div style={{ textAlign: "right" }}>
+                    <div className="font-mono" style={{ fontSize: "var(--text-display)", fontWeight: 700, color: "var(--signal)", lineHeight: 1 }}>{streak}</div>
+                    <div className="ds-text-muted" style={{ fontSize: "var(--text-caption)" }}>{streak === 1 ? "day clean" : "days clean"}</div>
+                  </div>
+                )}
+                {score !== null && (
+                  <div style={{ textAlign: "right" }}>
+                    <div className="font-mono" style={{ fontSize: "var(--text-display)", fontWeight: 700, color: scoreColor(score), lineHeight: 1 }}>{score}</div>
+                    <div className="ds-text-muted" style={{ fontSize: "var(--text-caption)" }}>health score</div>
+                  </div>
+                )}
+              </div>
             </div>
 
             {/* Tabs */}
@@ -127,6 +139,12 @@ export default function SiteDetailPage() {
 
             {tab === "overview" ? (
               <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-5)" }}>
+                {/* Time machine — scrub through every snapshot of this site. */}
+                <div>
+                  <h2 className="ds-text-primary font-display" style={{ fontSize: "var(--text-heading)", fontWeight: 700, marginBottom: 12 }}>Time machine</h2>
+                  <TimeMachine siteUrl={site.url} />
+                </div>
+
                 {/* Open issues */}
                 <div className="ds-card ds-card-pad">
                   <h2 className="ds-text-primary" style={{ fontSize: "var(--text-heading)", fontWeight: 600, marginBottom: 16 }}>Open issues</h2>
@@ -197,6 +215,11 @@ export default function SiteDetailPage() {
                   <h2 className="ds-text-primary" style={{ fontSize: "var(--text-heading)", fontWeight: 600, marginBottom: 4 }}>Active form testing</h2>
                   <p className="ds-text-secondary" style={{ fontSize: "var(--text-caption)", marginBottom: 12 }}>Opt in per form to submit a real test entry and confirm delivery. Off by default.</p>
                   <ActiveTestingPanel siteId={site.id} siteUrl={site.url} />
+                </div>
+                <div>
+                  <h2 className="ds-text-primary" style={{ fontSize: "var(--text-heading)", fontWeight: 600, marginBottom: 4 }}>Status badge</h2>
+                  <p className="ds-text-secondary" style={{ fontSize: "var(--text-caption)", marginBottom: 12 }}>An embeddable SVG showing this site&apos;s latest health score.</p>
+                  <BadgeEmbed siteId={site.id} siteUrl={site.url} />
                 </div>
               </div>
             )}

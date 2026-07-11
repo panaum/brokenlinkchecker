@@ -16,6 +16,7 @@ import {
 import { DashboardSite, DashboardScan } from "@/types";
 import NavBar from "@/components/NavBar";
 import WatchdogPanel from "@/components/WatchdogPanel";
+import { cleanStreakDays, fixedThisMonth } from "@/lib/history";
 import Link from "next/link";
 
 // --- Helpers ---
@@ -108,6 +109,7 @@ function SiteCard({
   const status = siteStatus(latest);
   const spark = scans.slice(-6).map((s, i) => ({ val: s.health_score, i }));
   const color = scoreColor(score);
+  const streak = cleanStreakDays(scans);
 
   // Issue summary as one plain line — no wall of pills.
   let issueLine = "No issues found";
@@ -122,7 +124,7 @@ function SiteCard({
 
   return (
     <div
-      className="ds-card"
+      className="ds-card ds-card-hover ds-rise"
       style={{ padding: "var(--space-4) var(--space-5)", display: "flex", flexDirection: "column", gap: "var(--space-3)", minHeight: 168 }}
     >
       {/* Header: initial + name/domain + status dot */}
@@ -130,8 +132,8 @@ function SiteCard({
         <div
           style={{
             width: 34, height: 34, borderRadius: 9, flexShrink: 0, display: "flex", alignItems: "center",
-            justifyContent: "center", fontWeight: 600, fontSize: 15, color: "#fff",
-            background: "rgba(168,85,247,0.18)",
+            justifyContent: "center", fontWeight: 700, fontSize: 15, color: "var(--signal)",
+            background: "rgba(34,211,170,0.14)", fontFamily: "var(--font-stack-display)",
           }}
         >
           {displayName(site).charAt(0).toUpperCase()}
@@ -140,7 +142,7 @@ function SiteCard({
           <div className="ds-text-primary" style={{ fontSize: "var(--text-body)", fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
             {displayName(site)}
           </div>
-          <div className="ds-text-muted" style={{ fontSize: "var(--text-caption)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
+          <div className="ds-text-muted font-mono" style={{ fontSize: "var(--text-caption)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
             {domainOf(site.url)}
           </div>
         </div>
@@ -153,10 +155,10 @@ function SiteCard({
       <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 12 }}>
         <div>
           <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
-            <span style={{ fontSize: 34, fontWeight: 600, color, lineHeight: 1 }}>
+            <span className="font-mono" style={{ fontSize: 34, fontWeight: 700, color, lineHeight: 1 }}>
               {score !== null ? score : "—"}
             </span>
-            {score !== null && <span className="ds-text-muted" style={{ fontSize: "var(--text-caption)" }}>/ 100</span>}
+            {score !== null && <span className="ds-text-muted font-mono" style={{ fontSize: "var(--text-caption)" }}>/ 100</span>}
           </div>
           <div style={{ fontSize: "var(--text-caption)", marginTop: 4 }}>
             {score === null ? (
@@ -183,10 +185,17 @@ function SiteCard({
         </div>
       </div>
 
-      {/* Issue line + status word */}
-      <div className="ds-text-secondary" style={{ fontSize: "var(--text-caption)" }}>
-        <span className={`ds-status ${status.cls}`}><span className="ds-status-dot" />{status.word}</span>
-        <span className="ds-text-muted"> · {issueLine}</span>
+      {/* Issue line + status word + clean streak */}
+      <div className="ds-text-secondary" style={{ fontSize: "var(--text-caption)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+        <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          <span className={`ds-status ${status.cls}`}><span className="ds-status-dot" />{status.word}</span>
+          <span className="ds-text-muted"> · {issueLine}</span>
+        </span>
+        {streak !== null && streak > 0 && (
+          <span className="font-mono" style={{ color: "var(--signal)", flexShrink: 0 }} title="Days since the last provable issue">
+            {streak}d clean
+          </span>
+        )}
       </div>
 
       {/* Footer: last scan + ONE action + overflow */}
@@ -368,6 +377,8 @@ export default function DashboardPage() {
     });
   }, [sites]);
 
+  const fixedCount = useMemo(() => fixedThisMonth(sites.map((s) => s.scans)), [sites]);
+
   const rankedSites = useMemo(() => {
     return [...sites]
       .filter((s) => s.scans && s.scans.length > 0)
@@ -386,11 +397,16 @@ export default function DashboardPage() {
         {/* Header — title + ONE primary action; the rest are ghost. */}
         <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 16 }}>
           <div>
-            <h1 className="ds-text-primary" style={{ fontSize: "var(--text-display)", fontWeight: 700, letterSpacing: "-0.5px" }}>
+            <h1 className="ds-text-primary font-display" style={{ fontSize: "var(--text-display)", fontWeight: 700, letterSpacing: "-0.5px" }}>
               Sites
             </h1>
             <p className="ds-text-secondary" style={{ fontSize: "var(--text-body)", marginTop: 2 }}>
               {sites.length} monitored {sites.length === 1 ? "property" : "properties"}
+              {fixedCount > 0 && (
+                <span className="ds-status ds-status-healthy" style={{ marginLeft: 12 }}>
+                  <span className="ds-status-dot" /><span className="font-mono">{fixedCount}</span> fixed this month
+                </span>
+              )}
             </p>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
@@ -418,8 +434,13 @@ export default function DashboardPage() {
               </div>
             ))
           ) : orderedSites.length === 0 ? (
-            <div className="ds-card ds-card-pad ds-text-secondary" style={{ gridColumn: "1 / -1", textAlign: "center", padding: "48px" }}>
-              No sites yet. Add one to start monitoring.
+            <div className="ds-card ds-card-pad" style={{ gridColumn: "1 / -1", textAlign: "center", padding: "56px 48px", display: "flex", flexDirection: "column", alignItems: "center", gap: 18 }}>
+              <p className="ds-text-secondary" style={{ fontSize: "var(--text-heading)" }}>
+                No targets on watch. Add a site to begin surveillance.
+              </p>
+              <button className="ds-btn-primary" onClick={() => setShowModal(true)} style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+                <Plus size={16} /> Add site
+              </button>
             </div>
           ) : (
             orderedSites.map((site) => (

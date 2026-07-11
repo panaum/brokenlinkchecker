@@ -18,6 +18,7 @@ import StatusPill from "./StatusPill";
 import ExportButton from "./ExportButton";
 import SuggestionCard from "./SuggestionCard";
 import RedirectDownloadButton from "./RedirectDownload";
+import RedirectMap from "./RedirectMap";
 
 interface ResultsTableProps {
   results: LinkResult[];
@@ -43,7 +44,7 @@ const ZONE_DOT_COLORS: Record<string, string> = {
   // A broken form is the most expensive defect on a lead-gen site.
   Form: "#f472b6",
   Navigation: "#60a5fa",
-  Header: "#a78bfa",
+  Header: "#22d3aa",
   Footer: "#94a3b8",
   CTA: "#fbbf24",
   "Body text": "#e2e8f0",
@@ -304,8 +305,10 @@ function RowDetail({ result }: { result: LinkResult }) {
             </a>
           </div>
 
-          {/* Final URL if redirect */}
-          {result.final_url && result.final_url !== result.url && (
+          {/* Redirect route map when there's a chain; else the plain final URL. */}
+          {result.redirect_chain && result.redirect_chain.length > 0 ? (
+            <RedirectMap result={result} />
+          ) : result.final_url && result.final_url !== result.url ? (
             <div className="flex items-center gap-2">
               <span
                 style={{
@@ -327,7 +330,7 @@ function RowDetail({ result }: { result: LinkResult }) {
                 {result.final_url}
               </span>
             </div>
-          )}
+          ) : null}
 
           {/* Meta row */}
           <div className="flex flex-wrap gap-4">
@@ -401,7 +404,7 @@ function RowDetail({ result }: { result: LinkResult }) {
                     style={{
                       fontFamily: "monospace",
                       fontSize: "11px",
-                      color: "#a78bfa",
+                      color: "#22d3aa",
                       background: "rgba(167,139,250,0.1)",
                       border: "1px solid rgba(167,139,250,0.15)",
                       borderRadius: "4px",
@@ -938,11 +941,11 @@ export default function ResultsTable({
                                       fontFamily: "var(--font-poppins), Poppins, sans-serif",
                                       fontSize: "10px",
                                       fontWeight: 500,
-                                      color: "#c084fc",
-                                      background: "rgba(192,132,252,0.1)",
+                                      color: "#45efc9",
+                                      background: "rgba(34,211,170,0.1)",
                                       borderRadius: "4px",
                                       padding: "1px 5px",
-                                      border: "1px solid rgba(192,132,252,0.2)",
+                                      border: "1px solid rgba(34,211,170,0.2)",
                                     }}
                                   >
                                     {result.found_on_pages.length} pages

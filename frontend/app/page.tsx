@@ -21,6 +21,10 @@ import TrackingBanner from "@/components/TrackingBanner";
 import NavBar from "@/components/NavBar";
 import IntegrationsPanel from "@/components/IntegrationsPanel";
 import ScanVerdict from "@/components/ScanVerdict";
+import ShareButton from "@/components/ShareButton";
+import XrayView from "@/components/XrayView";
+import KeyboardTriage from "@/components/KeyboardTriage";
+import { ScanEye } from "lucide-react";
 import Link from "next/link";
 import { Wrench } from "lucide-react";
 
@@ -74,7 +78,7 @@ function ParticleBg() {
           height="40"
           patternUnits="userSpaceOnUse"
         >
-          <circle cx="1.5" cy="1.5" r="1.5" fill="rgba(138,26,155,0.5)" />
+          <circle cx="1.5" cy="1.5" r="1.5" fill="rgba(34,211,170,0.4)" />
         </pattern>
       </defs>
       <rect width="100%" height="100%" fill="url(#dots)" />
@@ -87,6 +91,7 @@ export default function HomePage() {
   const [url, setUrl] = useState("");
   const [scanning, setScanning] = useState(false);
   const [progress, setProgress] = useState({ message: "", percent: 0 });
+  const [feed, setFeed] = useState<string[]>([]);
   const [checkedCount, setCheckedCount] = useState(0);
   const [totalCount, setTotalCount] = useState(0);
   const [results, setResults] = useState<LinkResult[]>([]);
@@ -106,6 +111,7 @@ export default function HomePage() {
   const [scanComplete, setScanComplete] = useState(false);
   const [scanMeta, setScanMeta] = useState<ScanMeta | null>(null);
   const [scanId, setScanId] = useState<string | null>(null);
+  const [showXray, setShowXray] = useState(false);
   const [scanMode, setScanMode] = useState<"single" | "site">("single");
   const eventSourceRef = useRef<EventSource | null>(null);
   const scanningRef = useRef(false);
@@ -134,6 +140,18 @@ export default function HomePage() {
     };
   }, []);
 
+  // Keyboard triage "x" (or any caller) can open the X-ray view for a finding.
+  useEffect(() => {
+    const onXray = () => {
+      setShowXray(true);
+      requestAnimationFrame(() =>
+        document.getElementById("xray-section")?.scrollIntoView({ behavior: "smooth", block: "start" }),
+      );
+    };
+    window.addEventListener("linkspy:xray", onXray as EventListener);
+    return () => window.removeEventListener("linkspy:xray", onXray as EventListener);
+  }, []);
+
   const cancelScan = useCallback(() => {
     eventSourceRef.current?.close();
     setScanning(false);
@@ -157,10 +175,12 @@ export default function HomePage() {
       setSchemes({});
       setRedirects(null);
       setSiteId(null);
+      setShowXray(false);
       setScanComplete(false);
       setScanning(true);
       scanningRef.current = true;
       setProgress({ message: "Initializing scan…", percent: 0 });
+      setFeed([]);
       setFilter("all");
       setSearch("");
       setZoneFilter("All zones");
@@ -192,7 +212,12 @@ export default function HomePage() {
           const data = JSON.parse(event.data as string);
 
           if (data.type === "progress") {
-            setProgress({ message: data.message as string, percent: data.percent as number });
+            const msg = data.message as string;
+            setProgress({ message: msg, percent: data.percent as number });
+
+            // Accumulate distinct streamed messages into the terminal feed —
+            // render the stream instead of collapsing it to a percent.
+            setFeed((prev) => (prev[prev.length - 1] === msg ? prev : [...prev, msg].slice(-40)));
 
             // Parse checked/total out of messages like "Checked 5 of 32 links" or "Scanning page 4/37: /about"
             const match = (data.message as string).match(/(\d+)\s+of\s+(\d+)/) || (data.message as string).match(/(\d+)\/(\d+)/);
@@ -380,9 +405,9 @@ export default function HomePage() {
           borderRadius: 999,
           fontSize: 14,
           fontWeight: 600,
-          border: "1px solid rgba(168,85,247,0.4)",
-          background: "rgba(168,85,247,0.14)",
-          color: "#c084fc",
+          border: "1px solid var(--border-strong)",
+          background: "rgba(34,211,170,0.10)",
+          color: "var(--signal)",
           textDecoration: "none",
           backdropFilter: "blur(6px)",
         }}
@@ -404,14 +429,14 @@ export default function HomePage() {
           <ParticleBg />
         </div>
 
-        {/* Decorative gradient orbs */}
+        {/* Atmospheric depth — dim blue-green glow, not a bright signal wash. */}
         <div
-          className="absolute top-[-200px] left-[-200px] w-[600px] h-[600px] rounded-full bg-gradient-1 opacity-30 pointer-events-none"
-          style={{ filter: "blur(120px)", zIndex: 1 }}
+          className="absolute top-[-200px] left-[-200px] w-[600px] h-[600px] rounded-full bg-gradient-3 opacity-40 pointer-events-none"
+          style={{ filter: "blur(130px)", zIndex: 1 }}
         />
         <div
-          className="absolute top-[-100px] right-[-150px] w-[400px] h-[400px] rounded-full bg-gradient-3 opacity-20 pointer-events-none"
-          style={{ filter: "blur(120px)", zIndex: 1 }}
+          className="absolute top-[-100px] right-[-150px] w-[400px] h-[400px] rounded-full bg-gradient-2 opacity-30 pointer-events-none"
+          style={{ filter: "blur(130px)", zIndex: 1 }}
         />
 
         {/* Hero content */}
@@ -480,6 +505,7 @@ export default function HomePage() {
               percent={progress.percent}
               checkedCount={checkedCount}
               totalCount={totalCount}
+              feed={feed}
               onCancel={cancelScan}
             />
           )}
@@ -517,13 +543,32 @@ export default function HomePage() {
             <ReportHeader results={results} detectedBuilders={detectedBuilders} diff={diff} siteId={siteId} />
           </section>
 
-          {/* Third-party integrations on the scanned page. z-30 so its panel
-              overflows above the later results sections (siblings at z-10). */}
-          {scanId && scanMeta && (
-            <section className="relative z-30 flex justify-end px-4 sm:px-6 lg:px-8 -mt-2">
+          {/* Report controls: Share + X-ray + integrations. z-30 so panels
+              overflow above the later results sections (siblings at z-10). */}
+          <section className="relative z-30 ds-container flex flex-wrap items-center justify-end gap-3 px-4 sm:px-6 lg:px-8 -mt-2">
+            <button
+              className="ds-btn-ghost"
+              onClick={() => setShowXray((v) => !v)}
+              aria-pressed={showXray}
+              style={{ display: "inline-flex", alignItems: "center", gap: 8, ...(showXray ? { borderColor: "var(--signal)", color: "var(--signal)" } : {}) }}
+            >
+              <ScanEye size={15} /> X-ray view
+            </button>
+            {scanId && <ShareButton scanId={scanId} />}
+            {scanId && scanMeta && (
               <IntegrationsPanel scanId={scanId} pageUrl={scanMeta.scannedUrl} />
+            )}
+          </section>
+
+          {/* X-ray overlay — screenshot with crosshair markers on flagged elements. */}
+          {showXray && scanMeta && (
+            <section id="xray-section" className="relative z-10 ds-container px-4 sm:px-6 lg:px-8">
+              <XrayView results={results} pageUrl={scanMeta.scannedUrl} />
             </section>
           )}
+
+          {/* Keyboard triage over the findings list ("?" for shortcuts). */}
+          <KeyboardTriage />
 
           {/* Health score */}
           <section className="relative z-10">

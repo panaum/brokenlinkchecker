@@ -133,10 +133,10 @@ export default function FilterBar({
                   className="flex items-center gap-2 px-3 py-1.5 rounded-xl transition-all cursor-pointer"
                   style={{
                     background: isActive
-                      ? "linear-gradient(132deg,rgb(65,0,153),rgb(138,26,155))"
+                      ? "linear-gradient(132deg,rgb(23,184,148),rgb(52,230,192))"
                       : item.bg,
                     border: isActive
-                      ? "1px solid rgba(138,26,155,0.6)"
+                      ? "1px solid rgba(34,211,170,0.6)"
                       : `1px solid ${item.color}22`,
                     fontFamily: "var(--font-poppins), Poppins, sans-serif",
                     fontWeight: isActive ? 600 : 400,
@@ -174,13 +174,13 @@ export default function FilterBar({
                 className="flex items-center gap-2 px-3 py-2 rounded-xl transition-all cursor-pointer"
                 style={{
                   background: isActive
-                    ? "linear-gradient(132deg,rgb(65,0,153),rgb(138,26,155))"
+                    ? "linear-gradient(132deg,rgb(23,184,148),rgb(52,230,192))"
                     : item.bg,
                   border: isActive
-                    ? "1px solid rgba(138,26,155,0.6)"
+                    ? "1px solid rgba(34,211,170,0.6)"
                     : `1px solid ${item.color}22`,
                   boxShadow: isActive
-                    ? "0 0 12px rgba(138,26,155,0.3)"
+                    ? "0 0 12px rgba(34,211,170,0.3)"
                     : "none",
                   fontFamily: "var(--font-poppins), Poppins, sans-serif",
                   fontWeight: isActive ? 600 : 400,
@@ -286,7 +286,7 @@ export default function FilterBar({
                 fontFamily: "var(--font-poppins), Poppins, sans-serif",
                 fontSize: "13px",
                 color: "#fff",
-                caretColor: "#a855f7",
+                caretColor: "#22d3aa",
               }}
             />
             {search && (

@@ -55,7 +55,7 @@ export default function PagePreviewCard({ meta, onRescan }: PagePreviewCardProps
               width: 36,
               height: 36,
               background:
-                "linear-gradient(132deg,rgb(65,0,153),rgb(138,26,155))",
+                "linear-gradient(132deg,rgb(23,184,148),rgb(52,230,192))",
             }}
           >
             {faviconUrl && !faviconError ? (

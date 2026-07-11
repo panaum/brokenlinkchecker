@@ -1008,3 +1008,135 @@ def _get_integrations_sync(scan_id, page_url: Optional[str]) -> list:
 async def get_integrations(scan_id, page_url: Optional[str] = None) -> list:
     import asyncio
     return await asyncio.to_thread(_get_integrations_sync, scan_id, page_url)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Wave 1: shareable client reports + status badge.
+# All additive; every function tolerates the share_tokens table being absent
+# (returns None / empty) so a deploy that hasn't run migration 002 still works.
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _scan_row_sync(scan_id) -> Optional[dict]:
+    """One scan's stored report + its site url. None if not found."""
+    client = _get_client()
+    try:
+        resp = client.table("scans")\
+            .select("id, site_id, total_links, broken_count, dead_cta_count, "
+                    "redirect_count, health_score, results_json, scanned_at")\
+            .eq("id", scan_id).limit(1).execute()
+        rows = resp.data or []
+        if not rows:
+            return None
+        scan = rows[0]
+        url = ""
+        try:
+            site = client.table("sites").select("url")\
+                .eq("id", scan["site_id"]).limit(1).execute()
+            if site.data:
+                url = site.data[0].get("url", "")
+        except Exception:
+            pass
+        scan["url"] = url
+        return scan
+    except Exception as e:
+        if _tables_missing(e):
+            return None
+        raise
+
+
+async def get_scan(scan_id) -> Optional[dict]:
+    import asyncio
+    return await asyncio.to_thread(_scan_row_sync, scan_id)
+
+
+def _create_share_token_sync(scan_id, token: str) -> Optional[dict]:
+    client = _get_client()
+    scan = _scan_row_sync(scan_id)
+    if not scan:
+        return None
+    try:
+        client.table("share_tokens").insert({
+            "token": token,
+            "scan_id": scan_id,
+            "site_id": scan.get("site_id"),
+            "url": scan.get("url", ""),
+        }).execute()
+        return {"token": token, "url": scan.get("url", "")}
+    except Exception as e:
+        if _tables_missing(e):
+            return None
+        raise
+
+
+async def create_share_token(scan_id, token: str) -> Optional[dict]:
+    import asyncio
+    return await asyncio.to_thread(_create_share_token_sync, scan_id, token)
+
+
+def _shared_report_sync(token: str) -> Optional[dict]:
+    """The public report behind a share token, or None if missing/revoked."""
+    client = _get_client()
+    try:
+        resp = client.table("share_tokens").select("scan_id, url, revoked")\
+            .eq("token", token).limit(1).execute()
+        rows = resp.data or []
+        if not rows or rows[0].get("revoked"):
+            return None
+        scan = _scan_row_sync(rows[0]["scan_id"])
+        if not scan:
+            return None
+        scan["url"] = scan.get("url") or rows[0].get("url", "")
+        return scan
+    except Exception as e:
+        if _tables_missing(e):
+            return None
+        raise
+
+
+async def get_shared_report(token: str) -> Optional[dict]:
+    import asyncio
+    return await asyncio.to_thread(_shared_report_sync, token)
+
+
+def _revoke_share_token_sync(token: str) -> bool:
+    client = _get_client()
+    try:
+        client.table("share_tokens").update({"revoked": True})\
+            .eq("token", token).execute()
+        return True
+    except Exception as e:
+        if _tables_missing(e):
+            return False
+        raise
+
+
+async def revoke_share_token(token: str) -> bool:
+    import asyncio
+    return await asyncio.to_thread(_revoke_share_token_sync, token)
+
+
+def _latest_score_sync(site_id) -> Optional[dict]:
+    """Latest scan's score + url for a site, for the status badge."""
+    client = _get_client()
+    try:
+        resp = client.table("scans").select("health_score, scanned_at, site_id")\
+            .eq("site_id", site_id).order("scanned_at", desc=True).limit(1).execute()
+        rows = resp.data or []
+        if not rows:
+            return None
+        out = {"health_score": rows[0].get("health_score")}
+        try:
+            site = client.table("sites").select("url").eq("id", site_id).limit(1).execute()
+            out["url"] = site.data[0]["url"] if site.data else ""
+        except Exception:
+            out["url"] = ""
+        return out
+    except Exception as e:
+        if _tables_missing(e):
+            return None
+        raise
+
+
+async def get_latest_score(site_id) -> Optional[dict]:
+    import asyncio
+    return await asyncio.to_thread(_latest_score_sync, site_id)

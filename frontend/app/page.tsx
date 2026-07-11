@@ -20,6 +20,7 @@ import WhatChangedCard from "@/components/WhatChangedCard";
 import TrackingBanner from "@/components/TrackingBanner";
 import NavBar from "@/components/NavBar";
 import IntegrationsPanel from "@/components/IntegrationsPanel";
+import ScanVerdict from "@/components/ScanVerdict";
 import Link from "next/link";
 import { Wrench } from "lucide-react";
 
@@ -488,6 +489,16 @@ export default function HomePage() {
       {/* ── POST-SCAN RESULTS ── */}
       {scanComplete && results.length > 0 && (
         <>
+          {/* Post-scan verdict block — the focal point and single primary action. */}
+          <ScanVerdict
+            results={results}
+            diff={diff}
+            score={healthScore}
+            onViewIssues={() =>
+              document.getElementById("issue-sections")?.scrollIntoView({ behavior: "smooth", block: "start" })
+            }
+          />
+
           {/* Page preview card */}
           {scanMeta && (
             <PagePreviewCard meta={scanMeta} onRescan={handleRescan} />
@@ -543,7 +554,7 @@ export default function HomePage() {
           </section>
 
           {/* Triage: broken / dead CTA / unverifiable */}
-          <section className="relative z-10">
+          <section id="issue-sections" className="relative z-10">
             <IssueSections results={results} siteId={siteId} />
           </section>
 

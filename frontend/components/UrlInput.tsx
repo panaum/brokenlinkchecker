@@ -92,10 +92,15 @@ export default function UrlInput({
               onClick={() => onScanModeChange("single")}
               className={`px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition-all cursor-pointer ${
                 scanMode === "single"
-                  ? "bg-purple-600/30 text-purple-200 border border-purple-500/50 shadow-[0_0_15px_rgba(168,85,247,0.15)]"
+                  ? "border"
                   : "text-white/60 hover:text-white/80 hover:bg-white/5 border border-transparent"
               }`}
-              style={{ fontFamily: "var(--font-poppins), Poppins, sans-serif" }}
+              style={{
+                fontFamily: "var(--font-poppins), Poppins, sans-serif",
+                ...(scanMode === "single"
+                  ? { background: "rgba(34,211,170,0.14)", color: "var(--signal)", borderColor: "rgba(34,211,170,0.4)" }
+                  : {}),
+              }}
             >
               Single Page
             </button>
@@ -105,10 +110,15 @@ export default function UrlInput({
               onClick={() => onScanModeChange("site")}
               className={`px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition-all cursor-pointer ${
                 scanMode === "site"
-                  ? "bg-purple-600/30 text-purple-200 border border-purple-500/50 shadow-[0_0_15px_rgba(168,85,247,0.15)]"
+                  ? "border"
                   : "text-white/60 hover:text-white/80 hover:bg-white/5 border border-transparent"
               }`}
-              style={{ fontFamily: "var(--font-poppins), Poppins, sans-serif" }}
+              style={{
+                fontFamily: "var(--font-poppins), Poppins, sans-serif",
+                ...(scanMode === "site"
+                  ? { background: "rgba(34,211,170,0.14)", color: "var(--signal)", borderColor: "rgba(34,211,170,0.4)" }
+                  : {}),
+              }}
             >
               Full Website (Sitemap/Crawl)
             </button>
@@ -119,6 +129,7 @@ export default function UrlInput({
           <input
             id="url-input"
             type="text"
+            autoFocus
             value={url}
             onChange={(e) => {
               onUrlChange(e.target.value);
@@ -126,18 +137,25 @@ export default function UrlInput({
             }}
             onKeyDown={handleKeyDown}
             placeholder="https://your-website.com"
-            className="flex-1 bg-black/30 text-white placeholder-white/30 rounded-xl px-5 py-4 border border-white/10 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/30 outline-none transition-all"
-            style={{ fontFamily: "var(--font-poppins), Poppins, sans-serif" }}
+            className="font-mono flex-1 rounded-xl px-5 py-4 outline-none transition-all"
+            style={{
+              fontFamily: "var(--font-stack-mono)",
+              fontSize: 14,
+              background: "rgba(3,8,9,0.5)",
+              color: "var(--text-primary)",
+              border: "1px solid var(--border-subtle)",
+            }}
+            onFocus={(e) => { e.currentTarget.style.borderColor = "var(--signal)"; e.currentTarget.style.boxShadow = "0 0 0 3px rgba(34,211,170,0.18)"; }}
+            onBlur={(e) => { e.currentTarget.style.borderColor = "var(--border-subtle)"; e.currentTarget.style.boxShadow = "none"; }}
             disabled={scanning}
           />
           <button
             id="scan-button"
             onClick={handleScan}
             disabled={scanning}
-            className="bg-gradient-1 text-white font-semibold rounded-xl px-8 py-4 hover:opacity-90 disabled:opacity-60 transition-all flex items-center justify-center gap-2 cursor-pointer whitespace-nowrap"
+            className="ds-btn-primary flex items-center justify-center gap-2 whitespace-nowrap"
             style={{
-              fontFamily: "var(--font-poppins), Poppins, sans-serif",
-              fontWeight: 600,
+              padding: "0 32px",
               minWidth: "140px",
             }}
           >
@@ -164,8 +182,8 @@ export default function UrlInput({
             Did you mean&nbsp;
             <button
               onClick={() => { onUrlChange(suggestion); setInlineError(null); }}
-              className="underline cursor-pointer transition-colors hover:text-white"
-              style={{ color: "#a78bfa" }}
+              className="font-mono underline cursor-pointer transition-colors"
+              style={{ color: "var(--signal)" }}
             >
               {suggestion}
             </button>

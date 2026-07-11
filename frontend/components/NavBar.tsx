@@ -3,9 +3,14 @@
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { LayoutDashboard, Link2 } from "lucide-react";
+import { LayoutDashboard, Link2, Search } from "lucide-react";
 import Image from "next/image";
 import AuthButton from "@/components/AuthButton";
+
+// Fire the same shortcut the global palette listens for.
+function openPalette() {
+  document.dispatchEvent(new KeyboardEvent("keydown", { key: "k", metaKey: true, bubbles: true }));
+}
 
 const NAV_ITEMS = [
   { href: "/", label: "Scanner", icon: Link2 },
@@ -37,14 +42,15 @@ export default function NavBar() {
         <Link href="/" className="flex items-center gap-2 no-underline">
           <Image src="/icon.png" alt="LinkSpy logo" width={30} height={30} style={{ borderRadius: 8 }} />
           <span
+            className="font-display"
             style={{
-              fontFamily: "var(--font-poppins), Poppins, sans-serif",
-              fontWeight: 700,
+              fontWeight: 800,
               fontSize: "18px",
-              color: "#fff",
+              color: "var(--text-primary)",
+              letterSpacing: "-0.02em",
             }}
           >
-            Link<span style={{ color: "rgba(255,255,255,0.5)" }}>Spy</span>
+            Link<span style={{ color: "var(--signal)" }}>Spy</span>
           </span>
         </Link>
 
@@ -80,7 +86,7 @@ export default function NavBar() {
                       style={{
                         height: 2,
                         borderRadius: 1,
-                        background: "linear-gradient(90deg, rgb(138,26,155), rgb(200,100,255))",
+                        background: "var(--signal)",
                       }}
                       transition={{ type: "spring", stiffness: 400, damping: 30 }}
                     />
@@ -89,6 +95,21 @@ export default function NavBar() {
               );
             })}
           </div>
+
+          {/* ⌘K hint — opens the command palette. */}
+          <button
+            onClick={openPalette}
+            aria-label="Open command palette"
+            className="hidden sm:flex items-center gap-2"
+            style={{
+              padding: "6px 10px", borderRadius: 8, cursor: "pointer",
+              background: "rgba(150,210,200,0.05)", border: "1px solid var(--border-subtle)",
+              color: "var(--text-muted)",
+            }}
+          >
+            <Search size={13} />
+            <kbd style={{ fontFamily: "var(--font-stack-mono)", fontSize: 11, letterSpacing: "0.02em" }}>⌘K</kbd>
+          </button>
 
           <AuthButton />
         </div>

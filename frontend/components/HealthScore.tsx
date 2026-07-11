@@ -103,8 +103,8 @@ export default function HealthScore({ results }: HealthScoreProps) {
           <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
             <defs>
               <linearGradient id="ringGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stopColor="rgb(65,0,153)" />
-                <stop offset="100%" stopColor="rgb(138,26,155)" />
+                <stop offset="0%" stopColor="rgb(23,184,148)" />
+                <stop offset="100%" stopColor="rgb(52,230,192)" />
               </linearGradient>
             </defs>
             {/* Track */}

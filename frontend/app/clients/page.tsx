@@ -72,18 +72,20 @@ export default function ClientsPage() {
               {clients.length} {clients.length === 1 ? "client" : "clients"} · portal access &amp; site assignments
             </p>
           </div>
-          <div style={{ display: "flex", gap: 8 }}>
+          <form style={{ display: "flex", gap: 8 }} onSubmit={(e) => { e.preventDefault(); createClient(); }}>
             <input
+              id="new-client-name"
+              name="new-client-name"
+              autoComplete="off"
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
-              onKeyDown={(e) => { if (e.key === "Enter") createClient(); }}
               placeholder="New client name…"
               style={{ background: "var(--surface-raised)", border: "1px solid var(--border-subtle)", color: "var(--text-primary)", borderRadius: "var(--radius-md)", padding: "9px 12px", fontSize: "var(--text-body)", outline: "none", minWidth: 200 }}
             />
-            <button className="ds-btn-primary" onClick={createClient} style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+            <button type="submit" className="ds-btn-primary" style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
               <Plus size={16} /> Add client
             </button>
-          </div>
+          </form>
         </div>
 
         {notice && (

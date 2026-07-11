@@ -27,7 +27,7 @@ export default function CommandPalette() {
   const [open, setOpen] = useState(false);
   const [sites, setSites] = useState<Site[]>([]);
 
-  // Toggle on ⌘K / Ctrl-K.
+  // Toggle on ⌘K / Ctrl-K, and open on an explicit event (the nav button).
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "k") {
@@ -35,8 +35,13 @@ export default function CommandPalette() {
         setOpen((o) => !o);
       }
     };
+    const onOpen = () => setOpen(true);
     document.addEventListener("keydown", onKey);
-    return () => document.removeEventListener("keydown", onKey);
+    window.addEventListener("linkspy:open-command-palette", onOpen);
+    return () => {
+      document.removeEventListener("keydown", onKey);
+      window.removeEventListener("linkspy:open-command-palette", onOpen);
+    };
   }, []);
 
   // Load monitored sites once the palette is first opened (cheap, cached by the

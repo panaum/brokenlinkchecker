@@ -1514,3 +1514,72 @@ def _list_audit_sync(workspace_id: str, limit: int = 100) -> list:
 async def list_audit(workspace_id: str, limit: int = 100) -> list:
     import asyncio
     return await asyncio.to_thread(_list_audit_sync, workspace_id, limit)
+
+
+# ─── Client portal: per-client Resources (labeled links) ─────────────────────
+def _create_resource_sync(client_id, workspace_id, title, url, visible) -> Optional[dict]:
+    client = _get_client()
+    try:
+        r = client.table("client_resources").insert({
+            "client_id": client_id, "workspace_id": workspace_id,
+            "title": title, "url": url, "visible": bool(visible),
+        }).execute()
+        return r.data[0] if r.data else None
+    except Exception as e:
+        if _tables_missing(e):
+            return None
+        raise
+
+
+async def create_resource(client_id, workspace_id, title, url, visible=True) -> Optional[dict]:
+    import asyncio
+    return await asyncio.to_thread(_create_resource_sync, client_id, workspace_id, title, url, visible)
+
+
+def _list_resources_sync(client_id, visible_only: bool) -> list:
+    client = _get_client()
+    try:
+        q = client.table("client_resources")\
+            .select("id, title, url, visible, created_at").eq("client_id", client_id)
+        if visible_only:
+            q = q.eq("visible", True)
+        return q.order("created_at").execute().data or []
+    except Exception as e:
+        if _tables_missing(e):
+            return []
+        raise
+
+
+async def list_resources(client_id, visible_only: bool = False) -> list:
+    import asyncio
+    return await asyncio.to_thread(_list_resources_sync, client_id, visible_only)
+
+
+def _update_resource_sync(resource_id, patch: dict) -> bool:
+    client = _get_client()
+    try:
+        client.table("client_resources").update(patch).eq("id", resource_id).execute()
+        return True
+    except Exception as e:
+        if _tables_missing(e):
+            return False
+        raise
+
+
+async def set_resource_visible(resource_id, visible: bool) -> bool:
+    import asyncio
+    return await asyncio.to_thread(_update_resource_sync, resource_id, {"visible": bool(visible)})
+
+
+async def delete_resource(resource_id) -> bool:
+    import asyncio
+    def _del():
+        client = _get_client()
+        try:
+            client.table("client_resources").delete().eq("id", resource_id).execute()
+            return True
+        except Exception as e:
+            if _tables_missing(e):
+                return False
+            raise
+    return await asyncio.to_thread(_del)

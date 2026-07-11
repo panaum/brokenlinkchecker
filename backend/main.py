@@ -2093,6 +2093,55 @@ async def audit_log_endpoint(_acc: dict = Depends(require_role("member"))):
     return {"events": await list_audit(ws) if ws else []}
 
 
+# ─── Client portal: per-client Resources (labeled links, QA cert, etc.) ──────
+@app.post("/api/clients/{client_id}/resources")
+async def add_resource_endpoint(client_id: str, title: str = Query(...), url: str = Query(...),
+                                visible: bool = Query(default=True),
+                                _acc: dict = Depends(require_role("member"))):
+    from database import create_resource, write_audit
+    ws = await _acting_workspace(_acc)
+    created = await create_resource(client_id, ws, title.strip(), url.strip(), visible)
+    if not created:
+        return JSONResponse({"error": "Resource storage unavailable — apply migration 009.",
+                             "setup_required": True}, status_code=400)
+    await write_audit(ws, _acc.get("email"), f"add_resource:{client_id}")
+    return created
+
+
+@app.get("/api/clients/{client_id}/resources")
+async def list_resources_endpoint(client_id: str, _acc: dict = Depends(require_role("member"))):
+    from database import list_resources
+    return {"resources": await list_resources(client_id, visible_only=False)}
+
+
+@app.patch("/api/resources/{resource_id}")
+async def update_resource_endpoint(resource_id: str, visible: bool = Query(...),
+                                   _acc: dict = Depends(require_role("member"))):
+    from database import set_resource_visible
+    return {"ok": await set_resource_visible(resource_id, visible)}
+
+
+@app.delete("/api/resources/{resource_id}")
+async def delete_resource_endpoint(resource_id: str, _acc: dict = Depends(require_role("member"))):
+    from database import delete_resource
+    return {"deleted": await delete_resource(resource_id)}
+
+
+@app.get("/api/portal/resources")
+async def portal_resources_endpoint(request: Request):
+    """The visible Resources for the calling client_viewer's client. Public route
+    guarded by the portal token — resolves the caller's client from membership."""
+    from auth import caller_email
+    from database import any_membership, list_resources
+    email = caller_email(request)
+    if not email:
+        return {"resources": []}
+    m = await any_membership(email)
+    if not m or m.get("role") != "client_viewer" or not m.get("client_id"):
+        return {"resources": []}
+    return {"resources": await list_resources(m["client_id"], visible_only=True)}
+
+
 @app.get("/health")
 async def health():
     return {"status": "ok"}

@@ -4,7 +4,7 @@ import { useEffect, useRef } from "react";
 
 export type FaviconState = "idle" | "scanning" | "healthy" | "issues";
 
-const SIGNAL = "#7c6cff";   // accent (scanning / idle)
+const SIGNAL = "#a855f7";   // accent (scanning / idle)
 const GREEN = "#34d399";    // health (healthy)
 const RED = "#f87171";      // health (issues)
 const INK = "#14131c";
@@ -21,7 +21,7 @@ function draw(ctx: CanvasRenderingContext2D, state: FaviconState, phase: number)
   const cx = S / 2, cy = S / 2;
   if (state === "scanning") {
     // Rotating radar arc.
-    ctx.strokeStyle = "rgba(124,108,255,0.25)";
+    ctx.strokeStyle = "rgba(168,85,247,0.25)";
     ctx.lineWidth = 3;
     ctx.beginPath();
     ctx.arc(cx, cy, 10, 0, Math.PI * 2);

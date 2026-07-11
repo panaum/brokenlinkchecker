@@ -79,7 +79,7 @@ function ParticleBg() {
           height="40"
           patternUnits="userSpaceOnUse"
         >
-          <circle cx="1.5" cy="1.5" r="1.5" fill="rgba(124,108,255,0.4)" />
+          <circle cx="1.5" cy="1.5" r="1.5" fill="rgba(168,85,247,0.4)" />
         </pattern>
       </defs>
       <rect width="100%" height="100%" fill="url(#dots)" />
@@ -414,7 +414,7 @@ export default function HomePage() {
           fontSize: 14,
           fontWeight: 600,
           border: "1px solid var(--border-strong)",
-          background: "rgba(124,108,255,0.10)",
+          background: "rgba(168,85,247,0.10)",
           color: "var(--signal)",
           textDecoration: "none",
           backdropFilter: "blur(6px)",

@@ -55,13 +55,13 @@ export default async function OgImage({ params }: { params: Promise<{ token: str
           display: "flex",
           flexDirection: "column",
           justifyContent: "space-between",
-          background: "#070b0d",
+          background: "#0b0712",
           padding: 72,
           fontFamily: "sans-serif",
         }}
       >
         <div style={{ display: "flex", alignItems: "center", color: "#e9f4f1", fontSize: 34, fontWeight: 800 }}>
-          Link<span style={{ color: "#7c6cff" }}>Spy</span>
+          Link<span style={{ color: "#a855f7" }}>Spy</span>
         </div>
 
         <div style={{ display: "flex", alignItems: "center", gap: 56 }}>

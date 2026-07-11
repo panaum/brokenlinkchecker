@@ -111,7 +111,7 @@ export default function SiteDetailPage() {
                 )}
                 {score !== null && (
                   <div style={{ textAlign: "right" }}>
-                    <div className="font-mono" style={{ fontSize: "var(--text-display)", fontWeight: 700, color: scoreColor(score), lineHeight: 1 }}>{score}</div>
+                    <div className="font-mono" style={{ fontSize: "var(--text-display)", fontWeight: 700, color: "var(--signal)", lineHeight: 1 }}>{score}</div>
                     <div className="ds-text-muted" style={{ fontSize: "var(--text-caption)" }}>health score</div>
                   </div>
                 )}

@@ -29,12 +29,6 @@ function calcScore(results: LinkResult[]): number {
   return Math.max(0, Math.min(100, score));
 }
 
-function scoreColor(score: number): string {
-  if (score >= 90) return "#4ade80";
-  if (score >= 70) return "#fb923c";
-  return "#f87171";
-}
-
 function scoreHeadline(score: number): string {
   if (score >= 90) return "Your site looks great! 🎉";
   if (score >= 70) return "A few things to fix";
@@ -77,7 +71,6 @@ export default function HealthScore({ results }: HealthScoreProps) {
   const radius = (size - strokeWidth) / 2;
   const circumference = 2 * Math.PI * radius;
   const dashOffset = circumference - (animScore / 100) * circumference;
-  const color = scoreColor(finalScore);
   const headline = scoreHeadline(finalScore);
 
   const breakdownItems: { icon: string; label: string; count: number }[] = [
@@ -102,9 +95,10 @@ export default function HealthScore({ results }: HealthScoreProps) {
         <div className="flex flex-col items-center shrink-0" style={{ width: "40%" }}>
           <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
             <defs>
+              {/* Brand purple — the score ring is identity, not a status. */}
               <linearGradient id="ringGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stopColor="rgb(23,184,148)" />
-                <stop offset="100%" stopColor="rgb(52,230,192)" />
+                <stop offset="0%" stopColor="rgb(65,0,153)" />
+                <stop offset="100%" stopColor="rgb(168,85,247)" />
               </linearGradient>
             </defs>
             {/* Track */}
@@ -136,7 +130,7 @@ export default function HealthScore({ results }: HealthScoreProps) {
               y={size / 2 - 6}
               textAnchor="middle"
               dominantBaseline="middle"
-              fill={color}
+              fill="#c084fc"
               fontSize="28"
               fontWeight="700"
               fontFamily="Poppins, sans-serif"

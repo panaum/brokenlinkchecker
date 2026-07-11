@@ -133,7 +133,7 @@ function SiteCard({
           style={{
             width: 34, height: 34, borderRadius: 9, flexShrink: 0, display: "flex", alignItems: "center",
             justifyContent: "center", fontWeight: 700, fontSize: 15, color: "var(--signal)",
-            background: "rgba(34,211,170,0.14)", fontFamily: "var(--font-stack-display)",
+            background: "rgba(124,108,255,0.14)", fontFamily: "var(--font-stack-display)",
           }}
         >
           {displayName(site).charAt(0).toUpperCase()}

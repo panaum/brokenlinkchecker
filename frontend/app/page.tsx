@@ -24,6 +24,7 @@ import ScanVerdict from "@/components/ScanVerdict";
 import ShareButton from "@/components/ShareButton";
 import XrayView from "@/components/XrayView";
 import KeyboardTriage from "@/components/KeyboardTriage";
+import { useDynamicFavicon } from "@/lib/useDynamicFavicon";
 import { ScanEye } from "lucide-react";
 import Link from "next/link";
 import { Wrench } from "lucide-react";
@@ -78,7 +79,7 @@ function ParticleBg() {
           height="40"
           patternUnits="userSpaceOnUse"
         >
-          <circle cx="1.5" cy="1.5" r="1.5" fill="rgba(34,211,170,0.4)" />
+          <circle cx="1.5" cy="1.5" r="1.5" fill="rgba(124,108,255,0.4)" />
         </pattern>
       </defs>
       <rect width="100%" height="100%" fill="url(#dots)" />
@@ -120,6 +121,13 @@ export default function HomePage() {
   const [history, setHistory] = useState<HistoryScanEntry[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
   const historyPanelRef = useRef<HTMLElement>(null);
+
+  // Tab favicon reflects scan state: radar while scanning, green ring healthy,
+  // red dot when the last scan found issues.
+  const issueCount = results.filter((r) => r.label !== "ok").length;
+  useDynamicFavicon(
+    scanning ? "scanning" : scanComplete && results.length > 0 ? (issueCount > 0 ? "issues" : "healthy") : "idle",
+  );
 
   // Dynamic page title
   useEffect(() => {
@@ -406,7 +414,7 @@ export default function HomePage() {
           fontSize: 14,
           fontWeight: 600,
           border: "1px solid var(--border-strong)",
-          background: "rgba(34,211,170,0.10)",
+          background: "rgba(124,108,255,0.10)",
           color: "var(--signal)",
           textDecoration: "none",
           backdropFilter: "blur(6px)",

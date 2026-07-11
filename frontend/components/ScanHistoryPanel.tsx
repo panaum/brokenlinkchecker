@@ -86,7 +86,7 @@ function CustomChartTooltip({ active, payload }: CustomTooltipProps) {
     <div
       style={{
         background: "rgba(15,8,30,0.95)",
-        border: "1px solid rgba(34,211,170,0.3)",
+        border: "1px solid rgba(124,108,255,0.3)",
         borderRadius: 8,
         padding: "8px 12px",
         backdropFilter: "blur(12px)",
@@ -98,7 +98,7 @@ function CustomChartTooltip({ active, payload }: CustomTooltipProps) {
           fontFamily: "var(--font-poppins), Poppins, sans-serif",
           fontSize: "13px",
           fontWeight: 600,
-          color: "#22d3aa",
+          color: "#7c6cff",
         }}
       >
         Health: {data.value}/100
@@ -251,7 +251,7 @@ const ScanHistoryPanel = forwardRef<HTMLElement, ScanHistoryPanelProps>(
                   width: 18,
                   height: 18,
                   border: "2px solid rgba(255,255,255,0.1)",
-                  borderTopColor: "#22d3aa",
+                  borderTopColor: "#7c6cff",
                   borderRadius: "50%",
                 }}
               />
@@ -297,7 +297,7 @@ const ScanHistoryPanel = forwardRef<HTMLElement, ScanHistoryPanelProps>(
               }}
             >
               <div className="flex items-center gap-3">
-                <Clock size={18} style={{ color: "#22d3aa" }} />
+                <Clock size={18} style={{ color: "#7c6cff" }} />
                 <div style={{ textAlign: "left" }}>
                   <p
                     style={{
@@ -396,7 +396,7 @@ const ScanHistoryPanel = forwardRef<HTMLElement, ScanHistoryPanelProps>(
                               >
                                 <TrendingUp
                                   size={14}
-                                  style={{ color: "#22d3aa" }}
+                                  style={{ color: "#7c6cff" }}
                                 />
                                 <span
                                   style={{
@@ -445,24 +445,24 @@ const ScanHistoryPanel = forwardRef<HTMLElement, ScanHistoryPanelProps>(
                                   <RechartsTooltip
                                     content={<CustomChartTooltip />}
                                     cursor={{
-                                      stroke: "rgba(34,211,170,0.2)",
+                                      stroke: "rgba(124,108,255,0.2)",
                                     }}
                                   />
                                   <Line
                                     type="monotone"
                                     dataKey="score"
-                                    stroke="#22d3aa"
+                                    stroke="#7c6cff"
                                     strokeWidth={2.5}
                                     dot={{
-                                      fill: "#22d3aa",
+                                      fill: "#7c6cff",
                                       r: 4,
                                       strokeWidth: 0,
                                     }}
                                     activeDot={{
-                                      fill: "#45efc9",
+                                      fill: "#9d8cff",
                                       r: 6,
                                       strokeWidth: 2,
-                                      stroke: "#22d3aa",
+                                      stroke: "#7c6cff",
                                     }}
                                   />
                                 </LineChart>
@@ -474,13 +474,13 @@ const ScanHistoryPanel = forwardRef<HTMLElement, ScanHistoryPanelProps>(
                               style={{
                                 padding: "12px 14px",
                                 borderRadius: 8,
-                                background: "rgba(34,211,170,0.06)",
-                                border: "1px solid rgba(34,211,170,0.12)",
+                                background: "rgba(124,108,255,0.06)",
+                                border: "1px solid rgba(124,108,255,0.12)",
                               }}
                             >
                               <TrendingUp
                                 size={14}
-                                style={{ color: "#22d3aa" }}
+                                style={{ color: "#7c6cff" }}
                               />
                               <span
                                 style={{

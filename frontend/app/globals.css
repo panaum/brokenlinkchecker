@@ -5,9 +5,10 @@
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   MISSION CONTROL — design tokens. LinkSpy is a surveillance instrument:
-   dominant near-black with a blue-green cast, ONE signal color (radar teal)
-   reserved for life / health / action, data in mono. Use these variables.
+   DESIGN TOKENS. Accent = refined violet/indigo (brand, actions, interactive).
+   Health has its OWN language (green healthy · amber attention · red broken ·
+   gray neutral) — the accent is never a status. Dark is default; a light theme
+   overrides the surface/text tokens under [data-theme="light"].
    ═══════════════════════════════════════════════════════════════════════════ */
 :root {
   /* Spacing — 8px scale */
@@ -29,51 +30,77 @@
   /* Radius — one family */
   --radius-sm: 8px; --radius-md: 12px; --radius-lg: 16px; --radius-pill: 999px;
 
-  /* Surfaces — near-black with a blue-green cast; cards lift a visible step. */
-  --surface-page: #070b0d;
-  --surface-card: #0d1417;
-  --surface-raised: #131c20;
-  --border-subtle: rgba(140, 200, 190, 0.12);   /* hairline w/ slight luminosity */
-  --border-strong: rgba(150, 210, 200, 0.22);
+  /* Surfaces — warm slate, NOT black. Cards lift a clearly visible step. */
+  --surface-page: #14131c;
+  --surface-card: #1c1a27;
+  --surface-raised: #262330;
+  --border-subtle: rgba(255, 255, 255, 0.10);
+  --border-strong: rgba(255, 255, 255, 0.18);
 
-  /* Text — 3 tiers, all AA on --surface-card */
-  --text-primary: rgba(233, 244, 241, 0.92);
-  --text-secondary: rgba(200, 216, 212, 0.60);
-  --text-muted: rgba(180, 200, 196, 0.40);
+  /* Text — 3 tiers, neutral warm-white, all AA on --surface-card */
+  --text-primary: rgba(242, 242, 250, 0.94);
+  --text-secondary: rgba(228, 228, 240, 0.66);
+  --text-muted: rgba(214, 214, 230, 0.46);
 
   /* Elevation ramp */
-  --elev-1: 0 1px 2px rgba(0,0,0,0.40);
-  --elev-2: 0 8px 24px rgba(0,0,0,0.45);
-  --elev-3: 0 18px 50px rgba(0,0,0,0.55);
+  --elev-1: 0 1px 2px rgba(0,0,0,0.35);
+  --elev-2: 0 8px 24px rgba(0,0,0,0.40);
+  --elev-3: 0 18px 50px rgba(0,0,0,0.50);
 
-  /* THE signal color — radar teal. Life, health, activity, the primary action,
-     the score ring. Nowhere decorative. */
-  --signal: #22d3aa;
-  --signal-bright: #45efc9;
-  --signal-dim: #0f423a;         /* atmospheric only (glows), never a status */
-  --signal-ink: #03130f;         /* dark text that sits on a signal fill */
-  --signal-gradient: linear-gradient(135deg, #17b894 0%, #34e6c0 100%);
+  /* THE accent — refined violet/indigo. Brand, primary action, links, focus,
+     interactive highlight. A single flat accent (no wash). Never a status. */
+  --signal: #7c6cff;
+  --signal-bright: #9d8cff;
+  --signal-dim: #2a2547;         /* atmospheric only (glows) */
+  --signal-ink: #ffffff;         /* text that sits on an accent fill */
+  --signal-gradient: linear-gradient(135deg, #6d5cff 0%, #9d8cff 100%);
 
-  /* Status — one language. healthy = signal · broken = red (confirmed kill) ·
-     attention = amber (suspect) · neutral = gray (unverifiable / first scan). */
-  --status-healthy: var(--signal);   --status-healthy-bg: rgba(34,211,170,0.12);
-  --status-broken: #ff6b6b;          --status-broken-bg: rgba(255,107,107,0.12);
-  --status-attention: #f6c445;       --status-attention-bg: rgba(246,196,69,0.12);
-  --status-neutral: #8b9ba0;         --status-neutral-bg: rgba(139,155,160,0.12);
+  /* Health language — its own colors, independent of the accent.
+     healthy = green · broken = red · attention = amber · neutral = gray. */
+  --status-healthy: #34d399;   --status-healthy-bg: rgba(52,211,153,0.14);
+  --status-broken: #f87171;    --status-broken-bg: rgba(248,113,113,0.13);
+  --status-attention: #fbbf24; --status-attention-bg: rgba(251,191,36,0.13);
+  --status-neutral: #9aa0b4;   --status-neutral-bg: rgba(154,160,180,0.13);
 
   --accent-solid: var(--signal);
 
-  /* Legacy alias: many components still set font-family: var(--font-poppins).
-     Point it at the new body stack so they inherit the identity font. */
+  /* Legacy alias: many components still set font-family: var(--font-poppins). */
   --font-poppins: var(--font-stack-body);
 
   --content-max: 1140px;
 
-  /* Motion — ONE easing curve, used exclusively. All motion ≤300ms except the
-     score reveal (600ms). */
+  /* Motion — ONE easing curve. All motion ≤300ms except the 600ms score reveal. */
   --ease-out-quart: cubic-bezier(0.165, 0.84, 0.44, 1);
   --motion: 170ms var(--ease-out-quart);
   --motion-fast: 120ms var(--ease-out-quart);
+}
+
+/* ── LIGHT THEME ── near-white, dark text, soft violet-tinted shadows. */
+:root[data-theme="light"] {
+  --surface-page: #f5f5fb;
+  --surface-card: #ffffff;
+  --surface-raised: #ffffff;
+  --border-subtle: rgba(30, 27, 55, 0.10);
+  --border-strong: rgba(30, 27, 55, 0.18);
+
+  --text-primary: rgba(26, 24, 42, 0.92);
+  --text-secondary: rgba(26, 24, 42, 0.62);
+  --text-muted: rgba(26, 24, 42, 0.46);
+
+  --elev-1: 0 1px 2px rgba(30, 27, 60, 0.08);
+  --elev-2: 0 8px 24px rgba(30, 27, 60, 0.10);
+  --elev-3: 0 18px 50px rgba(30, 27, 60, 0.14);
+
+  --signal: #6d5cff;
+  --signal-bright: #5a48e0;
+  --signal-dim: #ece9ff;
+  --signal-ink: #ffffff;
+  --signal-gradient: linear-gradient(135deg, #6d5cff 0%, #9d8cff 100%);
+
+  --status-healthy: #12a150;   --status-healthy-bg: rgba(18,161,80,0.12);
+  --status-broken: #dc2626;    --status-broken-bg: rgba(220,38,38,0.10);
+  --status-attention: #d97706; --status-attention-bg: rgba(217,119,6,0.12);
+  --status-neutral: #6b7280;   --status-neutral-bg: rgba(107,114,128,0.12);
 }
 
 @layer base {
@@ -87,35 +114,25 @@
     -moz-osx-font-smoothing: grayscale;
     position: relative;
     min-height: 100vh;
+    transition: background var(--motion), color var(--motion);
   }
 
-  /* ── ATMOSPHERE ── a darkened ops room, not a black rectangle. A fixed
-     dot-grid at whisper volume + a faint blue-green vignette. */
+  /* ── ATMOSPHERE ── a single soft violet glow up top. Calm, not busy — no
+     grid, no scanlines. */
   body::before {
     content: "";
     position: fixed;
     inset: 0;
     z-index: 0;
     pointer-events: none;
-    background-image:
-      radial-gradient(circle at 50% 0%, rgba(34,211,170,0.05), transparent 55%),
-      radial-gradient(rgba(120,190,180,0.9) 0.7px, transparent 0.7px);
-    background-size: 100% 100%, 26px 26px;
-    opacity: 0.5;
+    background:
+      radial-gradient(900px 420px at 50% -5%, rgba(124,108,255,0.10), transparent 70%);
   }
-  /* Faint scan-grain overlay. */
-  body::after {
-    content: "";
-    position: fixed;
-    inset: 0;
-    z-index: 0;
-    pointer-events: none;
-    opacity: 0.025;
-    background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-    background-size: 220px 220px;
-  }
-  /* Keep app content above the atmosphere layers. */
+  /* Keep app content above the atmosphere layer. */
   body > * { position: relative; z-index: 1; }
+  :root[data-theme="light"] body::before {
+    background: radial-gradient(900px 420px at 50% -5%, rgba(109,92,255,0.08), transparent 70%);
+  }
 
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after {
@@ -127,7 +144,7 @@
 
   ::-webkit-scrollbar { width: 8px; height: 8px; }
   ::-webkit-scrollbar-track { background: transparent; }
-  ::-webkit-scrollbar-thumb { background: rgba(140,200,190,0.16); border-radius: 4px; }
+  ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.16); border-radius: 4px; }
 }
 
 /* ═══ Typography utilities ═══ */
@@ -170,15 +187,15 @@
   font-weight: 700;
   cursor: pointer;
   transition: filter var(--motion-fast), transform var(--motion-fast), box-shadow var(--motion);
-  box-shadow: 0 0 0 rgba(34,211,170,0);
+  box-shadow: 0 0 0 rgba(124,108,255,0);
 }
-.ds-btn-primary:hover { filter: brightness(1.08); box-shadow: 0 6px 22px rgba(34,211,170,0.22); }
+.ds-btn-primary:hover { filter: brightness(1.08); box-shadow: 0 6px 22px rgba(124,108,255,0.22); }
 .ds-btn-primary:active { transform: translateY(1px); filter: brightness(0.96); }
 .ds-btn-primary:disabled { opacity: 0.45; cursor: not-allowed; filter: none; box-shadow: none; }
 
 /* Ghost action — no fill, quiet. Same press physics. */
 .ds-btn-ghost {
-  background: rgba(150, 210, 200, 0.05);
+  background: rgba(255, 255, 255, 0.05);
   color: var(--text-primary);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
@@ -188,7 +205,7 @@
   cursor: pointer;
   transition: background var(--motion), border-color var(--motion), transform var(--motion-fast);
 }
-.ds-btn-ghost:hover { background: rgba(150, 210, 200, 0.10); border-color: var(--border-strong); }
+.ds-btn-ghost:hover { background: rgba(255, 255, 255, 0.10); border-color: var(--border-strong); }
 .ds-btn-ghost:active { transform: translateY(1px); }
 .ds-btn-ghost:disabled { opacity: 0.45; cursor: not-allowed; }
 
@@ -205,14 +222,14 @@
 .ds-status-neutral   .ds-status-dot { background: var(--status-neutral); }
 
 @keyframes ds-breathe {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(34,211,170,0.45); opacity: 1; }
-  50%      { box-shadow: 0 0 0 4px rgba(34,211,170,0);   opacity: 0.7; }
+  0%, 100% { box-shadow: 0 0 0 0 rgba(52,211,153,0.45); opacity: 1; }
+  50%      { box-shadow: 0 0 0 4px rgba(52,211,153,0);   opacity: 0.7; }
 }
 
 /* Skeleton — matches final layout, no jump. */
 @keyframes ds-shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
 .ds-skeleton {
-  background: linear-gradient(90deg, rgba(150,210,200,0.04) 25%, rgba(150,210,200,0.10) 50%, rgba(150,210,200,0.04) 75%);
+  background: linear-gradient(90deg, rgba(255,255,255,0.04) 25%, rgba(255,255,255,0.10) 50%, rgba(255,255,255,0.04) 75%);
   background-size: 200% 100%;
   animation: ds-shimmer 1.4s ease-in-out infinite;
   border-radius: var(--radius-sm);
@@ -239,19 +256,19 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 }
 .radar-sweep {
   position: absolute; inset: 0; border-radius: 50%;
-  background: conic-gradient(from 0deg, transparent 0deg, transparent 300deg, rgba(34,211,170,0.05) 330deg, rgba(34,211,170,0.55) 360deg);
+  background: conic-gradient(from 0deg, transparent 0deg, transparent 300deg, rgba(124,108,255,0.05) 330deg, rgba(124,108,255,0.55) 360deg);
   animation: radar-sweep 2.4s linear infinite;
 }
 .radar-sweep-locking { animation: radar-sweep 2.4s var(--ease-out-quart) forwards; }
 
 /* ═══ Legacy utility classes, recolored to the signal palette (purple retired) ═══ */
-.bg-gradient-1 { background: linear-gradient(135deg, rgba(23,184,148,0.9) 0%, rgba(52,230,192,0.9) 100%); }
+.bg-gradient-1 { background: linear-gradient(135deg, rgba(109,92,255,0.9) 0%, rgba(157,140,255,0.9) 100%); }
 /* Atmospheric (decorative) — dim, desaturated so the bright signal stays meaningful. */
 .bg-gradient-2 { background: linear-gradient(135deg, #0c2a28 0%, #10201f 100%); }
 .bg-gradient-3 { background: linear-gradient(135deg, #123a34 0%, #0a1416 100%); }
 
 .glass-card {
-  background: rgba(150, 210, 200, 0.035);
+  background: rgba(255, 255, 255, 0.035);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border: 1px solid var(--border-subtle);
@@ -269,7 +286,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .animated-border { position: relative; z-index: 0; }
 .animated-border::before {
   content: ""; position: absolute; z-index: -1; inset: -1px; border-radius: 18px;
-  background: linear-gradient(135deg, #17b894, #34e6c0, #0f766e, #17b894);
+  background: linear-gradient(135deg, #6d5cff, #8b7cff, #0f766e, #6d5cff);
   background-size: 300% 300%;
   animation: gradient-rotate 5s ease infinite;
   opacity: 0.5;
@@ -318,7 +335,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   background: var(--surface-raised);
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-lg);
-  box-shadow: var(--elev-3), 0 0 0 1px rgba(34,211,170,0.06);
+  box-shadow: var(--elev-3), 0 0 0 1px rgba(124,108,255,0.06);
   overflow: hidden;
   animation: ds-rise 180ms var(--ease-out-quart) both;
 }
@@ -350,7 +367,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   transition: background var(--motion-fast);
 }
 .cmdk-item[data-selected="true"] {
-  background: rgba(34,211,170,0.12);
+  background: rgba(124,108,255,0.12);
   box-shadow: inset 2px 0 0 var(--signal);
 }
 .cmdk-dim { color: var(--text-muted); }
@@ -387,3 +404,16 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   background: rgba(34, 211, 170, 0.06) !important;
   transition: background var(--motion), box-shadow var(--motion);
 }
+
+/* ═══ Optimistic verify: shake on "still broken", fade on resolved ═══ */
+@keyframes ds-shake {
+  0%, 100% { transform: translateX(0); }
+  20% { transform: translateX(-4px); }
+  40% { transform: translateX(4px); }
+  60% { transform: translateX(-3px); }
+  80% { transform: translateX(3px); }
+}
+.ds-shake { animation: ds-shake 360ms var(--ease-out-quart); }
+@keyframes ds-resolve { to { opacity: 0.35; } }
+.ds-resolving { animation: ds-resolve 500ms var(--ease-out-quart) forwards; }
+.ds-verifying { text-decoration: line-through; opacity: 0.6; }

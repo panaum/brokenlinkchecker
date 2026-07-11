@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { LinkResult, SortOption } from "@/types";
 import StatusPill from "./StatusPill";
+import { latencyColor } from "@/lib/format";
 import ExportButton from "./ExportButton";
 import SuggestionCard from "./SuggestionCard";
 import RedirectDownloadButton from "./RedirectDownload";
@@ -44,7 +45,7 @@ const ZONE_DOT_COLORS: Record<string, string> = {
   // A broken form is the most expensive defect on a lead-gen site.
   Form: "#f472b6",
   Navigation: "#60a5fa",
-  Header: "#22d3aa",
+  Header: "#7c6cff",
   Footer: "#94a3b8",
   CTA: "#fbbf24",
   "Body text": "#e2e8f0",
@@ -404,7 +405,7 @@ function RowDetail({ result }: { result: LinkResult }) {
                     style={{
                       fontFamily: "monospace",
                       fontSize: "11px",
-                      color: "#22d3aa",
+                      color: "#7c6cff",
                       background: "rgba(167,139,250,0.1)",
                       border: "1px solid rgba(167,139,250,0.15)",
                       borderRadius: "4px",
@@ -941,11 +942,11 @@ export default function ResultsTable({
                                       fontFamily: "var(--font-poppins), Poppins, sans-serif",
                                       fontSize: "10px",
                                       fontWeight: 500,
-                                      color: "#45efc9",
-                                      background: "rgba(34,211,170,0.1)",
+                                      color: "#9d8cff",
+                                      background: "rgba(124,108,255,0.1)",
                                       borderRadius: "4px",
                                       padding: "1px 5px",
-                                      border: "1px solid rgba(34,211,170,0.2)",
+                                      border: "1px solid rgba(124,108,255,0.2)",
                                     }}
                                   >
                                     {result.found_on_pages.length} pages
@@ -954,15 +955,13 @@ export default function ResultsTable({
                               </div>
                             </td>
 
-                            {/* Response time */}
+                            {/* Response time — tinted by latency threshold. */}
                             <td style={{ padding: "10px 16px", verticalAlign: "middle" }}>
                               <span
+                                className="font-mono"
                                 style={{
-                                  fontFamily:
-                                    "var(--font-poppins), Poppins, sans-serif",
                                   fontSize: "12px",
-                                  fontWeight: 300,
-                                  color: "rgba(255,255,255,0.4)",
+                                  color: latencyColor(result.response_ms),
                                   fontVariantNumeric: "tabular-nums",
                                 }}
                               >

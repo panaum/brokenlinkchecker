@@ -5,19 +5,21 @@ mission-control signal system: teal healthy, amber needs-attention, red broken,
 gray when a site has never been scanned.
 """
 
-# Signal palette (kept in sync with the frontend design tokens).
-_SIGNAL = "#22d3aa"
-_AMBER = "#f6c445"
-_RED = "#ff6b6b"
-_GRAY = "#8b9ba0"
-_INK = "#0d1417"       # left "LinkSpy" plate (near-black, blue-green cast)
+# Health palette (kept in sync with the frontend status tokens). The badge
+# shows a health score, so it uses the HEALTH colors (green/amber/red), not the
+# violet brand accent.
+_GREEN = "#34d399"
+_AMBER = "#fbbf24"
+_RED = "#f87171"
+_GRAY = "#9aa0b4"
+_INK = "#1c1a27"       # left "LinkSpy" plate (warm slate)
 
 
 def score_color(score) -> str:
     if score is None:
         return _GRAY
     if score >= 90:
-        return _SIGNAL
+        return _GREEN
     if score >= 70:
         return _AMBER
     return _RED

@@ -68,8 +68,7 @@ export default function ScanVerdict({
   const R = 46;
   const C = 2 * Math.PI * R;
   const ringColor =
-    score >= 90 ? "var(--signal)" : score >= 70 ? "var(--status-attention)" : "var(--status-broken)";
-  const useSignalRing = score >= 70;
+    score >= 90 ? "var(--status-healthy)" : score >= 70 ? "var(--status-attention)" : "var(--status-broken)";
 
   const rise = (delay: number) => ({
     initial: { opacity: 0, y: 8 },
@@ -80,24 +79,18 @@ export default function ScanVerdict({
   return (
     <section className="ds-container" style={{ padding: "0 24px", marginTop: 8, position: "relative" }}>
       {/* soft radial glow behind the verdict block */}
-      <div style={{ position: "absolute", inset: 0, pointerEvents: "none", background: "radial-gradient(600px 200px at 20% 40%, rgba(34,211,170,0.07), transparent 70%)" }} />
+      <div style={{ position: "absolute", inset: 0, pointerEvents: "none", background: "radial-gradient(600px 200px at 20% 40%, rgba(124,108,255,0.08), transparent 70%)" }} />
       <div
         className="ds-card"
         style={{ padding: "var(--space-6)", display: "flex", alignItems: "center", gap: "var(--space-6)", flexWrap: "wrap", position: "relative" }}
       >
-        {/* Score ring — signal color, draws itself. */}
+        {/* Score ring — health-colored, draws itself. */}
         <motion.div {...rise(0)} style={{ position: "relative", width: 112, height: 112, flexShrink: 0 }}>
           <svg width="112" height="112" viewBox="0 0 112 112">
-            <defs>
-              <linearGradient id="verdict-ring" x1="0" y1="0" x2="1" y2="1">
-                <stop offset="0%" stopColor="#17b894" />
-                <stop offset="100%" stopColor="#45efc9" />
-              </linearGradient>
-            </defs>
-            <circle cx="56" cy="56" r={R} fill="none" stroke="rgba(150,210,200,0.08)" strokeWidth="8" />
+            <circle cx="56" cy="56" r={R} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="8" />
             <motion.circle
               cx="56" cy="56" r={R} fill="none"
-              stroke={useSignalRing ? "url(#verdict-ring)" : ringColor}
+              stroke={ringColor}
               strokeWidth="8" strokeLinecap="round"
               strokeDasharray={C}
               initial={{ strokeDashoffset: C }}

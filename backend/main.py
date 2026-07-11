@@ -1913,6 +1913,35 @@ async def site_badge(site_id: str):
     )
 
 
+# ─── Wave 3 (detail standard): anticipatory scan pre-warm ────────────────────
+# Cheap, idempotent DNS + first-byte warmup so a scan feels instant on click.
+# Never scans, never renders — just primes the connection. Deduped by URL.
+_prewarm_seen: dict[str, float] = {}
+_PREWARM_TTL = 30  # seconds — don't re-warm the same URL within this window
+
+
+@app.get("/api/prewarm")
+async def prewarm(url: str = Query(..., description="URL the user is about to scan")):
+    now = time.time()
+    last = _prewarm_seen.get(url)
+    if last and now - last < _PREWARM_TTL:
+        return {"warmed": True, "cached": True}
+    _prewarm_seen[url] = now
+    for k in [k for k, t in _prewarm_seen.items() if now - t >= _PREWARM_TTL]:
+        _prewarm_seen.pop(k, None)
+    try:
+        async with httpx.AsyncClient(follow_redirects=True, timeout=5) as client:
+            try:
+                await client.head(url)
+            except Exception:
+                # Some origins reject HEAD — a ranged GET still primes DNS/TLS.
+                await client.get(url, headers={"Range": "bytes=0-0"})
+        return {"warmed": True}
+    except Exception as e:
+        # Best-effort: a failed warmup must never block or error the UI.
+        return JSONResponse({"warmed": False, "error": str(e)}, status_code=200)
+
+
 @app.get("/health")
 async def health():
     return {"status": "ok"}

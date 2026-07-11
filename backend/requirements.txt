@@ -16,3 +16,6 @@ PyYAML>=6.0
 # playwright install chromium
 supabase>=2.0.0
 apscheduler>=3.10
+# Client portal (P0): verify the short-lived HS256 backend token minted from
+# the NextAuth session. See auth.py.
+PyJWT>=2.8.0

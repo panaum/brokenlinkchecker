@@ -23,16 +23,26 @@ all sites attached.**
 ## Identity verification (the load-bearing decision)
 
 Because the backend is directly reachable and the `email` param is spoofable,
-the backend must **authenticate** the caller before it can authorize:
+the backend must **authenticate** the caller before it can authorize. It does so
+by verifying a short-lived **HS256 token** (shared `BACKEND_AUTH_SECRET` /
+`NEXTAUTH_SECRET`) that carries a trusted email — forwarded via
+`Authorization: Bearer` (fetch) or `?token=` (EventSource SSE, which can't set
+headers). Stateless, no DB round-trip. Absent/forged token → 401 on anything
+site-scoped (public capability routes exempt).
 
-- **Mechanism:** the frontend already holds a NextAuth JWT (signed with
-  `NEXTAUTH_SECRET`). Forward it to the backend (Authorization header for fetch;
-  `?token=` for the EventSource SSE calls, since EventSource can't set headers).
-  The backend verifies the JWT signature with the shared secret and extracts a
-  **trusted email**. No DB round-trip, stateless.
-- Unverified/absent token → treated as anonymous → 401 on anything site-scoped
-  (public capability routes below are exempt).
-- This replaces "read the email from the session" everywhere in the auth layer.
+**Two issuers of that same token — NO NextAuth for clients:**
+- **Team (staff):** keep today's NextAuth Google login unchanged. A tiny
+  frontend route (`/api/auth/backend-token`) reads the server-side session and
+  mints the HS256 token. `signIn` is NOT modified.
+- **Clients:** passwordless — no NextAuth, no Google, no password. A member+
+  creates an invite → the client opens the invite/magic link → the accept
+  endpoint validates the token, creates their `client_viewer` membership, and
+  **mints the same HS256 portal token** (scoped by their membership). v1 keeps a
+  long-lived portal session (cookie); emailed magic-link re-login is a v2 add so
+  we don't take on email infrastructure now (the member can re-share a link).
+
+The backend auth layer is issuer-agnostic — it only verifies the token and looks
+up the membership. So "no NextAuth for clients" changes only token issuance.
 
 ## Backfill (make-or-break)
 
@@ -101,10 +111,11 @@ site-scoped route:
 | `GET /api/r/{token}` · `GET /api/sites/{id}/badge.svg` | public capability | public (unchanged) |
 | `GET /preview` · `/api/xray` · `/api/prewarm` · `/health` | infra, url-based | public (pre-existing exposure) |
 
-## NextAuth change
-`signIn` allows if `@apexure.com` OR the email has an accepted membership OR a
-valid (unexpired, unrevoked) invite. Sessions keep carrying `email`; the JWT is
-what the backend verifies.
+## Login (no NextAuth for clients)
+- **Team:** NextAuth Google (`@apexure.com`) — **unchanged**. `/api/auth/backend-token`
+  mints the HS256 token from the session.
+- **Clients:** invite/magic-link → accept endpoint mints the HS256 portal token
+  (long-lived cookie for v1). NextAuth is never involved for clients.
 
 ## Trust boundary (stated honestly)
 Authorization is enforced in the **FastAPI layer** (single service-role Supabase
@@ -131,7 +142,7 @@ PR says this explicitly.
 1. Migration + RLS (this file's data model). ← safe, additive
 2. JWT-verify util + `require_site_access` dependency + membership/workspace DB helpers.
 3. Backfill (one Apexure workspace; attach sites; auto-provision on login).
-4. Wrap every route per the inventory; make `/dashboard` scope-aware.
-5. NextAuth `signIn` extension + forward JWT to backend.
-6. Invites (create/accept/revoke) + audit_log.
-7. Test suite (the six above).
+4. Wrap every route per the inventory; make `/dashboard` scope-aware. ✅ done (flag-gated)
+5. Staff token-mint route (`/api/auth/backend-token`) + forward the token from the frontend.
+6. Client invite flow: create / accept (mints portal token) / revoke / list + audit_log. NO NextAuth.
+7. Test suite (the six above). ✅ enforcement matrix done; invite + backfill tests next.

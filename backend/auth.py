@@ -35,6 +35,16 @@ def _secret() -> str:
     return os.getenv("BACKEND_AUTH_SECRET") or os.getenv("NEXTAUTH_SECRET") or ""
 
 
+def mint_token(email: str, ttl_seconds: int = 30 * 24 * 3600, **claims) -> str:
+    """Sign an HS256 token carrying `email` (the same token both issuers use:
+    the staff NextAuth-session route and the client invite-accept endpoint).
+    Long-lived by default for the passwordless client portal session."""
+    import time as _t
+    payload = {"email": email.strip().lower(), "iat": int(_t.time()),
+               "exp": int(_t.time()) + ttl_seconds, **claims}
+    return jwt.encode(payload, _secret(), algorithm="HS256")
+
+
 def verify_token(token: str) -> Optional[str]:
     """The trusted, lowercased email from a valid HS256 token, else None.
 

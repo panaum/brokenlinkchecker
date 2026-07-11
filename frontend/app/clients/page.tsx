@@ -28,6 +28,7 @@ export default function ClientsPage() {
   const [loading, setLoading] = useState(true);
   const [notice, setNotice] = useState<string | null>(null);
   const [newName, setNewName] = useState("");
+  const [showModal, setShowModal] = useState(false);
   const [expanded, setExpanded] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -53,12 +54,22 @@ export default function ClientsPage() {
 
   const createClient = async () => {
     const name = newName.trim();
-    if (!name) return;
-    const res = await fetch(`/api/clients?name=${encodeURIComponent(name)}`, { method: "POST" });
-    const body = await res.json();
-    if (!res.ok) { setNotice(body.error || "Could not create client."); return; }
-    setNewName("");
-    load();
+    if (!name) { setNotice("Type a client name."); return; }
+    setNotice(null);
+    try {
+      const res = await fetch(`/api/clients?name=${encodeURIComponent(name)}`, { method: "POST" });
+      let body: { error?: string } = {};
+      try { body = await res.json(); } catch { /* non-JSON */ }
+      if (!res.ok) {
+        setNotice(`Couldn't create client — HTTP ${res.status}${body.error ? `: ${body.error}` : ""}.`);
+        return;
+      }
+      setNewName("");
+      setShowModal(false);
+      load();
+    } catch {
+      setNotice("Couldn't reach the server to create the client.");
+    }
   };
 
   return (
@@ -72,20 +83,9 @@ export default function ClientsPage() {
               {clients.length} {clients.length === 1 ? "client" : "clients"} · portal access &amp; site assignments
             </p>
           </div>
-          <form style={{ display: "flex", gap: 8 }} onSubmit={(e) => { e.preventDefault(); createClient(); }}>
-            <input
-              id="new-client-name"
-              name="new-client-name"
-              autoComplete="off"
-              value={newName}
-              onChange={(e) => setNewName(e.target.value)}
-              placeholder="New client name…"
-              style={{ background: "var(--surface-raised)", border: "1px solid var(--border-subtle)", color: "var(--text-primary)", borderRadius: "var(--radius-md)", padding: "9px 12px", fontSize: "var(--text-body)", outline: "none", minWidth: 200 }}
-            />
-            <button type="submit" className="ds-btn-primary" style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
-              <Plus size={16} /> Add client
-            </button>
-          </form>
+          <button className="ds-btn-primary" onClick={() => { setNewName(""); setNotice(null); setShowModal(true); }} style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
+            <Plus size={16} /> Add client
+          </button>
         </div>
 
         {notice && (
@@ -116,6 +116,40 @@ export default function ClientsPage() {
           </div>
         )}
       </div>
+
+      {/* Add-client modal — same proven pattern as the dashboard's Add-site. */}
+      {showModal && (
+        <div
+          onMouseDown={(e) => { if (e.target === e.currentTarget) setShowModal(false); }}
+          style={{ position: "fixed", inset: 0, background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)", display: "flex", alignItems: "center", justifyContent: "center", padding: 16, zIndex: 200 }}
+        >
+          <div className="ds-card ds-card-pad" style={{ width: "100%", maxWidth: 420 }}>
+            <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginBottom: 16 }}>
+              <h3 className="ds-text-primary font-display" style={{ fontSize: "var(--text-heading)", fontWeight: 700 }}>Add client</h3>
+              <button onClick={() => setShowModal(false)} className="ds-text-muted" style={{ background: "none", border: "none", cursor: "pointer" }}><X size={18} /></button>
+            </div>
+            <form onSubmit={(e) => { e.preventDefault(); createClient(); }}>
+              <input
+                autoFocus
+                id="new-client-name"
+                name="new-client-name"
+                autoComplete="off"
+                data-gramm="false"
+                data-enable-grammarly="false"
+                value={newName}
+                onChange={(e) => setNewName(e.target.value)}
+                placeholder="Client name, e.g. Thermalboard"
+                style={{ width: "100%", background: "var(--surface-raised)", border: "1px solid var(--border-subtle)", color: "var(--text-primary)", borderRadius: "var(--radius-md)", padding: "10px 12px", fontSize: "var(--text-body)", outline: "none" }}
+              />
+              {notice && <div className="ds-status ds-status-broken" style={{ fontSize: "var(--text-caption)", marginTop: 10 }}><span className="ds-status-dot" />{notice}</div>}
+              <div style={{ display: "flex", justifyContent: "flex-end", gap: 8, marginTop: 16 }}>
+                <button type="button" className="ds-btn-ghost" onClick={() => setShowModal(false)}>Cancel</button>
+                <button type="submit" className="ds-btn-primary">Create client</button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

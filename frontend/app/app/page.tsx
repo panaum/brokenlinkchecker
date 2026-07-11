@@ -335,7 +335,7 @@ export default function HomePage() {
           </section>
 
           {/* Filter bar */}
-          <section className="relative z-10">
+          <section className="relative z-30">
             <FilterBar
               results={results}
               filter={filter}

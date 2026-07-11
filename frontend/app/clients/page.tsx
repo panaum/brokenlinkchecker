@@ -53,12 +53,21 @@ export default function ClientsPage() {
 
   const createClient = async () => {
     const name = newName.trim();
-    if (!name) return;
-    const res = await fetch(`/api/clients?name=${encodeURIComponent(name)}`, { method: "POST" });
-    const body = await res.json();
-    if (!res.ok) { setNotice(body.error || "Could not create client."); return; }
-    setNewName("");
-    load();
+    if (!name) { setNotice("Type a client name first, then click Add client."); return; }
+    setNotice(null);
+    try {
+      const res = await fetch(`/api/clients?name=${encodeURIComponent(name)}`, { method: "POST" });
+      let body: { error?: string } = {};
+      try { body = await res.json(); } catch { /* non-JSON response */ }
+      if (!res.ok) {
+        setNotice(`Couldn't create client — HTTP ${res.status}${body.error ? `: ${body.error}` : ""}.`);
+        return;
+      }
+      setNewName("");
+      load();
+    } catch {
+      setNotice("Couldn't reach the server to create the client.");
+    }
   };
 
   return (
@@ -77,6 +86,9 @@ export default function ClientsPage() {
               id="new-client-name"
               name="new-client-name"
               autoComplete="off"
+              data-gramm="false"
+              data-gramm_editor="false"
+              data-enable-grammarly="false"
               value={newName}
               onChange={(e) => setNewName(e.target.value)}
               placeholder="New client name…"

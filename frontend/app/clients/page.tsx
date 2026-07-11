@@ -163,6 +163,24 @@ function ClientCard({ client, sites, invites, expanded, onToggle, onChanged }: {
   const active = invites.filter((i) => i.accepted_at && !i.revoked).length;
   const pending = invites.filter((i) => !i.accepted_at && !i.revoked).length;
 
+  // Aggregate health across the client's sites (worst-site drives the color).
+  const health = useMemo(() => {
+    let openIssues = 0, worst: number | null = null, scanned = 0, anyBroken = false, anyAttn = false;
+    for (const s of assigned) {
+      const scans = [...(s.scans ?? [])].sort((a, b) => new Date(a.scanned_at).getTime() - new Date(b.scanned_at).getTime());
+      const latest = scans[scans.length - 1];
+      if (!latest) continue;
+      scanned++;
+      openIssues += (latest.broken_count ?? 0) + (latest.dead_cta_count ?? 0);
+      if ((latest.broken_count ?? 0) > 0) anyBroken = true;
+      else if ((latest.dead_cta_count ?? 0) > 0) anyAttn = true;
+      if (worst === null || latest.health_score < worst) worst = latest.health_score;
+    }
+    const cls = scanned === 0 ? "ds-status-neutral" : anyBroken ? "ds-status-broken" : anyAttn ? "ds-status-attention" : "ds-status-healthy";
+    const word = scanned === 0 ? "Not scanned" : anyBroken ? "Needs attention" : anyAttn ? "Minor issues" : "All healthy";
+    return { openIssues, worst, cls, word, scanned };
+  }, [assigned]);
+
   return (
     <div className="ds-card ds-card-pad">
       <div style={{ display: "flex", alignItems: "center", gap: 12, cursor: "pointer" }} onClick={onToggle}>
@@ -177,7 +195,19 @@ function ClientCard({ client, sites, invites, expanded, onToggle, onChanged }: {
             {pending > 0 && <> · <span style={{ color: "var(--status-attention)" }}>{pending} invited</span></>}
           </div>
         </div>
-        <span className="ds-text-muted" style={{ fontSize: "var(--text-caption)" }}>{expanded ? "Hide" : "Manage"}</span>
+        {/* Aggregate health at a glance */}
+        <div style={{ display: "flex", alignItems: "center", gap: 16, flexShrink: 0 }}>
+          {health.worst !== null && (
+            <span className="font-mono" style={{ fontSize: 20, fontWeight: 700, color: "var(--signal)" }}>{health.worst}</span>
+          )}
+          <div style={{ textAlign: "right" }}>
+            <span className={`ds-status ${health.cls}`}><span className="ds-status-dot" />{health.word}</span>
+            {health.openIssues > 0 && (
+              <div className="ds-text-muted" style={{ fontSize: 11, marginTop: 2 }}>{health.openIssues} open {health.openIssues === 1 ? "issue" : "issues"}</div>
+            )}
+          </div>
+          <span className="ds-text-muted" style={{ fontSize: "var(--text-caption)", width: 44, textAlign: "right" }}>{expanded ? "Hide" : "Manage"}</span>
+        </div>
       </div>
 
       {expanded && (

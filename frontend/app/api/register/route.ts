@@ -1,3 +1,4 @@
+import { backendAuthHeaders } from "@/lib/backendToken";
 import { NextRequest } from "next/server";
 
 export async function POST(req: NextRequest) {
@@ -16,7 +17,7 @@ export async function POST(req: NextRequest) {
   try {
     const res = await fetch(
       `${backendUrl}/register?url=${encodeURIComponent(body.url)}&email=${encodeURIComponent(body.email)}`,
-      { method: "POST", cache: "no-store" }
+      { method: "POST", cache: "no-store", headers: await backendAuthHeaders() }
     );
 
     const data = await res.json();

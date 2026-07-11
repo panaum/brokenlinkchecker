@@ -1,3 +1,4 @@
+import { backendAuthHeaders } from "@/lib/backendToken";
 import { NextRequest } from "next/server";
 
 const backend = () => process.env.BACKEND_URL || "http://localhost:8000";
@@ -12,6 +13,7 @@ export async function DELETE(
     const res = await fetch(`${backend()}/api/share/${token}`, {
       method: "DELETE",
       cache: "no-store",
+      headers: await backendAuthHeaders(),
     });
     const data = await res.json();
     return new Response(JSON.stringify(data), {

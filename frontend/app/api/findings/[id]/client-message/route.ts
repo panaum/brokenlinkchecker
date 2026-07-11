@@ -1,3 +1,4 @@
+import { backendAuthHeaders } from "@/lib/backendToken";
 import { NextRequest } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
@@ -20,7 +21,7 @@ export async function GET(
   const target = `${backend}/api/findings/${id}/client-message${query}`;
 
   try {
-    const res = await fetch(target, { method: "GET", cache: "no-store" });
+    const res = await fetch(target, { method: "GET", cache: "no-store", headers: await backendAuthHeaders() });
     const body = await res.text();
     return new Response(body, {
       status: res.status,

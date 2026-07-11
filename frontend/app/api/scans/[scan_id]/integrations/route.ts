@@ -1,3 +1,4 @@
+import { backendAuthHeaders } from "@/lib/backendToken";
 import { NextRequest } from "next/server";
 
 const backend = () => process.env.BACKEND_URL || "http://localhost:8000";
@@ -13,6 +14,7 @@ export async function GET(
   try {
     const res = await fetch(`${backend()}/api/scans/${scan_id}/integrations${qs}`, {
       cache: "no-store",
+      headers: await backendAuthHeaders(),
     });
     const data = await res.json();
     return new Response(JSON.stringify(data), {

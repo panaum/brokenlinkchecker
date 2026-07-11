@@ -39,28 +39,29 @@ def build_badge_svg(score, label: str = "LinkSpy") -> str:
     value = "--" if score is None else str(int(score))
     color = score_color(score)
 
-    label_w = 12 + len(label) * 6.5
-    value_w = 20 + len(value) * 8
+    label_w = round(12 + len(label) * 6.5)
+    value_w = round(20 + len(value) * 8)
     total_w = label_w + value_w
     h = 20
 
     label_mid = label_w / 2
     value_mid = label_w + value_w / 2
+    font = "Verdana,DejaVu Sans,Geneva,sans-serif"
 
+    # Both plates are clipped to one rounded rectangle, so the colored plate's
+    # corners follow the badge outline (no square edge poking out).
     return (
-        f'<svg xmlns="http://www.w3.org/2000/svg" width="{total_w:.0f}" height="{h}" '
+        f'<svg xmlns="http://www.w3.org/2000/svg" width="{total_w}" height="{h}" '
         f'role="img" aria-label="{label}: {value}">'
         f'<title>{label}: {value}</title>'
-        f'<rect width="{total_w:.0f}" height="{h}" rx="4" fill="{_INK}"/>'
-        f'<rect x="{label_w:.0f}" width="{value_w:.0f}" height="{h}" fill="{color}"/>'
-        # re-clip corners of the right plate under the rounded container
-        f'<rect x="{label_w:.0f}" width="{value_w - 4:.0f}" height="{h}" fill="{color}"/>'
-        f'<g fill="#e9f4f1" font-family="Verdana,DejaVu Sans,Geneva,sans-serif" font-size="11">'
-        f'<text x="{label_mid:.0f}" y="14" text-anchor="middle">{label}</text>'
+        f'<clipPath id="r"><rect width="{total_w}" height="{h}" rx="4"/></clipPath>'
+        f'<g clip-path="url(#r)">'
+        f'<rect width="{label_w}" height="{h}" fill="{_INK}"/>'
+        f'<rect x="{label_w}" width="{value_w}" height="{h}" fill="{color}"/>'
         f'</g>'
-        f'<g fill="{_INK}" font-family="Verdana,DejaVu Sans,Geneva,sans-serif" '
-        f'font-size="11" font-weight="bold">'
-        f'<text x="{value_mid:.0f}" y="14" text-anchor="middle">{value}</text>'
+        f'<g font-family="{font}" font-size="11">'
+        f'<text x="{label_mid:.0f}" y="14" text-anchor="middle" fill="#e9f4f1">{label}</text>'
+        f'<text x="{value_mid:.0f}" y="14" text-anchor="middle" fill="#ffffff" font-weight="bold">{value}</text>'
         f'</g>'
         f'</svg>'
     )

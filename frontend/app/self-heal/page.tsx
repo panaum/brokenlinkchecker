@@ -9,30 +9,26 @@ export default function SelfHealPage() {
   return (
     <main className="min-h-screen">
       <NavBar />
-      <div className="max-w-3xl mx-auto px-4 pt-28 pb-16">
+      <div className="ds-container" style={{ maxWidth: 760, padding: "112px 16px 64px" }}>
         <Link
           href="/"
-          className="inline-flex items-center gap-2 mb-6"
-          style={{ color: "rgba(255,255,255,0.5)", fontSize: 14, textDecoration: "none" }}
+          className="ds-text-muted"
+          style={{ display: "inline-flex", alignItems: "center", gap: 8, marginBottom: 24, fontSize: "var(--text-body)", textDecoration: "none" }}
         >
           <ArrowLeft size={15} /> Back to scanner
         </Link>
 
         <h1
-          className="mb-2"
-          style={{
-            fontFamily: "var(--font-poppins), Poppins, sans-serif",
-            fontWeight: 700,
-            fontSize: 34,
-            letterSpacing: "-0.5px",
-          }}
+          className="ds-text-primary"
+          style={{ fontWeight: 700, fontSize: "var(--text-display)", letterSpacing: "-0.5px", marginBottom: 8 }}
         >
           Self-heal
         </h1>
-        <p style={{ color: "rgba(255,255,255,0.55)", fontSize: 16, marginBottom: 28, lineHeight: 1.6 }}>
-          Scan a page and, for the broken links it can <strong>prove</strong> a fix
-          for, open a pull request automatically. It never merges, and only ever
-          touches a repository an operator has allowlisted.
+        {/* The single, two-sentence description. */}
+        <p className="ds-text-secondary" style={{ fontSize: "var(--text-body)", lineHeight: "var(--leading-normal)", marginBottom: 28, maxWidth: 560 }}>
+          Self-heal scans a page and, for the broken links it can prove a fix for,
+          opens a pull request on an approved repository. It never merges — you
+          review every change before it ships.
         </p>
 
         <SelfHealPanel />

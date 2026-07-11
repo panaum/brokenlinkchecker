@@ -23,6 +23,7 @@ import IntegrationsPanel from "@/components/IntegrationsPanel";
 import ScanVerdict from "@/components/ScanVerdict";
 import ShareButton from "@/components/ShareButton";
 import XrayView from "@/components/XrayView";
+import KeyboardTriage from "@/components/KeyboardTriage";
 import { ScanEye } from "lucide-react";
 import Link from "next/link";
 import { Wrench } from "lucide-react";
@@ -137,6 +138,18 @@ export default function HomePage() {
     return () => {
       eventSourceRef.current?.close();
     };
+  }, []);
+
+  // Keyboard triage "x" (or any caller) can open the X-ray view for a finding.
+  useEffect(() => {
+    const onXray = () => {
+      setShowXray(true);
+      requestAnimationFrame(() =>
+        document.getElementById("xray-section")?.scrollIntoView({ behavior: "smooth", block: "start" }),
+      );
+    };
+    window.addEventListener("linkspy:xray", onXray as EventListener);
+    return () => window.removeEventListener("linkspy:xray", onXray as EventListener);
   }, []);
 
   const cancelScan = useCallback(() => {
@@ -549,10 +562,13 @@ export default function HomePage() {
 
           {/* X-ray overlay — screenshot with crosshair markers on flagged elements. */}
           {showXray && scanMeta && (
-            <section className="relative z-10 ds-container px-4 sm:px-6 lg:px-8">
+            <section id="xray-section" className="relative z-10 ds-container px-4 sm:px-6 lg:px-8">
               <XrayView results={results} pageUrl={scanMeta.scannedUrl} />
             </section>
           )}
+
+          {/* Keyboard triage over the findings list ("?" for shortcuts). */}
+          <KeyboardTriage />
 
           {/* Health score */}
           <section className="relative z-10">

@@ -111,17 +111,19 @@ export default function FixPanel({ result, findingId, siteId }: FixPanelProps) {
   return (
     <div className="mt-2">
       <div className="flex flex-wrap items-center gap-2">
-        <Action onClick={loadFix} icon={Wrench} label={open ? "Hide fix" : "How to fix"} />
+        <Action onClick={loadFix} icon={Wrench} label={open ? "Hide fix" : "How to fix"} triage="fix" />
         <Action
           onClick={recheck}
           icon={verifying ? Loader2 : RefreshCw}
           label={verifying ? "Re-checking…" : "Re-check"}
           spin={verifying}
+          triage="recheck"
         />
         <Action
           onClick={copyClientMessage}
           icon={copied ? Check : Copy}
           label={copied ? "Copied" : "Copy client message"}
+          triage="copy"
         />
       </div>
 
@@ -213,15 +215,18 @@ function Action({
   icon: Icon,
   label,
   spin,
+  triage,
 }: {
   onClick: () => void;
   icon: typeof Wrench;
   label: string;
   spin?: boolean;
+  triage?: string;
 }) {
   return (
     <button
       onClick={onClick}
+      data-triage={triage}
       className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-[11px] transition-colors cursor-pointer"
       style={{ background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.7)" }}
     >

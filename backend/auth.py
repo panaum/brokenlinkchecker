@@ -19,6 +19,16 @@ from fastapi import Request, HTTPException
 ROLE_RANK = {"client_viewer": 1, "member": 2, "owner": 3}
 STAFF_DOMAIN = "apexure.com"
 
+# Bypass context returned when enforcement is OFF — behaves as an owner so
+# scope-aware routes (e.g. /dashboard) keep today's "see everything" behavior.
+_BYPASS = {"email": None, "role": "owner", "workspace_id": None, "client_id": None, "enforced": False}
+
+
+def portal_enforced() -> bool:
+    """Master switch. OFF by default so wrapping every route changes nothing
+    until the migration + backfill + secret + frontend tokens are all in place."""
+    return os.getenv("PORTAL_ENFORCE", "").strip().lower() in ("1", "true", "yes", "on")
+
 
 def _secret() -> str:
     # A dedicated backend secret if set, else the shared NextAuth secret.
@@ -88,6 +98,8 @@ def require_site_access(min_role: str = "member"):
     from database import site_scope
 
     async def dep(site_id: str, request: Request) -> dict:
+        if not portal_enforced():
+            return dict(_BYPASS)
         return await _authorize_scope(caller_email(request), await site_scope(site_id), min_role)
 
     return dep
@@ -98,16 +110,41 @@ def require_scan_access(min_role: str = "client_viewer"):
     from database import scan_scope
 
     async def dep(scan_id: str, request: Request) -> dict:
+        if not portal_enforced():
+            return dict(_BYPASS)
         return await _authorize_scope(caller_email(request), await scan_scope(scan_id), min_role)
 
     return dep
 
 
 def require_finding_access(min_role: str = "member"):
-    """Dependency for routes with a `finding_id` path param."""
+    """Dependency for routes with a `finding_id` path param (site_id may be a
+    query param, resolved by the caller). Falls back to finding→site."""
     from database import finding_scope
 
     async def dep(finding_id: str, request: Request) -> dict:
+        if not portal_enforced():
+            return dict(_BYPASS)
         return await _authorize_scope(caller_email(request), await finding_scope(finding_id), min_role)
+
+    return dep
+
+
+def require_role(min_role: str = "member"):
+    """Dependency for NON-site-scoped agency/internal routes: just a verified
+    caller of at least `min_role` in ANY workspace (checked when enforced)."""
+    from database import any_membership
+
+    async def dep(request: Request) -> dict:
+        if not portal_enforced():
+            return dict(_BYPASS)
+        email = caller_email(request)
+        if not email:
+            raise HTTPException(status_code=401, detail="Authentication required.")
+        m = await any_membership(email)
+        if not m or not role_satisfies(m.get("role"), min_role):
+            raise HTTPException(status_code=403, detail="Insufficient role.")
+        return {"email": email, "role": m.get("role"), "workspace_id": m.get("workspace_id"),
+                "client_id": m.get("client_id")}
 
     return dep

@@ -1189,10 +1189,14 @@ async def scan_scope(scan_id) -> Optional[dict]:
 
 
 def _finding_scope_sync(finding_id) -> Optional[dict]:
+    # Finding routes pass a fingerprint (not the row id) — match that first.
     client = _get_client()
     try:
-        resp = client.table("findings").select("site_id").eq("id", finding_id).limit(1).execute()
-        rows = resp.data or []
+        rows = client.table("findings").select("site_id")\
+            .eq("fingerprint", finding_id).limit(1).execute().data or []
+        if not rows:
+            rows = client.table("findings").select("site_id")\
+                .eq("id", finding_id).limit(1).execute().data or []
         if not rows or not rows[0].get("site_id"):
             return None
         return _site_scope_sync(rows[0]["site_id"])
@@ -1279,3 +1283,34 @@ def _backfill_multitenancy_sync(owner_email: str) -> dict:
 async def backfill_multitenancy(owner_email: str) -> dict:
     import asyncio
     return await asyncio.to_thread(_backfill_multitenancy_sync, owner_email)
+
+
+def _any_membership_sync(email: str) -> Optional[dict]:
+    """The caller's membership for a non-site-scoped agency route. Highest role
+    first; auto-provisions @apexure.com staff into the Apexure workspace."""
+    client = _get_client()
+    email = (email or "").strip().lower()
+    if not email:
+        return None
+    try:
+        rows = client.table("memberships")\
+            .select("user_email, workspace_id, role, client_id")\
+            .eq("user_email", email).execute().data or []
+        if rows:
+            rank = {"owner": 3, "member": 2, "client_viewer": 1}
+            return sorted(rows, key=lambda r: rank.get(r.get("role"), 0), reverse=True)[0]
+        if email.endswith("@" + STAFF_DOMAIN):
+            ws = client.table("workspaces").select("id, owner_email")\
+                .eq("name", "Apexure").limit(1).execute().data or []
+            if ws and (ws[0].get("owner_email") or "").lower().endswith("@" + STAFF_DOMAIN):
+                return _resolve_membership_sync(email, ws[0]["id"])
+        return None
+    except Exception as e:
+        if _tables_missing(e):
+            return None
+        raise
+
+
+async def any_membership(email: str) -> Optional[dict]:
+    import asyncio
+    return await asyncio.to_thread(_any_membership_sync, email)

@@ -9,6 +9,7 @@ import jwt
 import pytest
 
 import auth
+import database
 
 
 SECRET = "test-secret-please-change"
@@ -18,6 +19,30 @@ SECRET = "test-secret-please-change"
 def _set_secret(monkeypatch):
     monkeypatch.setenv("BACKEND_AUTH_SECRET", SECRET)
     monkeypatch.delenv("NEXTAUTH_SECRET", raising=False)
+    monkeypatch.delenv("PORTAL_ENFORCE", raising=False)   # default OFF
+
+
+class FakeReq:
+    """Minimal stand-in for a FastAPI Request for the dependency callables."""
+    def __init__(self, token=None):
+        self.headers = {"authorization": "Bearer " + token} if token else {}
+        self.query_params = {}
+
+
+def _run(coro):
+    return asyncio.run(coro)
+
+
+def _mock_scope(monkeypatch, workspace_id, client_id):
+    async def scope(_sid):
+        return {"workspace_id": workspace_id, "client_id": client_id}
+    monkeypatch.setattr(database, "site_scope", scope)
+
+
+def _mock_member(monkeypatch, role, client_id=None):
+    async def member(_email, ws):
+        return {"role": role, "client_id": client_id, "workspace_id": ws} if role else None
+    monkeypatch.setattr(database, "resolve_membership", member)
 
 
 def _mint(payload, secret=SECRET):
@@ -80,3 +105,85 @@ def test_authorize_scope_404_when_site_has_no_workspace():
     with pytest.raises(auth.HTTPException) as e2:
         asyncio.run(auth._authorize_scope("x@apexure.com", {"workspace_id": None}, "member"))
     assert e2.value.status_code == 404
+
+
+# ── Enforcement matrix (the merge gate: flag off = no-op, on = scope checks) ──
+
+def test_flag_off_is_a_no_op(monkeypatch):
+    # No token, no site, no DB — must NOT raise; returns owner bypass.
+    dep = auth.require_site_access("member")
+    ctx = _run(dep(site_id="anything", request=FakeReq()))
+    assert ctx["enforced"] is False and ctx["role"] == "owner"
+
+
+def test_enforced_without_token_is_401(monkeypatch):
+    monkeypatch.setenv("PORTAL_ENFORCE", "1")
+    _mock_scope(monkeypatch, "W", "CA")
+    dep = auth.require_site_access("client_viewer")
+    with pytest.raises(auth.HTTPException) as e:
+        _run(dep(site_id="s", request=FakeReq(token=None)))
+    assert e.value.status_code == 401
+
+
+def test_enforced_spoofed_email_param_is_401(monkeypatch):
+    # A forged JWT + a valid-looking email must not authenticate.
+    monkeypatch.setenv("PORTAL_ENFORCE", "1")
+    _mock_scope(monkeypatch, "W", "CA")
+    forged = jwt.encode({"email": "anaum.pandit@apexure.com"}, "wrong-secret", algorithm="HS256")
+    dep = auth.require_site_access("client_viewer")
+    with pytest.raises(auth.HTTPException) as e:
+        _run(dep(site_id="s", request=FakeReq(token=forged)))
+    assert e.value.status_code == 401
+
+
+def test_viewer_reading_own_client_site_is_allowed(monkeypatch):
+    monkeypatch.setenv("PORTAL_ENFORCE", "1")
+    _mock_scope(monkeypatch, "W", "CA")
+    _mock_member(monkeypatch, "client_viewer", client_id="CA")
+    tok = jwt.encode({"email": "viewer@client.com"}, SECRET, algorithm="HS256")
+    dep = auth.require_site_access("client_viewer")
+    ctx = _run(dep(site_id="s", request=FakeReq(token=tok)))
+    assert ctx["role"] == "client_viewer"
+
+
+def test_viewer_reading_other_client_site_is_403(monkeypatch):
+    monkeypatch.setenv("PORTAL_ENFORCE", "1")
+    _mock_scope(monkeypatch, "W", "CB")               # site belongs to client B
+    _mock_member(monkeypatch, "client_viewer", client_id="CA")  # viewer scoped to A
+    tok = jwt.encode({"email": "viewer@client.com"}, SECRET, algorithm="HS256")
+    dep = auth.require_site_access("client_viewer")
+    with pytest.raises(auth.HTTPException) as e:
+        _run(dep(site_id="s", request=FakeReq(token=tok)))
+    assert e.value.status_code == 403
+
+
+def test_viewer_hitting_write_route_is_403(monkeypatch):
+    monkeypatch.setenv("PORTAL_ENFORCE", "1")
+    _mock_scope(monkeypatch, "W", "CA")
+    _mock_member(monkeypatch, "client_viewer", client_id="CA")  # in scope, but low role
+    tok = jwt.encode({"email": "viewer@client.com"}, SECRET, algorithm="HS256")
+    dep = auth.require_site_access("member")            # a write route
+    with pytest.raises(auth.HTTPException) as e:
+        _run(dep(site_id="s", request=FakeReq(token=tok)))
+    assert e.value.status_code == 403
+
+
+def test_non_member_is_403(monkeypatch):
+    monkeypatch.setenv("PORTAL_ENFORCE", "1")
+    _mock_scope(monkeypatch, "W", "CA")
+    _mock_member(monkeypatch, None)                    # no membership
+    tok = jwt.encode({"email": "stranger@nowhere.com"}, SECRET, algorithm="HS256")
+    dep = auth.require_site_access("client_viewer")
+    with pytest.raises(auth.HTTPException) as e:
+        _run(dep(site_id="s", request=FakeReq(token=tok)))
+    assert e.value.status_code == 403
+
+
+def test_member_write_allowed(monkeypatch):
+    monkeypatch.setenv("PORTAL_ENFORCE", "1")
+    _mock_scope(monkeypatch, "W", "CA")
+    _mock_member(monkeypatch, "member")
+    tok = jwt.encode({"email": "staff@apexure.com"}, SECRET, algorithm="HS256")
+    dep = auth.require_site_access("member")
+    ctx = _run(dep(site_id="s", request=FakeReq(token=tok)))
+    assert ctx["role"] == "member"

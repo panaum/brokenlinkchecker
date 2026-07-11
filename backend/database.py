@@ -1140,3 +1140,177 @@ def _latest_score_sync(site_id) -> Optional[dict]:
 async def get_latest_score(site_id) -> Optional[dict]:
     import asyncio
     return await asyncio.to_thread(_latest_score_sync, site_id)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Client portal (P0): tenancy scope + membership resolution + backfill.
+# All tolerant of migration 007 not being applied (return None / no-op), so the
+# backend still imports and runs before the tables exist. Authorization is only
+# enforced once routes are wrapped in a later step.
+# ─────────────────────────────────────────────────────────────────────────────
+STAFF_DOMAIN = "apexure.com"
+
+
+def _site_scope_sync(site_id) -> Optional[dict]:
+    client = _get_client()
+    try:
+        resp = client.table("sites").select("workspace_id, client_id")\
+            .eq("id", site_id).limit(1).execute()
+        rows = resp.data or []
+        return rows[0] if rows else None
+    except Exception as e:
+        if _tables_missing(e):
+            return None
+        raise
+
+
+async def site_scope(site_id) -> Optional[dict]:
+    import asyncio
+    return await asyncio.to_thread(_site_scope_sync, site_id)
+
+
+def _scan_scope_sync(scan_id) -> Optional[dict]:
+    client = _get_client()
+    try:
+        resp = client.table("scans").select("site_id").eq("id", scan_id).limit(1).execute()
+        rows = resp.data or []
+        if not rows or not rows[0].get("site_id"):
+            return None
+        return _site_scope_sync(rows[0]["site_id"])
+    except Exception as e:
+        if _tables_missing(e):
+            return None
+        raise
+
+
+async def scan_scope(scan_id) -> Optional[dict]:
+    import asyncio
+    return await asyncio.to_thread(_scan_scope_sync, scan_id)
+
+
+def _finding_scope_sync(finding_id) -> Optional[dict]:
+    # Finding routes pass a fingerprint (not the row id) — match that first.
+    client = _get_client()
+    try:
+        rows = client.table("findings").select("site_id")\
+            .eq("fingerprint", finding_id).limit(1).execute().data or []
+        if not rows:
+            rows = client.table("findings").select("site_id")\
+                .eq("id", finding_id).limit(1).execute().data or []
+        if not rows or not rows[0].get("site_id"):
+            return None
+        return _site_scope_sync(rows[0]["site_id"])
+    except Exception as e:
+        if _tables_missing(e):
+            return None
+        raise
+
+
+async def finding_scope(finding_id) -> Optional[dict]:
+    import asyncio
+    return await asyncio.to_thread(_finding_scope_sync, finding_id)
+
+
+def _resolve_membership_sync(email: str, workspace_id) -> Optional[dict]:
+    """Membership of `email` in `workspace_id`. Auto-provisions @apexure.com
+    staff as a `member` of an Apexure-owned workspace (preserves today's
+    everyone-sees-everything behavior). Returns None for non-members."""
+    client = _get_client()
+    email = (email or "").strip().lower()
+    if not email or not workspace_id:
+        return None
+    try:
+        resp = client.table("memberships")\
+            .select("user_email, workspace_id, role, client_id")\
+            .eq("user_email", email).eq("workspace_id", workspace_id).limit(1).execute()
+        rows = resp.data or []
+        if rows:
+            return rows[0]
+        # Auto-join: staff email + staff-owned workspace -> create a member row.
+        if email.endswith("@" + STAFF_DOMAIN):
+            ws = client.table("workspaces").select("owner_email")\
+                .eq("id", workspace_id).limit(1).execute().data or []
+            owner = (ws[0].get("owner_email") if ws else "") or ""
+            if owner.lower().endswith("@" + STAFF_DOMAIN):
+                role = "owner" if owner.lower() == email else "member"
+                client.table("memberships").insert({
+                    "user_email": email, "workspace_id": workspace_id, "role": role,
+                }).execute()
+                return {"user_email": email, "workspace_id": workspace_id,
+                        "role": role, "client_id": None}
+        return None
+    except Exception as e:
+        if _tables_missing(e):
+            return None
+        raise
+
+
+async def resolve_membership(email: str, workspace_id) -> Optional[dict]:
+    import asyncio
+    return await asyncio.to_thread(_resolve_membership_sync, email, workspace_id)
+
+
+def _backfill_multitenancy_sync(owner_email: str) -> dict:
+    """Create the single Apexure workspace (if absent), attach every workspace-less
+    site to it, and seed the owner membership. Idempotent."""
+    client = _get_client()
+    owner_email = (owner_email or "").strip().lower()
+    # 1. Find or create the Apexure workspace.
+    existing = client.table("workspaces").select("id, owner_email")\
+        .eq("name", "Apexure").limit(1).execute().data or []
+    if existing:
+        ws_id = existing[0]["id"]
+    else:
+        created = client.table("workspaces").insert({
+            "name": "Apexure", "owner_email": owner_email,
+        }).execute()
+        ws_id = created.data[0]["id"]
+    # 2. Attach every site that has no workspace yet.
+    client.table("sites").update({"workspace_id": ws_id})\
+        .is_("workspace_id", "null").execute()
+    # 3. Seed owner membership.
+    have = client.table("memberships").select("id")\
+        .eq("user_email", owner_email).eq("workspace_id", ws_id).limit(1).execute().data or []
+    if not have:
+        client.table("memberships").insert({
+            "user_email": owner_email, "workspace_id": ws_id, "role": "owner",
+        }).execute()
+    attached = client.table("sites").select("id", count="exact")\
+        .eq("workspace_id", ws_id).execute()
+    return {"workspace_id": ws_id, "sites_attached": attached.count}
+
+
+async def backfill_multitenancy(owner_email: str) -> dict:
+    import asyncio
+    return await asyncio.to_thread(_backfill_multitenancy_sync, owner_email)
+
+
+def _any_membership_sync(email: str) -> Optional[dict]:
+    """The caller's membership for a non-site-scoped agency route. Highest role
+    first; auto-provisions @apexure.com staff into the Apexure workspace."""
+    client = _get_client()
+    email = (email or "").strip().lower()
+    if not email:
+        return None
+    try:
+        rows = client.table("memberships")\
+            .select("user_email, workspace_id, role, client_id")\
+            .eq("user_email", email).execute().data or []
+        if rows:
+            rank = {"owner": 3, "member": 2, "client_viewer": 1}
+            return sorted(rows, key=lambda r: rank.get(r.get("role"), 0), reverse=True)[0]
+        if email.endswith("@" + STAFF_DOMAIN):
+            ws = client.table("workspaces").select("id, owner_email")\
+                .eq("name", "Apexure").limit(1).execute().data or []
+            if ws and (ws[0].get("owner_email") or "").lower().endswith("@" + STAFF_DOMAIN):
+                return _resolve_membership_sync(email, ws[0]["id"])
+        return None
+    except Exception as e:
+        if _tables_missing(e):
+            return None
+        raise
+
+
+async def any_membership(email: str) -> Optional[dict]:
+    import asyncio
+    return await asyncio.to_thread(_any_membership_sync, email)

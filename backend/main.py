@@ -20,7 +20,10 @@ def _frontend_url() -> str:
     local frontend doesn't send people to production."""
     return os.getenv("FRONTEND_URL", DEFAULT_FRONTEND_URL).rstrip("/")
 
-from fastapi import FastAPI, Query
+from fastapi import FastAPI, Query, Depends, Request
+from auth import (
+    require_site_access, require_scan_access, require_finding_access, require_role,
+)
 from models import FindingRecord, LinkResult, SiteCreate
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import Response, StreamingResponse, JSONResponse
@@ -904,6 +907,7 @@ async def run_scan_once(url: str, email: str = "anonymous") -> ScanOutcome:
 async def scan(
     url: str = Query(..., description="URL to scan"),
     email: str = Query(default="anonymous", description="User email for monitoring"),
+    _acc: dict = Depends(require_role("member")),
 ):
     async def event_stream():
         async for kind, event in scan_events(url, email):
@@ -918,6 +922,7 @@ async def scan_site(
     url: str = Query(..., description="Base site URL to scan, e.g. https://example.com"),
     email: str = Query(default="anonymous"),
     max_pages: int = Query(default=50, le=200),
+    _acc: dict = Depends(require_role("member")),
 ):
     async def event_stream():
         try:
@@ -1127,7 +1132,7 @@ async def scan_site(
 
 
 @app.get("/api/sites/{site_id}/diff/latest")
-async def latest_diff(site_id: str):
+async def latest_diff(site_id: str, _acc: dict = Depends(require_site_access("client_viewer"))):
     """Diff the two most recent snapshots for a site.
 
     Stateless: recomputed from stored findings rather than trusting counters.
@@ -1182,6 +1187,7 @@ async def latest_diff(site_id: str):
 async def diffing_diagnostics(
     url: str = Query(default="", description="Optional: report storage for this site"),
     email: str = Query(default="anonymous"),
+    _acc: dict = Depends(require_role("member")),
 ):
     """Is scan storage actually working?
 
@@ -1229,6 +1235,7 @@ async def diffing_diagnostics(
 async def snapshot_write_test(
     url: str = Query(..., description="A site URL that has already been scanned"),
     email: str = Query(default="anonymous"),
+    _acc: dict = Depends(require_role("member")),
 ):
     """Attempt a real snapshot + finding write, then delete both.
 
@@ -1257,7 +1264,7 @@ def _snapshot_context(snapshot: dict) -> tuple:
 
 
 @app.get("/api/sites/{site_id}/fix-pack")
-async def fix_pack(site_id: str):
+async def fix_pack(site_id: str, _acc: dict = Depends(require_site_access("member"))):
     """A zip the operator opens and works through: fixes.csv, instructions.md,
     and the redirect ruleset."""
     try:
@@ -1300,7 +1307,8 @@ async def fix_pack(site_id: str):
 
 @app.get("/api/findings/{finding_id}/fix")
 async def finding_fix(finding_id: str, builder: str = Query(default=""),
-                      site_id: str = Query(default="")):
+                      site_id: str = Query(default=""),
+                      _acc: dict = Depends(require_finding_access("member"))):
     """The "How to fix" panel: hand-authored steps for this finding."""
     try:
         finding = await get_finding(finding_id, site_id)
@@ -1315,7 +1323,8 @@ async def finding_fix(finding_id: str, builder: str = Query(default=""),
 
 
 @app.get("/api/findings/{finding_id}/client-message")
-async def finding_client_message(finding_id: str, site_id: str = Query(default="")):
+async def finding_client_message(finding_id: str, site_id: str = Query(default=""),
+                                 _acc: dict = Depends(require_finding_access("member"))):
     """Copy-pasteable client message. Every value is HTML-escaped."""
     try:
         finding = await get_finding(finding_id, site_id)
@@ -1335,7 +1344,8 @@ async def finding_client_message(finding_id: str, site_id: str = Query(default="
 
 
 @app.post("/api/findings/{finding_id}/verify")
-async def verify_fix(finding_id: str, site_id: str = Query(default="")):
+async def verify_fix(finding_id: str, site_id: str = Query(default=""),
+                     _acc: dict = Depends(require_finding_access("member"))):
     """Re-check one finding live.
 
     Flips to "verified_fixed" only on a clean check. If it is still broken, it
@@ -1371,6 +1381,7 @@ async def verify_fix(finding_id: str, site_id: str = Query(default="")):
 async def redirect_rules(
     site_id: str,
     format: str = Query("cloudflare", description="cloudflare | netlify | htaccess"),
+    _acc: dict = Depends(require_site_access("member")),
 ):
     """Collapsed redirect ruleset (first hop -> final destination) for a site.
 
@@ -1402,6 +1413,7 @@ async def redirect_rules(
 async def history(
     url: str = Query(..., description="Site URL"),
     email: str = Query(default="anonymous", description="User email"),
+    _acc: dict = Depends(require_role("member")),
 ):
     """Get scan history for a site."""
     try:
@@ -1416,6 +1428,7 @@ async def history(
 async def register(
     url: str = Query(..., description="Site URL to track"),
     email: str = Query(..., description="User email"),
+    _acc: dict = Depends(require_role("member")),
 ):
     """Register a site for tracking."""
     from database import _get_client
@@ -1437,7 +1450,7 @@ async def register(
 
 
 @app.get("/uptime")
-async def uptime(url: str = Query(...)):
+async def uptime(url: str = Query(...), _acc: dict = Depends(require_role("member"))):
     try:
         from database import get_uptime
         data = await get_uptime(url)
@@ -1447,19 +1460,27 @@ async def uptime(url: str = Query(...)):
 
 
 @app.get("/dashboard")
-async def dashboard_data():
+async def dashboard_data(_acc: dict = Depends(require_role("client_viewer"))):
     import asyncio as _asyncio
+
+    # Scope-aware: a member+ sees all workspace sites (or all sites when
+    # enforcement is off — today's behavior); a client_viewer sees only the
+    # sites of their assigned client.
+    role = _acc.get("role")
+    workspace_id = _acc.get("workspace_id")
+    client_id = _acc.get("client_id")
 
     def _get_dashboard():
         from database import _get_client
         client = _get_client()
-
-        # Get all sites with their latest scan
-        sites = client.table("sites")\
-            .select("*, scans(id, scanned_at, total_links, broken_count, dead_cta_count, health_score)")\
-            .order("last_scanned_at", desc=True)\
-            .execute()
-
+        q = client.table("sites")\
+            .select("*, scans(id, scanned_at, total_links, broken_count, dead_cta_count, health_score)")
+        if role == "client_viewer":
+            q = q.eq("workspace_id", workspace_id).eq("client_id", client_id)
+        elif workspace_id:  # enforced member/owner -> scope to their workspace
+            q = q.eq("workspace_id", workspace_id)
+        # enforcement off (workspace_id None, role owner) -> unscoped, as today
+        sites = q.order("last_scanned_at", desc=True).execute()
         return sites.data
 
     try:
@@ -1469,7 +1490,7 @@ async def dashboard_data():
         return JSONResponse({"error": str(e)}, status_code=500)
 
 @app.post("/sites")
-async def add_site_endpoint(site: SiteCreate):
+async def add_site_endpoint(site: SiteCreate, _acc: dict = Depends(require_role("member"))):
     try:
         from database import add_site
         await add_site(site.url, site.name, site.client, site.freq, site.user_email)
@@ -1479,7 +1500,7 @@ async def add_site_endpoint(site: SiteCreate):
 
 
 @app.delete("/sites/{site_id}")
-async def delete_site_endpoint(site_id: str):
+async def delete_site_endpoint(site_id: str, _acc: dict = Depends(require_site_access("member"))):
     try:
         from database import delete_site
         await delete_site(site_id)
@@ -1491,7 +1512,8 @@ async def delete_site_endpoint(site_id: str):
 # ─── monitoring endpoints ────────────────────────────────────────────────────
 @app.post("/api/sites/{site_id}/monitoring")
 async def set_site_monitoring(site_id: str, enabled: bool = Query(...),
-                              freq: str = Query(default="")):
+                              freq: str = Query(default=""),
+                              _acc: dict = Depends(require_site_access("member"))):
     """Turn monitoring on/off for a site and (re)schedule it live.
 
     The scheduler is updated in the same request, so a toggle takes effect
@@ -1521,7 +1543,7 @@ async def set_site_monitoring(site_id: str, enabled: bool = Query(...),
 
 
 @app.get("/api/sites/{site_id}/monitoring")
-async def site_monitoring_status(site_id: str):
+async def site_monitoring_status(site_id: str, _acc: dict = Depends(require_site_access("member"))):
     """The uptime record: last checked, current health, healthy streak, events."""
     try:
         snapshots = await get_recent_snapshots(site_id, limit=60)
@@ -1538,7 +1560,7 @@ async def site_monitoring_status(site_id: str):
 
 
 @app.post("/api/sites/{site_id}/monitoring/run-now")
-async def run_monitoring_check_now(site_id: str):
+async def run_monitoring_check_now(site_id: str, _acc: dict = Depends(require_site_access("member"))):
     """Run the real monitored-scan path once, right now, and report what it
     decided. This is the exact code the scheduler runs — same scan, same diff,
     same change-only alert rule — with the duplicate-fire window skipped so a
@@ -1571,7 +1593,8 @@ async def run_monitoring_check_now(site_id: str):
 @app.post("/api/sites/{site_id}/tracking-ids")
 async def set_site_tracking_ids(site_id: str, ga4: str = Query(default=""),
                                 meta_pixel: str = Query(default=""),
-                                gtm: str = Query(default="")):
+                                gtm: str = Query(default=""),
+                                _acc: dict = Depends(require_site_access("member"))):
     """Store a site's own GA4 / Meta / GTM ids so the tracking audit can flag a
     page pointing at the wrong account. All optional; empty clears that id."""
     from database import MonitoringColumnMissing
@@ -1588,7 +1611,7 @@ async def set_site_tracking_ids(site_id: str, ga4: str = Query(default=""),
 
 # ─── Phase 10: self-heal auto-PR (MOST GUARDED — flag off + allowlist) ───────
 @app.get("/api/self-heal/status")
-async def self_heal_status():
+async def self_heal_status(_acc: dict = Depends(require_role("member"))):
     """Whether self-heal is armed, and on which repos. Read-only, safe to call.
     Reflects only the flag and the allowlist — it never touches a repo."""
     from self_heal import self_heal_enabled, allowlist
@@ -1597,7 +1620,8 @@ async def self_heal_status():
 
 @app.post("/api/self-heal/run")
 async def self_heal_run(repo: str = Query(...), scan_id: str = Query(...),
-                        url: str = Query(...), fix_type: str = Query(default="redirect")):
+                        url: str = Query(...), fix_type: str = Query(default="redirect"),
+                        _acc: dict = Depends(require_role("member"))):
     """Open PR(s) of PROVABLE fixes on an ALLOWLISTED repo. Refuses unless the
     SELF_HEAL flag is on AND the repo is on the allowlist. Never merges."""
     from self_heal import self_heal_enabled, is_allowed_repo
@@ -1635,7 +1659,7 @@ async def _recheck_status(url: str):
 
 # ─── Phase 4: opt-in active form testing (DANGEROUS — every rail enforced) ───
 @app.get("/api/sites/{site_id}/forms/optin")
-async def list_active_form_optins(site_id: str):
+async def list_active_form_optins(site_id: str, _acc: dict = Depends(require_site_access("member"))):
     """Which forms on this site are enabled for active testing, and their test
     email. Also reports whether the global flag is on, so the UI can explain why
     a test would refuse."""
@@ -1649,7 +1673,8 @@ async def list_active_form_optins(site_id: str):
 @app.post("/api/sites/{site_id}/forms/optin")
 async def set_active_form_optin(site_id: str, form_key: str = Query(...),
                                 enabled: bool = Query(...),
-                                test_email: str = Query(default="")):
+                                test_email: str = Query(default=""),
+                                _acc: dict = Depends(require_site_access("member"))):
     """Explicitly enable/disable active testing for ONE form. Enabling is a
     deliberate human action — nothing tests a form that has not been turned on
     here, and there is no bulk switch."""
@@ -1667,7 +1692,8 @@ async def set_active_form_optin(site_id: str, form_key: str = Query(...),
 
 @app.post("/api/sites/{site_id}/forms/active-test")
 async def run_active_form_test(site_id: str, form_key: str = Query(...),
-                               form_selector: str = Query(...)):
+                               form_selector: str = Query(...),
+                               _acc: dict = Depends(require_site_access("member"))):
     """Submit ONE opted-in form ONCE, manually. This is the dangerous path, so
     it refuses unless BOTH rails pass: the global ACTIVE_FORM_TESTING flag is on
     AND this specific form is opted in. Payment forms are refused inside the
@@ -1704,7 +1730,8 @@ _HEALTH_SORT = {"down": 0, "unresponsive": 1, "checking": 2, "unknown": 3, "heal
 
 
 @app.get("/api/scans/{scan_id}/integrations")
-async def scan_integrations(scan_id: str, page: str = Query(default="")):
+async def scan_integrations(scan_id: str, page: str = Query(default=""),
+                            _acc: dict = Depends(require_scan_access("client_viewer"))):
     """Third-party integrations for a scan. `page` (URL-encoded query param, so a
     slashy/query-string page URL survives) filters to one page; omit for all
     pages grouped. Sorted down first, then unresponsive, then by category."""
@@ -1731,7 +1758,7 @@ async def scan_integrations(scan_id: str, page: str = Query(default="")):
 
 
 @app.get("/api/watchdog/hosts")
-async def watchdog_hosts():
+async def watchdog_hosts(_acc: dict = Depends(require_role("member"))):
     """Third-party host inventory across all sites, with per-host affected-site
     counts and last-known status. Down hosts (an outage in progress) first."""
     try:
@@ -1847,7 +1874,7 @@ async def xray(url: str = Query(..., description="URL to capture for the X-ray o
 
 # ─── Wave 1: shareable client report ─────────────────────────────────────────
 @app.post("/api/scans/{scan_id}/share")
-async def create_share(scan_id: str):
+async def create_share(scan_id: str, _acc: dict = Depends(require_scan_access("member"))):
     """Mint an unguessable, revocable public link to this scan's report."""
     from sharing import new_token
     from database import create_share_token

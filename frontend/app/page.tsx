@@ -25,6 +25,7 @@ import ShareButton from "@/components/ShareButton";
 import XrayView from "@/components/XrayView";
 import KeyboardTriage from "@/components/KeyboardTriage";
 import { useDynamicFavicon } from "@/lib/useDynamicFavicon";
+import { staffToken, withToken } from "@/lib/backendClient";
 import { ScanEye } from "lucide-react";
 import Link from "next/link";
 import { Wrench } from "lucide-react";
@@ -212,7 +213,11 @@ export default function HomePage() {
             email ? `&email=${encodeURIComponent(email)}` : ""
           }`
         : `/api/${endpoint}?url=${encodeURIComponent(scanUrl)}`;
-      const es = new EventSource(scanSrc);
+      void (async () => {
+      // Forward the staff token so the backend can verify identity (ignored
+      // while PORTAL_ENFORCE is off). SSE can't set headers → ?token=.
+      const token = await staffToken();
+      const es = new EventSource(withToken(scanSrc, token));
       eventSourceRef.current = es;
 
       es.onmessage = (event: MessageEvent) => {
@@ -274,6 +279,7 @@ export default function HomePage() {
         }
         es.close();
       };
+      })();
     },
     [url, scanMode, session]
   );

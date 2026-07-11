@@ -22,22 +22,25 @@ function siteHealth(latest: DashboardScan | null): { cls: string; word: string }
 
 // The client-facing portal home. Read-only, scoped, verdict-first. No operator
 // surfaces — no re-scan, self-heal, settings, or other clients.
+interface Resource { id: string; title: string; url: string }
+
 export default function PortalHome() {
   const router = useRouter();
   const [sites, setSites] = useState<DashboardSite[] | null>(null);
+  const [resources, setResources] = useState<Resource[]>([]);
   const [noAuth, setNoAuth] = useState(false);
 
   const load = useCallback(async () => {
     const token = getPortalToken();
     if (!token) { setNoAuth(true); return; }
+    const auth = { Authorization: `Bearer ${token}` };
     try {
-      const res = await fetch("/api/portal/dashboard", {
-        headers: { Authorization: `Bearer ${token}` },
-        cache: "no-store",
-      });
+      const res = await fetch("/api/portal/dashboard", { headers: auth, cache: "no-store" });
       if (res.status === 401 || res.status === 403) { setNoAuth(true); return; }
       const body = await res.json();
       setSites(body.sites ?? []);
+      fetch("/api/portal/resources", { headers: auth, cache: "no-store" })
+        .then((r) => r.json()).then((d) => setResources(d.resources ?? [])).catch(() => {});
     } catch {
       setSites([]);
     }
@@ -120,6 +123,19 @@ export default function PortalHome() {
                   );
                 })}
               </div>
+            )}
+
+            {resources.length > 0 && (
+              <section className="ds-card ds-card-pad" style={{ marginTop: "var(--space-5)" }}>
+                <h2 className="font-display ds-text-primary" style={{ fontSize: "var(--text-heading)", fontWeight: 700, marginBottom: 12 }}>Resources</h2>
+                <div style={{ display: "flex", flexWrap: "wrap", gap: 10 }}>
+                  {resources.map((r) => (
+                    <a key={r.id} href={r.url} target="_blank" rel="noreferrer" className="ds-btn-ghost" style={{ display: "inline-flex", alignItems: "center", gap: 8, textDecoration: "none" }}>
+                      {r.title}
+                    </a>
+                  ))}
+                </div>
+              </section>
             )}
 
             <p className="ds-text-muted" style={{ fontSize: "var(--text-caption)", textAlign: "center", marginTop: 32 }}>

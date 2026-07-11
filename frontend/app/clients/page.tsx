@@ -6,6 +6,7 @@ import { DashboardSite } from "@/types";
 import { Plus, Users, Link2, Copy, Check, X, Loader2, Mail } from "lucide-react";
 
 interface Client { id: string; name: string; created_at?: string }
+interface Resource { id: string; title: string; url: string; visible: boolean }
 interface Invite {
   token: string; email: string; client_id: string | null; role: string;
   created_at?: string; expires_at?: string; accepted_at?: string | null; revoked?: boolean;
@@ -211,9 +212,12 @@ function ClientCard({ client, sites, invites, expanded, onToggle, onChanged }: {
       </div>
 
       {expanded && (
-        <div style={{ marginTop: "var(--space-5)", display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-5)" }}>
-          <SitesPanel clientId={client.id} assigned={assigned} unassigned={unassigned} onChanged={onChanged} />
-          <InvitesPanel clientId={client.id} invites={invites} onChanged={onChanged} />
+        <div style={{ marginTop: "var(--space-5)", display: "flex", flexDirection: "column", gap: "var(--space-5)" }}>
+          <div style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "var(--space-5)" }}>
+            <SitesPanel clientId={client.id} assigned={assigned} unassigned={unassigned} onChanged={onChanged} />
+            <InvitesPanel clientId={client.id} invites={invites} onChanged={onChanged} />
+          </div>
+          <ResourcesPanel clientId={client.id} />
         </div>
       )}
     </div>
@@ -333,6 +337,63 @@ function InvitesPanel({ clientId, invites, onChanged }: {
         </div>
       )}
       {link && <div className="ds-text-muted" style={{ fontSize: 11, marginTop: 6 }}>Share this link with the client — it&apos;s their login.</div>}
+    </div>
+  );
+}
+
+function ResourcesPanel({ clientId }: { clientId: string }) {
+  const [resources, setResources] = useState<Resource[]>([]);
+  const [title, setTitle] = useState("");
+  const [url, setUrl] = useState("");
+  const [busy, setBusy] = useState(false);
+
+  const load = useCallback(async () => {
+    const r = await fetch(`/api/clients/${clientId}/resources`).then((x) => x.json()).catch(() => ({ resources: [] }));
+    setResources(r.resources ?? []);
+  }, [clientId]);
+  useEffect(() => { load(); }, [load]);
+
+  const add = async () => {
+    if (!title.trim() || !url.trim()) return;
+    setBusy(true);
+    try {
+      const u = /^https?:\/\//.test(url.trim()) ? url.trim() : `https://${url.trim()}`;
+      await fetch(`/api/clients/${clientId}/resources?title=${encodeURIComponent(title.trim())}&url=${encodeURIComponent(u)}&visible=true`, { method: "POST" });
+      setTitle(""); setUrl(""); load();
+    } finally { setBusy(false); }
+  };
+  const toggle = async (id: string, visible: boolean) => { await fetch(`/api/resources/${id}?visible=${!visible}`, { method: "PATCH" }); load(); };
+  const remove = async (id: string) => { await fetch(`/api/resources/${id}`, { method: "DELETE" }); load(); };
+
+  const field = { background: "var(--surface-raised)", border: "1px solid var(--border-subtle)", color: "var(--text-primary)", borderRadius: "var(--radius-sm)", padding: "8px 10px", fontSize: "var(--text-caption)", outline: "none" } as const;
+
+  return (
+    <div>
+      <div className="font-mono ds-text-muted" style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 10 }}>
+        <Link2 size={12} style={{ display: "inline", verticalAlign: "middle", marginRight: 6 }} />Resources <span style={{ textTransform: "none", letterSpacing: 0 }}>(QA certificate, staging, Figma…)</span>
+      </div>
+      {resources.length > 0 && (
+        <div style={{ display: "flex", flexDirection: "column", gap: 4, marginBottom: 10 }}>
+          {resources.map((r) => (
+            <div key={r.id} style={{ display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8, fontSize: "var(--text-caption)" }}>
+              <a href={r.url} target="_blank" rel="noreferrer" className="ds-text-primary" style={{ textDecoration: "none", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap", minWidth: 0 }}>{r.title}</a>
+              <span style={{ display: "flex", alignItems: "center", gap: 10, flexShrink: 0 }}>
+                <button onClick={() => toggle(r.id, r.visible)} title="Toggle client visibility" style={{ background: "none", border: "none", cursor: "pointer", fontSize: 11, color: r.visible ? "var(--status-healthy)" : "var(--text-muted)" }}>
+                  {r.visible ? "Client-visible" : "Hidden"}
+                </button>
+                <button onClick={() => remove(r.id)} className="ds-text-muted" style={{ background: "none", border: "none", cursor: "pointer" }} title="Remove"><X size={13} /></button>
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
+      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+        <input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Label, e.g. QA certificate" data-gramm="false" style={{ ...field, flex: "1 1 140px", minWidth: 0 }} />
+        <input value={url} onChange={(e) => setUrl(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") add(); }} placeholder="https://…" data-gramm="false" style={{ ...field, flex: "2 1 200px", minWidth: 0 }} />
+        <button className="ds-btn-ghost" onClick={add} disabled={busy} style={{ padding: "0 12px" }}>
+          {busy ? <Loader2 size={14} className="animate-spin" /> : <Plus size={14} />}
+        </button>
+      </div>
     </div>
   );
 }

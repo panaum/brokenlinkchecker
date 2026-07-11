@@ -20,6 +20,13 @@ GOOD = "a" * 32  # well-formed token shape
 def _secret(monkeypatch):
     monkeypatch.setenv("BACKEND_AUTH_SECRET", SECRET)
     monkeypatch.delenv("NEXTAUTH_SECRET", raising=False)
+    monkeypatch.setenv("PORTAL_ENFORCE", "1")   # portal must be armed to accept
+
+
+def test_accept_refused_when_portal_not_enforced(monkeypatch):
+    monkeypatch.delenv("PORTAL_ENFORCE", raising=False)
+    r = TestClient(main.app).post(f"/api/invites/{'a' * 32}/accept")
+    assert r.status_code == 503
 
 
 @pytest.fixture

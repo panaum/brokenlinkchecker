@@ -116,7 +116,7 @@ export default function UrlInput({
               style={{
                 fontFamily: "var(--font-poppins), Poppins, sans-serif",
                 ...(scanMode === "single"
-                  ? { background: "rgba(124,108,255,0.14)", color: "var(--signal)", borderColor: "rgba(124,108,255,0.4)" }
+                  ? { background: "rgba(168,85,247,0.14)", color: "var(--signal)", borderColor: "rgba(168,85,247,0.4)" }
                   : {}),
               }}
             >
@@ -134,7 +134,7 @@ export default function UrlInput({
               style={{
                 fontFamily: "var(--font-poppins), Poppins, sans-serif",
                 ...(scanMode === "site"
-                  ? { background: "rgba(124,108,255,0.14)", color: "var(--signal)", borderColor: "rgba(124,108,255,0.4)" }
+                  ? { background: "rgba(168,85,247,0.14)", color: "var(--signal)", borderColor: "rgba(168,85,247,0.4)" }
                   : {}),
               }}
             >
@@ -163,7 +163,7 @@ export default function UrlInput({
               color: "var(--text-primary)",
               border: "1px solid var(--border-subtle)",
             }}
-            onFocus={(e) => { e.currentTarget.style.borderColor = "var(--signal)"; e.currentTarget.style.boxShadow = "0 0 0 3px rgba(124,108,255,0.18)"; }}
+            onFocus={(e) => { e.currentTarget.style.borderColor = "var(--signal)"; e.currentTarget.style.boxShadow = "0 0 0 3px rgba(168,85,247,0.18)"; }}
             onBlur={(e) => { e.currentTarget.style.borderColor = "var(--border-subtle)"; e.currentTarget.style.boxShadow = "none"; }}
             disabled={scanning}
           />

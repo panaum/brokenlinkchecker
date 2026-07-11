@@ -45,7 +45,7 @@ const ZONE_DOT_COLORS: Record<string, string> = {
   // A broken form is the most expensive defect on a lead-gen site.
   Form: "#f472b6",
   Navigation: "#60a5fa",
-  Header: "#7c6cff",
+  Header: "#a855f7",
   Footer: "#94a3b8",
   CTA: "#fbbf24",
   "Body text": "#e2e8f0",
@@ -405,7 +405,7 @@ function RowDetail({ result }: { result: LinkResult }) {
                     style={{
                       fontFamily: "monospace",
                       fontSize: "11px",
-                      color: "#7c6cff",
+                      color: "#a855f7",
                       background: "rgba(167,139,250,0.1)",
                       border: "1px solid rgba(167,139,250,0.15)",
                       borderRadius: "4px",
@@ -942,11 +942,11 @@ export default function ResultsTable({
                                       fontFamily: "var(--font-poppins), Poppins, sans-serif",
                                       fontSize: "10px",
                                       fontWeight: 500,
-                                      color: "#9d8cff",
-                                      background: "rgba(124,108,255,0.1)",
+                                      color: "#c084fc",
+                                      background: "rgba(168,85,247,0.1)",
                                       borderRadius: "4px",
                                       padding: "1px 5px",
-                                      border: "1px solid rgba(124,108,255,0.2)",
+                                      border: "1px solid rgba(168,85,247,0.2)",
                                     }}
                                   >
                                     {result.found_on_pages.length} pages

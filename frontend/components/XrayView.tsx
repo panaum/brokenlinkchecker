@@ -182,7 +182,7 @@ export default function XrayView({
             style={{
               display: "flex", alignItems: "flex-start", gap: 8, padding: "8px 10px", borderRadius: "var(--radius-sm)",
               cursor: "pointer",
-              background: active === m.fp ? "rgba(124,108,255,0.08)" : "transparent",
+              background: active === m.fp ? "rgba(168,85,247,0.08)" : "transparent",
               border: `1px solid ${active === m.fp ? "var(--border-strong)" : "transparent"}`,
             }}
           >

@@ -7,7 +7,6 @@ import { LayoutDashboard, Link2, Search } from "lucide-react";
 import Image from "next/image";
 import AuthButton from "@/components/AuthButton";
 import Changelog from "@/components/Changelog";
-import ThemeToggle from "@/components/ThemeToggle";
 
 // Fire the same shortcut the global palette listens for.
 function openPalette() {
@@ -113,7 +112,6 @@ export default function NavBar() {
             <kbd style={{ fontFamily: "var(--font-stack-mono)", fontSize: 11, letterSpacing: "0.02em" }}>⌘K</kbd>
           </button>
 
-          <ThemeToggle />
           <Changelog />
           <AuthButton />
         </div>

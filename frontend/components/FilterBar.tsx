@@ -136,7 +136,7 @@ export default function FilterBar({
                       ? "linear-gradient(132deg,rgb(23,184,148),rgb(52,230,192))"
                       : item.bg,
                     border: isActive
-                      ? "1px solid rgba(124,108,255,0.6)"
+                      ? "1px solid rgba(168,85,247,0.6)"
                       : `1px solid ${item.color}22`,
                     fontFamily: "var(--font-poppins), Poppins, sans-serif",
                     fontWeight: isActive ? 600 : 400,
@@ -177,10 +177,10 @@ export default function FilterBar({
                     ? "linear-gradient(132deg,rgb(23,184,148),rgb(52,230,192))"
                     : item.bg,
                   border: isActive
-                    ? "1px solid rgba(124,108,255,0.6)"
+                    ? "1px solid rgba(168,85,247,0.6)"
                     : `1px solid ${item.color}22`,
                   boxShadow: isActive
-                    ? "0 0 12px rgba(124,108,255,0.3)"
+                    ? "0 0 12px rgba(168,85,247,0.3)"
                     : "none",
                   fontFamily: "var(--font-poppins), Poppins, sans-serif",
                   fontWeight: isActive ? 600 : 400,
@@ -286,7 +286,7 @@ export default function FilterBar({
                 fontFamily: "var(--font-poppins), Poppins, sans-serif",
                 fontSize: "13px",
                 color: "#fff",
-                caretColor: "#7c6cff",
+                caretColor: "#a855f7",
               }}
             />
             {search && (

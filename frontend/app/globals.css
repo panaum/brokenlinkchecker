@@ -5,10 +5,9 @@
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   DESIGN TOKENS. Accent = refined violet/indigo (brand, actions, interactive).
-   Health has its OWN language (green healthy · amber attention · red broken ·
-   gray neutral) — the accent is never a status. Dark is default; a light theme
-   overrides the surface/text tokens under [data-theme="light"].
+   DESIGN TOKENS. Accent = the original LinkSpy purple (brand, actions,
+   interactive). Health has its OWN language (green healthy · amber attention ·
+   red broken · gray neutral) — the accent is never a status. Dark theme only.
    ═══════════════════════════════════════════════════════════════════════════ */
 :root {
   /* Spacing — 8px scale */
@@ -30,34 +29,35 @@
   /* Radius — one family */
   --radius-sm: 8px; --radius-md: 12px; --radius-lg: 16px; --radius-pill: 999px;
 
-  /* Surfaces — warm slate, NOT black. Cards lift a clearly visible step. */
-  --surface-page: #14131c;
-  --surface-card: #1c1a27;
-  --surface-raised: #262330;
+  /* Surfaces — dark with a purple cast, NOT pure black. Cards lift a clearly
+     visible step above the page (the contrast fix stays). */
+  --surface-page: #0b0712;
+  --surface-card: #171122;
+  --surface-raised: #21182f;
   --border-subtle: rgba(255, 255, 255, 0.10);
   --border-strong: rgba(255, 255, 255, 0.18);
 
-  /* Text — 3 tiers, neutral warm-white, all AA on --surface-card */
-  --text-primary: rgba(242, 242, 250, 0.94);
-  --text-secondary: rgba(228, 228, 240, 0.66);
-  --text-muted: rgba(214, 214, 230, 0.46);
+  /* Text — 3 tiers, all AA on --surface-card */
+  --text-primary: rgba(245, 243, 250, 0.94);
+  --text-secondary: rgba(232, 228, 242, 0.66);
+  --text-muted: rgba(218, 214, 230, 0.46);
 
   /* Elevation ramp */
-  --elev-1: 0 1px 2px rgba(0,0,0,0.35);
-  --elev-2: 0 8px 24px rgba(0,0,0,0.40);
-  --elev-3: 0 18px 50px rgba(0,0,0,0.50);
+  --elev-1: 0 1px 2px rgba(0,0,0,0.40);
+  --elev-2: 0 8px 24px rgba(0,0,0,0.45);
+  --elev-3: 0 18px 50px rgba(0,0,0,0.55);
 
-  /* THE accent — refined violet/indigo. Brand, primary action, links, focus,
-     interactive highlight. A single flat accent (no wash). Never a status. */
-  --signal: #7c6cff;
-  --signal-bright: #9d8cff;
-  --signal-dim: #2a2547;         /* atmospheric only (glows) */
+  /* THE accent — the original LinkSpy purple. Brand, primary action, links,
+     focus, interactive highlight. Never a status. */
+  --signal: #a855f7;
+  --signal-bright: #c084fc;
+  --signal-dim: #2a1a3f;         /* atmospheric only (glows) */
   --signal-ink: #ffffff;         /* text that sits on an accent fill */
-  --signal-gradient: linear-gradient(135deg, #6d5cff 0%, #9d8cff 100%);
+  --signal-gradient: linear-gradient(132deg, rgb(65,0,153) 0%, rgb(138,26,155) 100%);
 
   /* Health language — its own colors, independent of the accent.
      healthy = green · broken = red · attention = amber · neutral = gray. */
-  --status-healthy: #34d399;   --status-healthy-bg: rgba(52,211,153,0.14);
+  --status-healthy: #4ade80;   --status-healthy-bg: rgba(74,222,128,0.14);
   --status-broken: #f87171;    --status-broken-bg: rgba(248,113,113,0.13);
   --status-attention: #fbbf24; --status-attention-bg: rgba(251,191,36,0.13);
   --status-neutral: #9aa0b4;   --status-neutral-bg: rgba(154,160,180,0.13);
@@ -75,34 +75,6 @@
   --motion-fast: 120ms var(--ease-out-quart);
 }
 
-/* ── LIGHT THEME ── near-white, dark text, soft violet-tinted shadows. */
-:root[data-theme="light"] {
-  --surface-page: #f5f5fb;
-  --surface-card: #ffffff;
-  --surface-raised: #ffffff;
-  --border-subtle: rgba(30, 27, 55, 0.10);
-  --border-strong: rgba(30, 27, 55, 0.18);
-
-  --text-primary: rgba(26, 24, 42, 0.92);
-  --text-secondary: rgba(26, 24, 42, 0.62);
-  --text-muted: rgba(26, 24, 42, 0.46);
-
-  --elev-1: 0 1px 2px rgba(30, 27, 60, 0.08);
-  --elev-2: 0 8px 24px rgba(30, 27, 60, 0.10);
-  --elev-3: 0 18px 50px rgba(30, 27, 60, 0.14);
-
-  --signal: #6d5cff;
-  --signal-bright: #5a48e0;
-  --signal-dim: #ece9ff;
-  --signal-ink: #ffffff;
-  --signal-gradient: linear-gradient(135deg, #6d5cff 0%, #9d8cff 100%);
-
-  --status-healthy: #12a150;   --status-healthy-bg: rgba(18,161,80,0.12);
-  --status-broken: #dc2626;    --status-broken-bg: rgba(220,38,38,0.10);
-  --status-attention: #d97706; --status-attention-bg: rgba(217,119,6,0.12);
-  --status-neutral: #6b7280;   --status-neutral-bg: rgba(107,114,128,0.12);
-}
-
 @layer base {
   * { box-sizing: border-box; }
 
@@ -117,8 +89,7 @@
     transition: background var(--motion), color var(--motion);
   }
 
-  /* ── ATMOSPHERE ── a single soft violet glow up top. Calm, not busy — no
-     grid, no scanlines. */
+  /* ── ATMOSPHERE ── a single soft purple glow up top. Calm, not busy. */
   body::before {
     content: "";
     position: fixed;
@@ -126,13 +97,10 @@
     z-index: 0;
     pointer-events: none;
     background:
-      radial-gradient(900px 420px at 50% -5%, rgba(124,108,255,0.10), transparent 70%);
+      radial-gradient(900px 420px at 50% -5%, rgba(168,85,247,0.12), transparent 70%);
   }
   /* Keep app content above the atmosphere layer. */
   body > * { position: relative; z-index: 1; }
-  :root[data-theme="light"] body::before {
-    background: radial-gradient(900px 420px at 50% -5%, rgba(109,92,255,0.08), transparent 70%);
-  }
 
   @media (prefers-reduced-motion: reduce) {
     *, *::before, *::after {
@@ -187,9 +155,9 @@
   font-weight: 700;
   cursor: pointer;
   transition: filter var(--motion-fast), transform var(--motion-fast), box-shadow var(--motion);
-  box-shadow: 0 0 0 rgba(124,108,255,0);
+  box-shadow: 0 0 0 rgba(168,85,247,0);
 }
-.ds-btn-primary:hover { filter: brightness(1.08); box-shadow: 0 6px 22px rgba(124,108,255,0.22); }
+.ds-btn-primary:hover { filter: brightness(1.08); box-shadow: 0 6px 22px rgba(168,85,247,0.22); }
 .ds-btn-primary:active { transform: translateY(1px); filter: brightness(0.96); }
 .ds-btn-primary:disabled { opacity: 0.45; cursor: not-allowed; filter: none; box-shadow: none; }
 
@@ -222,8 +190,8 @@
 .ds-status-neutral   .ds-status-dot { background: var(--status-neutral); }
 
 @keyframes ds-breathe {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(52,211,153,0.45); opacity: 1; }
-  50%      { box-shadow: 0 0 0 4px rgba(52,211,153,0);   opacity: 0.7; }
+  0%, 100% { box-shadow: 0 0 0 0 rgba(74,222,128,0.45); opacity: 1; }
+  50%      { box-shadow: 0 0 0 4px rgba(74,222,128,0);   opacity: 0.7; }
 }
 
 /* Skeleton — matches final layout, no jump. */
@@ -256,16 +224,15 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 }
 .radar-sweep {
   position: absolute; inset: 0; border-radius: 50%;
-  background: conic-gradient(from 0deg, transparent 0deg, transparent 300deg, rgba(124,108,255,0.05) 330deg, rgba(124,108,255,0.55) 360deg);
+  background: conic-gradient(from 0deg, transparent 0deg, transparent 300deg, rgba(168,85,247,0.05) 330deg, rgba(168,85,247,0.55) 360deg);
   animation: radar-sweep 2.4s linear infinite;
 }
 .radar-sweep-locking { animation: radar-sweep 2.4s var(--ease-out-quart) forwards; }
 
-/* ═══ Legacy utility classes, recolored to the signal palette (purple retired) ═══ */
-.bg-gradient-1 { background: linear-gradient(135deg, rgba(109,92,255,0.9) 0%, rgba(157,140,255,0.9) 100%); }
-/* Atmospheric (decorative) — dim, desaturated so the bright signal stays meaningful. */
-.bg-gradient-2 { background: linear-gradient(135deg, #0c2a28 0%, #10201f 100%); }
-.bg-gradient-3 { background: linear-gradient(135deg, #123a34 0%, #0a1416 100%); }
+/* ═══ Legacy utility classes — the original LinkSpy purple gradients ═══ */
+.bg-gradient-1 { background: linear-gradient(132deg, rgb(65,0,153) 0%, rgb(138,26,155) 100%); }
+.bg-gradient-2 { background: linear-gradient(132deg, rgb(65,0,153) 0%, rgb(86,16,96) 100%); }
+.bg-gradient-3 { background: linear-gradient(132deg, rgb(138,26,155) 0%, rgb(35,30,70) 100%); }
 
 .glass-card {
   background: rgba(255, 255, 255, 0.035);
@@ -286,7 +253,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .animated-border { position: relative; z-index: 0; }
 .animated-border::before {
   content: ""; position: absolute; z-index: -1; inset: -1px; border-radius: 18px;
-  background: linear-gradient(135deg, #6d5cff, #8b7cff, #0f766e, #6d5cff);
+  background: linear-gradient(135deg, #9333ea, #c084fc, #0f766e, #9333ea);
   background-size: 300% 300%;
   animation: gradient-rotate 5s ease infinite;
   opacity: 0.5;
@@ -335,7 +302,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   background: var(--surface-raised);
   border: 1px solid var(--border-strong);
   border-radius: var(--radius-lg);
-  box-shadow: var(--elev-3), 0 0 0 1px rgba(124,108,255,0.06);
+  box-shadow: var(--elev-3), 0 0 0 1px rgba(168,85,247,0.06);
   overflow: hidden;
   animation: ds-rise 180ms var(--ease-out-quart) both;
 }
@@ -367,7 +334,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   transition: background var(--motion-fast);
 }
 .cmdk-item[data-selected="true"] {
-  background: rgba(124,108,255,0.12);
+  background: rgba(168,85,247,0.12);
   box-shadow: inset 2px 0 0 var(--signal);
 }
 .cmdk-dim { color: var(--text-muted); }
@@ -380,7 +347,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   /* Drop the ops-room atmosphere and app chrome. */
   body::before, body::after { display: none !important; }
   nav, .no-print, [cmdk-overlay], .cmdk-root { display: none !important; }
-  body { background: #070b0d !important; }
+  body { background: #0b0712 !important; }
 
   .print-only { display: flex !important; }
   /* Running header on every printed page: domain · date · score. */

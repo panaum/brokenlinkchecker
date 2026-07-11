@@ -45,21 +45,40 @@ class GitHubRepoOps:
                 self._default_branch = r.json()["default_branch"]
         return self._default_branch
 
+    # Files to read when walking the tree. A repo with more blobs than this is
+    # not a static content site self-heal should be touching; we stop rather than
+    # hammer the API.
+    _MAX_TREE_BLOBS = 2000
+
     def find_occurrences(self, url: str) -> list:
-        """Files in the repo that contain the URL, via code search. Only
-        editable, non-blacklisted paths are returned — the write never sees a
-        blacklisted file."""
-        query = f'"{url}" repo:{self.repo}'
+        """Editable, non-blacklisted files in the repo that contain the URL.
+
+        Walks the default-branch tree and reads each editable file. This is more
+        reliable than GitHub code search, which does not index a freshly created
+        repo for minutes to hours — a self-heal run right after a scan would find
+        nothing. Only editable, non-blacklisted paths are ever read, so the write
+        never sees a blacklisted file.
+        """
         with self._client() as c:
-            r = c.get(f"{_API}/search/code", params={"q": query, "per_page": 30})
-            if r.status_code != 200:
+            tree = c.get(f"{_API}/repos/{self.repo}/git/trees/{self.default_branch()}",
+                         params={"recursive": "1"})
+            if tree.status_code != 200:
                 return []
-            items = r.json().get("items", [])
-        out = []
-        for item in items:
-            path = item.get("path", "")
-            if is_editable_path(path) and not is_blacklisted_path(path):
-                out.append({"path": path})
+            blobs = [t for t in tree.json().get("tree", []) if t.get("type") == "blob"]
+            candidates = [t["path"] for t in blobs[:self._MAX_TREE_BLOBS]
+                          if is_editable_path(t["path"]) and not is_blacklisted_path(t["path"])]
+            out = []
+            for path in candidates:
+                got = c.get(f"{_API}/repos/{self.repo}/contents/{path}",
+                            params={"ref": self.default_branch()})
+                if got.status_code != 200:
+                    continue
+                try:
+                    content = base64.b64decode(got.json()["content"]).decode("utf-8", "replace")
+                except Exception:
+                    continue
+                if url in content:
+                    out.append({"path": path})
         return out
 
     async def open_pr(self, branch: str, title: str, body: str, edits: list) -> dict:

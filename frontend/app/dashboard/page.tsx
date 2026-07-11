@@ -16,6 +16,7 @@ import { DashboardSite } from "@/types";
 import NavBar from "@/components/NavBar";
 import MonitoringPanel from "@/components/MonitoringPanel";
 import WatchdogPanel from "@/components/WatchdogPanel";
+import SelfHealPanel from "@/components/SelfHealPanel";
 import ActiveTestingPanel from "@/components/ActiveTestingPanel";
 import Link from "next/link";
 
@@ -473,6 +474,11 @@ export default function DashboardPage() {
         {/* Third-party dependency watchdog — one shared outage, all clients. */}
         <div className="pt-6">
           <WatchdogPanel />
+        </div>
+
+        {/* Self-heal — open a PR that fixes provable broken links. */}
+        <div className="pt-6">
+          <SelfHealPanel />
         </div>
 
         {/* Lower section: League Table & Activity Feed */}

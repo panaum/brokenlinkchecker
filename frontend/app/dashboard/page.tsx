@@ -119,7 +119,9 @@ function SiteCard({
   return (
     <div
       className="ds-card ds-card-hover ds-rise"
-      style={{ padding: "var(--space-4) var(--space-5)", display: "flex", flexDirection: "column", gap: "var(--space-3)", minHeight: 168 }}
+      // While the overflow menu is open, lift the whole card above its grid
+      // siblings so the menu isn't painted under the card below it.
+      style={{ padding: "var(--space-4) var(--space-5)", display: "flex", flexDirection: "column", gap: "var(--space-3)", minHeight: 168, position: "relative", zIndex: menuOpen ? 40 : undefined }}
     >
       {/* Header: initial + name/domain + status dot */}
       <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>

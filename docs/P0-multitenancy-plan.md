@@ -36,7 +36,7 @@ the backend must **authenticate** the caller before it can authorize:
 
 ## Backfill (make-or-break)
 
-1. Create one workspace `Apexure` (owner = `success@apexure.com`).
+1. Create one workspace `Apexure` (owner = `anaum.pandit@apexure.com`).
 2. `update sites set workspace_id = <apexure>` for every existing row (`client_id` null).
 3. Staff memberships **auto-provisioned on login**: any verified `@apexure.com`
    caller with no membership gets a `member` row in the Apexure workspace
@@ -123,7 +123,7 @@ PR says this explicitly.
 6. **Nav-from-role:** viewer nav has no agency surface (asserted, not CSS-hidden).
 
 ## Resolved defaults
-- Workspace owner email: **`success@apexure.com`**.
+- Workspace owner email: **`anaum.pandit@apexure.com`**.
 - `/preview` + `/api/xray`: **left public for P0** (pre-existing, orthogonal;
   rate-limiting is a separate follow-up).
 

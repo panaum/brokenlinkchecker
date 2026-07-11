@@ -21,6 +21,9 @@ import TrackingBanner from "@/components/TrackingBanner";
 import NavBar from "@/components/NavBar";
 import IntegrationsPanel from "@/components/IntegrationsPanel";
 import ScanVerdict from "@/components/ScanVerdict";
+import ShareButton from "@/components/ShareButton";
+import XrayView from "@/components/XrayView";
+import { ScanEye } from "lucide-react";
 import Link from "next/link";
 import { Wrench } from "lucide-react";
 
@@ -107,6 +110,7 @@ export default function HomePage() {
   const [scanComplete, setScanComplete] = useState(false);
   const [scanMeta, setScanMeta] = useState<ScanMeta | null>(null);
   const [scanId, setScanId] = useState<string | null>(null);
+  const [showXray, setShowXray] = useState(false);
   const [scanMode, setScanMode] = useState<"single" | "site">("single");
   const eventSourceRef = useRef<EventSource | null>(null);
   const scanningRef = useRef(false);
@@ -158,6 +162,7 @@ export default function HomePage() {
       setSchemes({});
       setRedirects(null);
       setSiteId(null);
+      setShowXray(false);
       setScanComplete(false);
       setScanning(true);
       scanningRef.current = true;
@@ -525,11 +530,27 @@ export default function HomePage() {
             <ReportHeader results={results} detectedBuilders={detectedBuilders} diff={diff} siteId={siteId} />
           </section>
 
-          {/* Third-party integrations on the scanned page. z-30 so its panel
-              overflows above the later results sections (siblings at z-10). */}
-          {scanId && scanMeta && (
-            <section className="relative z-30 flex justify-end px-4 sm:px-6 lg:px-8 -mt-2">
+          {/* Report controls: Share + X-ray + integrations. z-30 so panels
+              overflow above the later results sections (siblings at z-10). */}
+          <section className="relative z-30 ds-container flex flex-wrap items-center justify-end gap-3 px-4 sm:px-6 lg:px-8 -mt-2">
+            <button
+              className="ds-btn-ghost"
+              onClick={() => setShowXray((v) => !v)}
+              aria-pressed={showXray}
+              style={{ display: "inline-flex", alignItems: "center", gap: 8, ...(showXray ? { borderColor: "var(--signal)", color: "var(--signal)" } : {}) }}
+            >
+              <ScanEye size={15} /> X-ray view
+            </button>
+            {scanId && <ShareButton scanId={scanId} />}
+            {scanId && scanMeta && (
               <IntegrationsPanel scanId={scanId} pageUrl={scanMeta.scannedUrl} />
+            )}
+          </section>
+
+          {/* X-ray overlay — screenshot with crosshair markers on flagged elements. */}
+          {showXray && scanMeta && (
+            <section className="relative z-10 ds-container px-4 sm:px-6 lg:px-8">
+              <XrayView results={results} pageUrl={scanMeta.scannedUrl} />
             </section>
           )}
 

@@ -313,3 +313,41 @@ def test_the_run_endpoint_refuses_a_non_allowlisted_repo(monkeypatch):
     resp = asyncio.run(main.self_heal_run(repo="apexure/site", scan_id="s1",
                                           url="https://apexure.com", fix_type="redirect"))
     assert resp.status_code == 403
+
+
+# ─── the finder walks the tree (reliable on a fresh repo), still path-safe ────
+def test_the_finder_only_reads_editable_nonblacklisted_files(monkeypatch):
+    """Tree-walk find_occurrences must skip .github / executables even if the
+    URL is in them — the write never sees a blacklisted file."""
+    import self_heal_github as G
+
+    tree = {"tree": [
+        {"type": "blob", "path": "index.html"},
+        {"type": "blob", "path": ".github/workflows/deploy.yml"},
+        {"type": "blob", "path": "scripts/build.sh"},
+    ]}
+    files = {
+        "index.html": "<a href='https://x/old'>",
+        ".github/workflows/deploy.yml": "https://x/old",   # URL is here too
+        "scripts/build.sh": "https://x/old",
+    }
+
+    class _Resp:
+        def __init__(self, status, data): self.status_code = status; self._d = data
+        def json(self): return self._d
+
+    class _Client:
+        def __enter__(self): return self
+        def __exit__(self, *a): return False
+        def get(self, url, params=None):
+            if "/git/trees/" in url:
+                return _Resp(200, tree)
+            path = url.split("/contents/", 1)[1]
+            import base64
+            return _Resp(200, {"content": base64.b64encode(files[path].encode()).decode()})
+
+    ops = G.GitHubRepoOps("owner/repo", "tok")
+    ops._default_branch = "main"
+    monkeypatch.setattr(ops, "_client", lambda: _Client())
+    found = {o["path"] for o in ops.find_occurrences("https://x/old")}
+    assert found == {"index.html"}      # only the editable file, never the blacklisted ones

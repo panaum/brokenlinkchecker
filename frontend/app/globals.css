@@ -380,3 +380,10 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   .ds-card { box-shadow: none !important; }
   a { text-decoration: none; color: inherit; }
 }
+
+/* ═══ Keyboard-triage active row ═══ */
+[data-triage-active] {
+  box-shadow: inset 3px 0 0 var(--signal);
+  background: rgba(34, 211, 170, 0.06) !important;
+  transition: background var(--motion), box-shadow var(--motion);
+}

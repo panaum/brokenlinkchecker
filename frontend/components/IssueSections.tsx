@@ -114,7 +114,14 @@ function IssueRow({ result, spec, siteId }: { result: LinkResult; spec: SectionS
   const showUrl = spec.bucket !== "dead_cta" && result.url;
 
   return (
-    <li className="px-5 py-3 flex flex-wrap items-start gap-x-3 gap-y-1.5">
+    <li
+      className="px-5 py-3 flex flex-wrap items-start gap-x-3 gap-y-1.5 scroll-mt-24"
+      data-finding-row
+      data-finding-url={result.url}
+      data-finding-anchor={result.anchor_text ?? ""}
+      data-finding-reason={result.reason ?? result.error ?? ""}
+      data-finding-bucket={spec.bucket}
+    >
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 flex-wrap">
           <span className="text-sm font-medium text-white/90 truncate">{label}</span>

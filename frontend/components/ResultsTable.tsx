@@ -18,6 +18,7 @@ import StatusPill from "./StatusPill";
 import ExportButton from "./ExportButton";
 import SuggestionCard from "./SuggestionCard";
 import RedirectDownloadButton from "./RedirectDownload";
+import RedirectMap from "./RedirectMap";
 
 interface ResultsTableProps {
   results: LinkResult[];
@@ -304,8 +305,10 @@ function RowDetail({ result }: { result: LinkResult }) {
             </a>
           </div>
 
-          {/* Final URL if redirect */}
-          {result.final_url && result.final_url !== result.url && (
+          {/* Redirect route map when there's a chain; else the plain final URL. */}
+          {result.redirect_chain && result.redirect_chain.length > 0 ? (
+            <RedirectMap result={result} />
+          ) : result.final_url && result.final_url !== result.url ? (
             <div className="flex items-center gap-2">
               <span
                 style={{
@@ -327,7 +330,7 @@ function RowDetail({ result }: { result: LinkResult }) {
                 {result.final_url}
               </span>
             </div>
-          )}
+          ) : null}
 
           {/* Meta row */}
           <div className="flex flex-wrap gap-4">

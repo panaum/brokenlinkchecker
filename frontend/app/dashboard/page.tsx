@@ -16,6 +16,7 @@ import {
 import { DashboardSite, DashboardScan } from "@/types";
 import NavBar from "@/components/NavBar";
 import WatchdogPanel from "@/components/WatchdogPanel";
+import { cleanStreakDays, fixedThisMonth } from "@/lib/history";
 import Link from "next/link";
 
 // --- Helpers ---
@@ -108,6 +109,7 @@ function SiteCard({
   const status = siteStatus(latest);
   const spark = scans.slice(-6).map((s, i) => ({ val: s.health_score, i }));
   const color = scoreColor(score);
+  const streak = cleanStreakDays(scans);
 
   // Issue summary as one plain line — no wall of pills.
   let issueLine = "No issues found";
@@ -183,10 +185,17 @@ function SiteCard({
         </div>
       </div>
 
-      {/* Issue line + status word */}
-      <div className="ds-text-secondary" style={{ fontSize: "var(--text-caption)" }}>
-        <span className={`ds-status ${status.cls}`}><span className="ds-status-dot" />{status.word}</span>
-        <span className="ds-text-muted"> · {issueLine}</span>
+      {/* Issue line + status word + clean streak */}
+      <div className="ds-text-secondary" style={{ fontSize: "var(--text-caption)", display: "flex", alignItems: "center", justifyContent: "space-between", gap: 8 }}>
+        <span style={{ minWidth: 0, overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+          <span className={`ds-status ${status.cls}`}><span className="ds-status-dot" />{status.word}</span>
+          <span className="ds-text-muted"> · {issueLine}</span>
+        </span>
+        {streak !== null && streak > 0 && (
+          <span className="font-mono" style={{ color: "var(--signal)", flexShrink: 0 }} title="Days since the last provable issue">
+            {streak}d clean
+          </span>
+        )}
       </div>
 
       {/* Footer: last scan + ONE action + overflow */}
@@ -368,6 +377,8 @@ export default function DashboardPage() {
     });
   }, [sites]);
 
+  const fixedCount = useMemo(() => fixedThisMonth(sites.map((s) => s.scans)), [sites]);
+
   const rankedSites = useMemo(() => {
     return [...sites]
       .filter((s) => s.scans && s.scans.length > 0)
@@ -391,6 +402,11 @@ export default function DashboardPage() {
             </h1>
             <p className="ds-text-secondary" style={{ fontSize: "var(--text-body)", marginTop: 2 }}>
               {sites.length} monitored {sites.length === 1 ? "property" : "properties"}
+              {fixedCount > 0 && (
+                <span className="ds-status ds-status-healthy" style={{ marginLeft: 12 }}>
+                  <span className="ds-status-dot" /><span className="font-mono">{fixedCount}</span> fixed this month
+                </span>
+              )}
             </p>
           </div>
           <div style={{ display: "flex", alignItems: "center", gap: 10 }}>

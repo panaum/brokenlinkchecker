@@ -70,7 +70,7 @@ function StatusPillMini({ label }: { label: string }) {
 function ZoneBadge({ zone }: { zone: string }) {
   const ZONE_DOT_COLORS: Record<string, string> = {
     Navigation: "#60a5fa",
-    Header: "#22d3aa",
+    Header: "#7c6cff",
     Footer: "#94a3b8",
     CTA: "#fbbf24",
     "Body text": "#e2e8f0",
@@ -299,7 +299,7 @@ export default function WhatChangedCard({
                       className="flex items-center gap-2"
                       style={{ padding: "12px 0" }}
                     >
-                      <Sparkles size={16} style={{ color: "#22d3aa" }} />
+                      <Sparkles size={16} style={{ color: "#7c6cff" }} />
                       <span
                         style={{
                           fontFamily:

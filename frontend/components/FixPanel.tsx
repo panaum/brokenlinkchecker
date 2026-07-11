@@ -4,6 +4,7 @@ import { useCallback, useState } from "react";
 import { AnimatePresence, motion } from "framer-motion";
 import { Check, Copy, Loader2, RefreshCw, Wrench } from "lucide-react";
 import { LinkResult } from "@/types";
+import { UrlDiff } from "./detail/Bits";
 
 interface FixSuggestion {
   issue_type: string;
@@ -127,12 +128,18 @@ export default function FixPanel({ result, findingId, siteId }: FixPanelProps) {
         />
       </div>
 
-      {verify && (
+      {verifying && (
+        <p className="text-[11px] mt-2 ds-verifying" style={{ color: "rgba(255,255,255,0.55)" }}>
+          Verifying this fix…
+        </p>
+      )}
+
+      {verify && !verifying && (
         <p
-          className="text-[11px] mt-2"
-          style={{ color: verify.verified ? "#4ade80" : "rgba(255,255,255,0.55)" }}
+          className={`text-[11px] mt-2 ${verify.verified ? "ds-resolving" : "ds-shake"}`}
+          style={{ color: verify.verified ? "var(--signal)" : "var(--status-broken)" }}
         >
-          {verify.verified ? "✓ Verified fixed — " : ""}
+          {verify.verified ? "✓ Verified fixed — " : "Still broken — "}
           {verify.reason}
         </p>
       )}
@@ -167,13 +174,17 @@ export default function FixPanel({ result, findingId, siteId }: FixPanelProps) {
                   </div>
 
                   {fix.proposed_value ? (
-                    <p className="mb-2" style={{ color: "rgba(255,255,255,0.65)" }}>
-                      Suggested replacement:{" "}
-                      <code className="font-mono text-[11px]">{fix.proposed_value}</code>{" "}
+                    <div className="mb-2" style={{ color: "rgba(255,255,255,0.65)" }}>
+                      <div style={{ marginBottom: 4 }}>Suggested replacement:</div>
+                      {/^https?:\/\//.test(fix.proposed_value) && /^https?:\/\//.test(result.url) ? (
+                        <UrlDiff oldUrl={result.url} newUrl={fix.proposed_value} />
+                      ) : (
+                        <code className="font-mono text-[11px]" style={{ color: "var(--signal)" }}>{fix.proposed_value}</code>
+                      )}{" "}
                       <span style={{ color: "rgba(255,255,255,0.4)" }}>
                         (confidence: {fix.confidence} — confirm before applying)
                       </span>
-                    </p>
+                    </div>
                   ) : (
                     <p className="mb-2" style={{ color: "rgba(255,255,255,0.4)" }}>
                       No replacement suggested — this one needs a human decision.

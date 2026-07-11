@@ -49,18 +49,18 @@ export default function ScanProgress({
     >
       <div className="ds-card" style={{ padding: "var(--space-6)", position: "relative", overflow: "hidden" }}>
         {/* soft signal glow behind the radar */}
-        <div style={{ position: "absolute", top: -60, left: "50%", transform: "translateX(-50%)", width: 320, height: 320, borderRadius: "50%", background: "radial-gradient(circle, rgba(34,211,170,0.10), transparent 65%)", pointerEvents: "none" }} />
+        <div style={{ position: "absolute", top: -60, left: "50%", transform: "translateX(-50%)", width: 320, height: 320, borderRadius: "50%", background: "radial-gradient(circle, rgba(124,108,255,0.10), transparent 65%)", pointerEvents: "none" }} />
 
         <div style={{ display: "flex", flexDirection: "column", alignItems: "center", gap: "var(--space-5)", position: "relative" }}>
           {/* ── RADAR ── */}
           <div style={{ position: "relative", width: 176, height: 176 }}>
             {/* concentric rings */}
             {[176, 128, 80, 36].map((d) => (
-              <div key={d} style={{ position: "absolute", top: "50%", left: "50%", width: d, height: d, marginTop: -d / 2, marginLeft: -d / 2, borderRadius: "50%", border: "1px solid rgba(34,211,170,0.16)" }} />
+              <div key={d} style={{ position: "absolute", top: "50%", left: "50%", width: d, height: d, marginTop: -d / 2, marginLeft: -d / 2, borderRadius: "50%", border: "1px solid rgba(124,108,255,0.16)" }} />
             ))}
             {/* cross-hairs */}
-            <div style={{ position: "absolute", top: "50%", left: 0, right: 0, height: 1, background: "rgba(34,211,170,0.12)" }} />
-            <div style={{ position: "absolute", left: "50%", top: 0, bottom: 0, width: 1, background: "rgba(34,211,170,0.12)" }} />
+            <div style={{ position: "absolute", top: "50%", left: 0, right: 0, height: 1, background: "rgba(124,108,255,0.12)" }} />
+            <div style={{ position: "absolute", left: "50%", top: 0, bottom: 0, width: 1, background: "rgba(124,108,255,0.12)" }} />
             {/* sweep */}
             <div className="radar-sweep" />
             {/* activity blip — remounts on each new streamed line and replays. */}

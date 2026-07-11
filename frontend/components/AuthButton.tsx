@@ -52,7 +52,7 @@ export default function AuthButton() {
       className="flex items-center gap-2 px-4 py-2 rounded-lg transition-transform hover:scale-105 active:scale-95 cursor-pointer"
       style={{
         background: "linear-gradient(132deg, rgb(23,184,148), rgb(52,230,192))",
-        boxShadow: "0 4px 12px rgba(23,184,148,0.3)",
+        boxShadow: "0 4px 12px rgba(109,92,255,0.3)",
         border: "1px solid rgba(255,255,255,0.1)",
         fontFamily: "var(--font-poppins), Poppins, sans-serif",
         fontSize: "13px",

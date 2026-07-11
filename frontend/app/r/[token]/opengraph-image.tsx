@@ -17,10 +17,10 @@ function domainOf(url: string): string {
   }
 }
 function scoreColor(s: number | null): string {
-  if (s == null) return "#8b9ba0";
-  if (s >= 90) return "#22d3aa";
-  if (s >= 70) return "#f6c445";
-  return "#ff6b6b";
+  if (s == null) return "#9aa0b4";
+  if (s >= 90) return "#34d399";
+  if (s >= 70) return "#fbbf24";
+  return "#f87171";
 }
 
 export default async function OgImage({ params }: { params: Promise<{ token: string }> }) {
@@ -61,7 +61,7 @@ export default async function OgImage({ params }: { params: Promise<{ token: str
         }}
       >
         <div style={{ display: "flex", alignItems: "center", color: "#e9f4f1", fontSize: 34, fontWeight: 800 }}>
-          Link<span style={{ color: "#22d3aa" }}>Spy</span>
+          Link<span style={{ color: "#7c6cff" }}>Spy</span>
         </div>
 
         <div style={{ display: "flex", alignItems: "center", gap: 56 }}>

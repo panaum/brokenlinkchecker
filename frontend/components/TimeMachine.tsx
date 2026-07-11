@@ -16,7 +16,7 @@ interface Snapshot {
 }
 
 function scoreColor(s: number): string {
-  if (s >= 90) return "var(--signal)";
+  if (s >= 90) return "var(--status-healthy)";
   if (s >= 70) return "var(--status-attention)";
   return "var(--status-broken)";
 }

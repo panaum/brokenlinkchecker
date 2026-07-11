@@ -13,7 +13,7 @@ function domainOf(url: string): string {
   }
 }
 function scoreColor(s: number): string {
-  if (s >= 90) return "var(--signal)";
+  if (s >= 90) return "var(--status-healthy)";
   if (s >= 70) return "var(--status-attention)";
   return "var(--status-broken)";
 }
@@ -75,7 +75,7 @@ export default function PublicReport({ report }: { report: SharedReport }) {
       <section className="ds-card ds-card-pad report-verdict" style={{ display: "flex", alignItems: "center", gap: "var(--space-6)", flexWrap: "wrap", marginBottom: "var(--space-5)" }}>
         <div style={{ position: "relative", width: 112, height: 112, flexShrink: 0 }}>
           <svg width="112" height="112" viewBox="0 0 112 112">
-            <circle cx="56" cy="56" r={R} fill="none" stroke="rgba(150,210,200,0.08)" strokeWidth="8" />
+            <circle cx="56" cy="56" r={R} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="8" />
             <circle cx="56" cy="56" r={R} fill="none" stroke={scoreColor(report.health_score)} strokeWidth="8" strokeLinecap="round"
               strokeDasharray={C} strokeDashoffset={C * (1 - report.health_score / 100)} transform="rotate(-90 56 56)" />
           </svg>

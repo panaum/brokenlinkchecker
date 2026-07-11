@@ -19,14 +19,14 @@ function LoginContent() {
       <div
         className="absolute top-[-200px] left-[-200px] w-[600px] h-[600px] rounded-full opacity-30 pointer-events-none"
         style={{
-          background: "linear-gradient(135deg, #17b894, #34e6c0)",
+          background: "linear-gradient(135deg, #6d5cff, #8b7cff)",
           filter: "blur(120px)",
         }}
       />
       <div
         className="absolute bottom-[-100px] right-[-150px] w-[400px] h-[400px] rounded-full opacity-20 pointer-events-none"
         style={{
-          background: "linear-gradient(135deg, #34e6c0, #45efc9)",
+          background: "linear-gradient(135deg, #8b7cff, #9d8cff)",
           filter: "blur(120px)",
         }}
       />
@@ -132,8 +132,8 @@ function LoginContent() {
           onClick={() => signIn("google", { callbackUrl: "/" })}
           className="w-full flex items-center justify-center gap-3 px-6 py-3.5 rounded-xl transition-transform hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
           style={{
-            background: "linear-gradient(135deg, #17b894, #34e6c0)",
-            boxShadow: "0 4px 20px rgba(34,211,170,0.35)",
+            background: "linear-gradient(135deg, #6d5cff, #8b7cff)",
+            boxShadow: "0 4px 20px rgba(124,108,255,0.35)",
             border: "1px solid rgba(255,255,255,0.1)",
             fontFamily: "var(--font-poppins), Poppins, sans-serif",
             fontSize: "15px",

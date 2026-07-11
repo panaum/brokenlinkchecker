@@ -6,6 +6,8 @@ import { motion } from "framer-motion";
 import { LayoutDashboard, Link2, Search } from "lucide-react";
 import Image from "next/image";
 import AuthButton from "@/components/AuthButton";
+import Changelog from "@/components/Changelog";
+import ThemeToggle from "@/components/ThemeToggle";
 
 // Fire the same shortcut the global palette listens for.
 function openPalette() {
@@ -28,7 +30,7 @@ export default function NavBar() {
         left: 0,
         right: 0,
         zIndex: 100,
-        background: "rgba(10,6,18,0.85)",
+        background: "rgba(20,19,28,0.82)",
         backdropFilter: "blur(16px)",
         WebkitBackdropFilter: "blur(16px)",
         borderBottom: "1px solid rgba(255,255,255,0.06)",
@@ -103,7 +105,7 @@ export default function NavBar() {
             className="hidden sm:flex items-center gap-2"
             style={{
               padding: "6px 10px", borderRadius: 8, cursor: "pointer",
-              background: "rgba(150,210,200,0.05)", border: "1px solid var(--border-subtle)",
+              background: "rgba(255,255,255,0.05)", border: "1px solid var(--border-subtle)",
               color: "var(--text-muted)",
             }}
           >
@@ -111,6 +113,8 @@ export default function NavBar() {
             <kbd style={{ fontFamily: "var(--font-stack-mono)", fontSize: 11, letterSpacing: "0.02em" }}>⌘K</kbd>
           </button>
 
+          <ThemeToggle />
+          <Changelog />
           <AuthButton />
         </div>
       </div>

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { Search } from "lucide-react";
 
 interface UrlInputProps {
@@ -45,6 +45,7 @@ export default function UrlInput({
   const [dots, setDots] = useState("");
   const [inlineError, setInlineError] = useState<string | null>(null);
   const suggestion = getSuggestion(url);
+  const warmedRef = useRef<Set<string>>(new Set());
 
   // Animate scanning dots
   useEffect(() => {
@@ -54,6 +55,23 @@ export default function UrlInput({
     }, 400);
     return () => clearInterval(id);
   }, [scanning]);
+
+  // Anticipatory pre-warm: once the field holds a valid URL, prime DNS/TLS on
+  // the backend so the scan feels instant on click. Debounced and deduped;
+  // NEVER scans on its own — that only happens on the click.
+  useEffect(() => {
+    if (scanning) return;
+    const trimmed = url.trim();
+    const candidate =
+      trimmed.startsWith("http://") || trimmed.startsWith("https://") ? trimmed
+      : trimmed.includes(".") && !trimmed.includes(" ") ? `https://${trimmed}` : "";
+    if (!candidate || !isValidUrl(candidate) || warmedRef.current.has(candidate)) return;
+    const id = setTimeout(() => {
+      warmedRef.current.add(candidate);
+      fetch(`/api/prewarm?url=${encodeURIComponent(candidate)}`).catch(() => {});
+    }, 500);
+    return () => clearTimeout(id);
+  }, [url, scanning]);
 
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (e.key === "Enter" && !scanning) handleScan();
@@ -98,7 +116,7 @@ export default function UrlInput({
               style={{
                 fontFamily: "var(--font-poppins), Poppins, sans-serif",
                 ...(scanMode === "single"
-                  ? { background: "rgba(34,211,170,0.14)", color: "var(--signal)", borderColor: "rgba(34,211,170,0.4)" }
+                  ? { background: "rgba(124,108,255,0.14)", color: "var(--signal)", borderColor: "rgba(124,108,255,0.4)" }
                   : {}),
               }}
             >
@@ -116,7 +134,7 @@ export default function UrlInput({
               style={{
                 fontFamily: "var(--font-poppins), Poppins, sans-serif",
                 ...(scanMode === "site"
-                  ? { background: "rgba(34,211,170,0.14)", color: "var(--signal)", borderColor: "rgba(34,211,170,0.4)" }
+                  ? { background: "rgba(124,108,255,0.14)", color: "var(--signal)", borderColor: "rgba(124,108,255,0.4)" }
                   : {}),
               }}
             >
@@ -145,7 +163,7 @@ export default function UrlInput({
               color: "var(--text-primary)",
               border: "1px solid var(--border-subtle)",
             }}
-            onFocus={(e) => { e.currentTarget.style.borderColor = "var(--signal)"; e.currentTarget.style.boxShadow = "0 0 0 3px rgba(34,211,170,0.18)"; }}
+            onFocus={(e) => { e.currentTarget.style.borderColor = "var(--signal)"; e.currentTarget.style.boxShadow = "0 0 0 3px rgba(124,108,255,0.18)"; }}
             onBlur={(e) => { e.currentTarget.style.borderColor = "var(--border-subtle)"; e.currentTarget.style.boxShadow = "none"; }}
             disabled={scanning}
           />

@@ -63,6 +63,15 @@ export default function RootLayout({
       className={`${display.variable} ${body.variable} ${mono.variable}`}
       suppressHydrationWarning
     >
+      <head>
+        {/* Set the theme before paint so there's no flash of the wrong theme. */}
+        <script
+          dangerouslySetInnerHTML={{
+            __html:
+              "(function(){try{var t=localStorage.getItem('linkspy:theme');document.documentElement.setAttribute('data-theme',t==='light'?'light':'dark');}catch(e){document.documentElement.setAttribute('data-theme','dark');}})();",
+          }}
+        />
+      </head>
       <body className="antialiased" suppressHydrationWarning>
         <Providers>
           {children}

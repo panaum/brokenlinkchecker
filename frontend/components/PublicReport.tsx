@@ -12,11 +12,6 @@ function domainOf(url: string): string {
     return url;
   }
 }
-function scoreColor(s: number): string {
-  if (s >= 90) return "var(--status-healthy)";
-  if (s >= 70) return "var(--status-attention)";
-  return "var(--status-broken)";
-}
 function bucketOf(r: LinkResult): "broken" | "dead_cta" | "unverifiable" {
   if (r.bucket) return r.bucket === "ok" ? "unverifiable" : r.bucket;
   if (r.label === "broken") return "broken";
@@ -76,11 +71,11 @@ export default function PublicReport({ report }: { report: SharedReport }) {
         <div style={{ position: "relative", width: 112, height: 112, flexShrink: 0 }}>
           <svg width="112" height="112" viewBox="0 0 112 112">
             <circle cx="56" cy="56" r={R} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="8" />
-            <circle cx="56" cy="56" r={R} fill="none" stroke={scoreColor(report.health_score)} strokeWidth="8" strokeLinecap="round"
+            <circle cx="56" cy="56" r={R} fill="none" stroke="var(--signal)" strokeWidth="8" strokeLinecap="round"
               strokeDasharray={C} strokeDashoffset={C * (1 - report.health_score / 100)} transform="rotate(-90 56 56)" />
           </svg>
           <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
-            <span className="font-mono" style={{ fontSize: 30, fontWeight: 700, color: scoreColor(report.health_score), lineHeight: 1 }}>{report.health_score}</span>
+            <span className="font-mono" style={{ fontSize: 30, fontWeight: 700, color: "var(--signal)", lineHeight: 1 }}>{report.health_score}</span>
             <span className="font-mono ds-text-muted" style={{ fontSize: 11 }}>/ 100</span>
           </div>
         </div>

@@ -16,11 +16,9 @@ function domainOf(url: string): string {
     return url || "site";
   }
 }
+// The score ring/numeral is BRAND purple (identity), not a status color.
 function scoreColor(s: number | null): string {
-  if (s == null) return "#9aa0b4";
-  if (s >= 90) return "#34d399";
-  if (s >= 70) return "#fbbf24";
-  return "#f87171";
+  return s == null ? "#9aa0b4" : "#a855f7";
 }
 
 export default async function OgImage({ params }: { params: Promise<{ token: string }> }) {

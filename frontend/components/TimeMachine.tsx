@@ -15,11 +15,6 @@ interface Snapshot {
   results_json: LinkResult[];
 }
 
-function scoreColor(s: number): string {
-  if (s >= 90) return "var(--status-healthy)";
-  if (s >= 70) return "var(--status-attention)";
-  return "var(--status-broken)";
-}
 function bucketCls(r: LinkResult): string {
   const b = r.bucket ?? (r.label === "broken" ? "broken" : r.label === "dead_cta" ? "dead_cta" : "unverifiable");
   return b === "broken" ? "ds-status-broken" : b === "dead_cta" ? "ds-status-attention" : "ds-status-neutral";
@@ -96,9 +91,10 @@ export default function TimeMachine({ siteUrl }: { siteUrl: string }) {
             {new Date(cur.scanned_at).toLocaleString(undefined, { year: "numeric", month: "short", day: "numeric", hour: "2-digit", minute: "2-digit" })}
           </div>
           <div style={{ display: "flex", alignItems: "baseline", gap: 10, marginTop: 2 }}>
-            <span className="font-mono" style={{ fontSize: 30, fontWeight: 700, color: scoreColor(cur.health_score) }}>{cur.health_score}</span>
+            <span className="font-mono" style={{ fontSize: 30, fontWeight: 700, color: "var(--signal)" }}>{cur.health_score}</span>
+            {/* Score delta: up is GOOD (green), down is bad (red). */}
             {prev && (
-              <span className="font-mono" style={{ fontSize: 13, color: scoreDelta > 0 ? "var(--signal)" : scoreDelta < 0 ? "var(--status-broken)" : "var(--text-muted)" }}>
+              <span className="font-mono" style={{ fontSize: 13, color: scoreDelta > 0 ? "var(--status-healthy)" : scoreDelta < 0 ? "var(--status-broken)" : "var(--text-muted)" }}>
                 {scoreDelta > 0 ? `▲ +${scoreDelta}` : scoreDelta < 0 ? `▼ ${scoreDelta}` : "no change"}
               </span>
             )}
@@ -108,7 +104,7 @@ export default function TimeMachine({ siteUrl }: { siteUrl: string }) {
           snapshot {idx + 1} / {snaps.length}
           {prev && (
             <div style={{ marginTop: 2 }}>
-              {resolvedCount > 0 && <span style={{ color: "var(--signal)" }}>{resolvedCount} resolved</span>}
+              {resolvedCount > 0 && <span style={{ color: "var(--status-healthy)" }}>{resolvedCount} resolved</span>}
               {resolvedCount > 0 && newCount > 0 && " · "}
               {newCount > 0 && <span style={{ color: "var(--status-broken)" }}>{newCount} new</span>}
             </div>

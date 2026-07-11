@@ -64,11 +64,12 @@ export default function ScanVerdict({
 
   const hasBaseline = Boolean(diff?.has_baseline);
 
-  // Score ring geometry. Draws itself via stroke-dashoffset (600ms).
+  // Score ring geometry. Draws itself via stroke-dashoffset (600ms). The ring
+  // and numeral are BRAND purple — identity, not a status. Health is conveyed by
+  // the verdict sentence and the issue counts, not the score's color.
   const R = 46;
   const C = 2 * Math.PI * R;
-  const ringColor =
-    score >= 90 ? "var(--status-healthy)" : score >= 70 ? "var(--status-attention)" : "var(--status-broken)";
+  const ringColor = "var(--signal)";
 
   const rise = (delay: number) => ({
     initial: { opacity: 0, y: 8 },

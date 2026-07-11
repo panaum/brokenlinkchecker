@@ -17,6 +17,7 @@ import { DashboardSite, DashboardScan } from "@/types";
 import NavBar from "@/components/NavBar";
 import WatchdogPanel from "@/components/WatchdogPanel";
 import { cleanStreakDays, fixedThisMonth } from "@/lib/history";
+import { middleTruncateUrl } from "@/lib/format";
 import Link from "next/link";
 
 // --- Helpers ---
@@ -34,12 +35,6 @@ function displayName(site: DashboardSite): string {
   return site.name?.trim() || domainOf(site.url);
 }
 
-function scoreColor(score: number | null): string {
-  if (score === null || score === undefined) return "var(--status-neutral)";
-  if (score >= 90) return "var(--status-healthy)";
-  if (score >= 70) return "var(--status-attention)";
-  return "var(--status-broken)";
-}
 
 // One status language. A never-scanned site is NEUTRAL gray, never a warning.
 function siteStatus(latest: DashboardScan | null): { cls: string; word: string } {
@@ -108,7 +103,6 @@ function SiteCard({
   const diff = prev && latest ? latest.health_score - prev.health_score : null;
   const status = siteStatus(latest);
   const spark = scans.slice(-6).map((s, i) => ({ val: s.health_score, i }));
-  const color = scoreColor(score);
   const streak = cleanStreakDays(scans);
 
   // Issue summary as one plain line — no wall of pills.
@@ -142,8 +136,8 @@ function SiteCard({
           <div className="ds-text-primary" style={{ fontSize: "var(--text-body)", fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
             {displayName(site)}
           </div>
-          <div className="ds-text-muted font-mono" style={{ fontSize: "var(--text-caption)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-            {domainOf(site.url)}
+          <div className="ds-text-muted font-mono" style={{ fontSize: "var(--text-caption)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }} title={site.url}>
+            {middleTruncateUrl(site.url)}
           </div>
         </div>
         <span className={`ds-status ${status.cls}`} style={{ flexShrink: 0 }}>
@@ -155,7 +149,7 @@ function SiteCard({
       <div style={{ display: "flex", alignItems: "flex-end", justifyContent: "space-between", gap: 12 }}>
         <div>
           <div style={{ display: "flex", alignItems: "baseline", gap: 6 }}>
-            <span className="font-mono" style={{ fontSize: 34, fontWeight: 700, color, lineHeight: 1 }}>
+            <span className="font-mono" style={{ fontSize: 34, fontWeight: 700, color: "var(--signal)", lineHeight: 1 }}>
               {score !== null ? score : "—"}
             </span>
             {score !== null && <span className="ds-text-muted font-mono" style={{ fontSize: "var(--text-caption)" }}>/ 100</span>}
@@ -178,7 +172,7 @@ function SiteCard({
           {spark.length >= 2 && (
             <ResponsiveContainer width="100%" height="100%">
               <LineChart data={spark}>
-                <Line type="monotone" dataKey="val" stroke={color} strokeWidth={2} dot={false} isAnimationActive={false} />
+                <Line type="monotone" dataKey="val" stroke="var(--signal)" strokeWidth={2} dot={false} isAnimationActive={false} />
               </LineChart>
             </ResponsiveContainer>
           )}
@@ -467,23 +461,21 @@ export default function DashboardPage() {
                 {rankedSites.length === 0 ? (
                   <p className="ds-text-secondary" style={{ fontSize: "var(--text-body)" }}>No scanned sites yet.</p>
                 ) : (
-                  rankedSites.map((site, index) => {
-                    const color = scoreColor(site.score);
-                    return (
-                      <div key={site.id} style={{ display: "flex", alignItems: "center", gap: 14 }}>
-                        <span className="ds-text-muted" style={{ width: 28, textAlign: "center", fontSize: "var(--text-caption)" }}>#{index + 1}</span>
-                        <div style={{ flex: 1, minWidth: 0 }}>
-                          <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 4 }}>
-                            <span className="ds-text-primary" style={{ fontSize: "var(--text-body)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{displayName(site)}</span>
-                            <span style={{ fontSize: "var(--text-body)", fontWeight: 600, color, marginLeft: 8 }}>{site.score}</span>
-                          </div>
-                          <div style={{ height: 6, borderRadius: 999, background: "rgba(255,255,255,0.08)" }}>
-                            <div style={{ height: "100%", borderRadius: 999, width: `${site.score}%`, background: color, transition: "width var(--motion)" }} />
-                          </div>
+                  rankedSites.map((site, index) => (
+                    <div key={site.id} style={{ display: "flex", alignItems: "center", gap: 14 }}>
+                      <span className="ds-text-muted" style={{ width: 28, textAlign: "center", fontSize: "var(--text-caption)" }}>#{index + 1}</span>
+                      <div style={{ flex: 1, minWidth: 0 }}>
+                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 4 }}>
+                          <span className="ds-text-primary" style={{ fontSize: "var(--text-body)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{displayName(site)}</span>
+                          <span className="font-mono" style={{ fontSize: "var(--text-body)", fontWeight: 600, color: "var(--signal)", marginLeft: 8 }}>{site.score}</span>
+                        </div>
+                        {/* Trend/magnitude bar — brand purple. */}
+                        <div style={{ height: 6, borderRadius: 999, background: "rgba(255,255,255,0.08)" }}>
+                          <div style={{ height: "100%", borderRadius: 999, width: `${site.score}%`, background: "var(--signal)", transition: "width var(--motion)" }} />
                         </div>
                       </div>
-                    );
-                  })
+                    </div>
+                  ))
                 )}
               </div>
             </div>

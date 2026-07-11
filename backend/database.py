@@ -1319,3 +1319,198 @@ def _any_membership_sync(email: str) -> Optional[dict]:
 async def any_membership(email: str) -> Optional[dict]:
     import asyncio
     return await asyncio.to_thread(_any_membership_sync, email)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Client portal: clients, invites, audit. All tolerant of migration 007 absent.
+# ─────────────────────────────────────────────────────────────────────────────
+def _staff_workspace_id_sync() -> Optional[str]:
+    """The Apexure workspace id — the acting workspace when enforcement is off."""
+    client = _get_client()
+    try:
+        rows = client.table("workspaces").select("id").eq("name", "Apexure")\
+            .limit(1).execute().data or []
+        return rows[0]["id"] if rows else None
+    except Exception as e:
+        if _tables_missing(e):
+            return None
+        raise
+
+
+async def staff_workspace_id() -> Optional[str]:
+    import asyncio
+    return await asyncio.to_thread(_staff_workspace_id_sync)
+
+
+def _create_client_sync(workspace_id: str, name: str) -> Optional[dict]:
+    client = _get_client()
+    try:
+        r = client.table("clients").insert({"workspace_id": workspace_id, "name": name}).execute()
+        return r.data[0] if r.data else None
+    except Exception as e:
+        if _tables_missing(e):
+            return None
+        raise
+
+
+async def create_client(workspace_id: str, name: str) -> Optional[dict]:
+    import asyncio
+    return await asyncio.to_thread(_create_client_sync, workspace_id, name)
+
+
+def _list_clients_sync(workspace_id: str) -> list:
+    client = _get_client()
+    try:
+        return client.table("clients").select("id, name, created_at")\
+            .eq("workspace_id", workspace_id).order("name").execute().data or []
+    except Exception as e:
+        if _tables_missing(e):
+            return []
+        raise
+
+
+async def list_clients(workspace_id: str) -> list:
+    import asyncio
+    return await asyncio.to_thread(_list_clients_sync, workspace_id)
+
+
+def _assign_site_client_sync(site_id: str, client_id) -> bool:
+    client = _get_client()
+    try:
+        client.table("sites").update({"client_id": client_id}).eq("id", site_id).execute()
+        return True
+    except Exception as e:
+        if _tables_missing(e):
+            return False
+        raise
+
+
+async def assign_site_client(site_id: str, client_id) -> bool:
+    import asyncio
+    return await asyncio.to_thread(_assign_site_client_sync, site_id, client_id)
+
+
+def _create_invite_sync(workspace_id, client_id, email, role, token, expires_at) -> Optional[dict]:
+    client = _get_client()
+    try:
+        client.table("invites").insert({
+            "token": token, "workspace_id": workspace_id, "client_id": client_id,
+            "email": (email or "").strip().lower(), "role": role, "expires_at": expires_at,
+        }).execute()
+        return {"token": token, "email": email, "client_id": client_id, "expires_at": expires_at}
+    except Exception as e:
+        if _tables_missing(e):
+            return None
+        raise
+
+
+async def create_invite(workspace_id, client_id, email, role, token, expires_at) -> Optional[dict]:
+    import asyncio
+    return await asyncio.to_thread(_create_invite_sync, workspace_id, client_id, email, role, token, expires_at)
+
+
+def _accept_invite_sync(token: str, now_iso: str) -> Optional[dict]:
+    """Validate + consume an invite, create the client_viewer membership. Returns
+    {email, workspace_id, client_id, role, reason?} — reason set on rejection."""
+    client = _get_client()
+    try:
+        rows = client.table("invites")\
+            .select("workspace_id, client_id, email, role, expires_at, accepted_at, revoked")\
+            .eq("token", token).limit(1).execute().data or []
+        if not rows:
+            return {"reason": "not_found"}
+        inv = rows[0]
+        if inv.get("revoked"):
+            return {"reason": "revoked"}
+        if inv.get("accepted_at"):
+            return {"reason": "used"}
+        if inv.get("expires_at") and str(inv["expires_at"]) < now_iso:
+            return {"reason": "expired"}
+        email = (inv.get("email") or "").strip().lower()
+        # Upsert the membership (client_viewer, scoped to the invite's client).
+        existing = client.table("memberships").select("id")\
+            .eq("user_email", email).eq("workspace_id", inv["workspace_id"]).limit(1).execute().data or []
+        payload = {"user_email": email, "workspace_id": inv["workspace_id"],
+                   "role": inv.get("role") or "client_viewer", "client_id": inv.get("client_id")}
+        if existing:
+            client.table("memberships").update(payload).eq("id", existing[0]["id"]).execute()
+        else:
+            client.table("memberships").insert(payload).execute()
+        client.table("invites").update({"accepted_at": now_iso}).eq("token", token).execute()
+        return {"email": email, "workspace_id": inv["workspace_id"],
+                "client_id": inv.get("client_id"), "role": payload["role"]}
+    except Exception as e:
+        if _tables_missing(e):
+            return {"reason": "storage_unavailable"}
+        raise
+
+
+async def accept_invite(token: str, now_iso: str) -> Optional[dict]:
+    import asyncio
+    return await asyncio.to_thread(_accept_invite_sync, token, now_iso)
+
+
+def _revoke_invite_sync(token: str) -> bool:
+    client = _get_client()
+    try:
+        client.table("invites").update({"revoked": True}).eq("token", token).execute()
+        return True
+    except Exception as e:
+        if _tables_missing(e):
+            return False
+        raise
+
+
+async def revoke_invite(token: str) -> bool:
+    import asyncio
+    return await asyncio.to_thread(_revoke_invite_sync, token)
+
+
+def _list_invites_sync(workspace_id: str) -> list:
+    client = _get_client()
+    try:
+        return client.table("invites")\
+            .select("token, email, client_id, role, created_at, expires_at, accepted_at, revoked")\
+            .eq("workspace_id", workspace_id).order("created_at", desc=True).execute().data or []
+    except Exception as e:
+        if _tables_missing(e):
+            return []
+        raise
+
+
+async def list_invites(workspace_id: str) -> list:
+    import asyncio
+    return await asyncio.to_thread(_list_invites_sync, workspace_id)
+
+
+def _write_audit_sync(workspace_id, user_email, action, site_id=None) -> None:
+    client = _get_client()
+    try:
+        client.table("audit_log").insert({
+            "workspace_id": workspace_id, "user_email": (user_email or "").lower(),
+            "action": action, "site_id": site_id,
+        }).execute()
+    except Exception as e:
+        if not _tables_missing(e):
+            raise  # audit is best-effort; a missing table must never break a request
+
+
+async def write_audit(workspace_id, user_email, action, site_id=None) -> None:
+    import asyncio
+    await asyncio.to_thread(_write_audit_sync, workspace_id, user_email, action, site_id)
+
+
+def _list_audit_sync(workspace_id: str, limit: int = 100) -> list:
+    client = _get_client()
+    try:
+        return client.table("audit_log").select("user_email, action, site_id, at")\
+            .eq("workspace_id", workspace_id).order("at", desc=True).limit(limit).execute().data or []
+    except Exception as e:
+        if _tables_missing(e):
+            return []
+        raise
+
+
+async def list_audit(workspace_id: str, limit: int = 100) -> list:
+    import asyncio
+    return await asyncio.to_thread(_list_audit_sync, workspace_id, limit)

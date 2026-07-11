@@ -1977,6 +1977,116 @@ async def prewarm(url: str = Query(..., description="URL the user is about to sc
         return JSONResponse({"warmed": False, "error": str(e)}, status_code=200)
 
 
+# ─── Client portal: clients, invites, audit (agency side) ────────────────────
+async def _acting_workspace(acc: dict):
+    """The workspace a member is acting in — their membership's, or (enforcement
+    off / owner bypass) the single Apexure workspace."""
+    from database import staff_workspace_id
+    return acc.get("workspace_id") or await staff_workspace_id()
+
+
+@app.post("/api/clients")
+async def create_client_endpoint(name: str = Query(...), _acc: dict = Depends(require_role("member"))):
+    from database import create_client, write_audit
+    ws = await _acting_workspace(_acc)
+    if not ws:
+        return JSONResponse({"error": "No workspace — run the multi-tenancy backfill first.",
+                             "setup_required": True}, status_code=400)
+    created = await create_client(ws, name.strip())
+    if not created:
+        return JSONResponse({"error": "Client storage unavailable — apply migration 007.",
+                             "setup_required": True}, status_code=400)
+    await write_audit(ws, _acc.get("email"), f"create_client:{created.get('id')}")
+    return created
+
+
+@app.get("/api/clients")
+async def list_clients_endpoint(_acc: dict = Depends(require_role("member"))):
+    from database import list_clients
+    ws = await _acting_workspace(_acc)
+    return {"clients": await list_clients(ws) if ws else []}
+
+
+@app.post("/api/sites/{site_id}/assign-client")
+async def assign_site_client_endpoint(site_id: str, client_id: str = Query(default=""),
+                                      _acc: dict = Depends(require_site_access("member"))):
+    from database import assign_site_client, write_audit
+    await assign_site_client(site_id, client_id or None)
+    await write_audit(_acc.get("workspace_id"), _acc.get("email"),
+                      f"assign_site_client:{client_id or 'none'}", site_id)
+    return {"status": "ok", "site_id": site_id, "client_id": client_id or None}
+
+
+@app.post("/api/invites")
+async def create_invite_endpoint(email: str = Query(...), client_id: str = Query(...),
+                                 _acc: dict = Depends(require_role("member"))):
+    """Create a client_viewer invite. Returns a shareable accept link (v1: the
+    member shares it with the client; emailed magic-link re-login is v2)."""
+    from datetime import datetime, timedelta, timezone
+    from sharing import new_token
+    from database import create_invite, write_audit
+    ws = await _acting_workspace(_acc)
+    if not ws:
+        return JSONResponse({"error": "No workspace — run the backfill first.",
+                             "setup_required": True}, status_code=400)
+    token = new_token()
+    expires = (datetime.now(timezone.utc) + timedelta(days=14)).isoformat()
+    created = await create_invite(ws, client_id, email, "client_viewer", token, expires)
+    if not created:
+        return JSONResponse({"error": "Invite storage unavailable — apply migration 007.",
+                             "setup_required": True}, status_code=400)
+    await write_audit(ws, _acc.get("email"), f"invite:{email}")
+    return {"token": token, "email": email,
+            "accept_url": f"{_frontend_url()}/portal/accept?token={token}",
+            "expires_at": expires}
+
+
+@app.get("/api/invites")
+async def list_invites_endpoint(_acc: dict = Depends(require_role("member"))):
+    from database import list_invites
+    ws = await _acting_workspace(_acc)
+    return {"invites": await list_invites(ws) if ws else []}
+
+
+@app.delete("/api/invites/{token}")
+async def revoke_invite_endpoint(token: str, _acc: dict = Depends(require_role("member"))):
+    from database import revoke_invite, write_audit
+    ok = await revoke_invite(token)
+    await write_audit(_acc.get("workspace_id"), _acc.get("email"), f"revoke_invite")
+    return {"revoked": bool(ok)}
+
+
+@app.post("/api/invites/{token}/accept")
+async def accept_invite_endpoint(token: str):
+    """PUBLIC — the invite token IS the credential. On success, mints the
+    client's HS256 portal token (no NextAuth). Single-use + expiring."""
+    from sharing import is_wellformed
+    from database import accept_invite, write_audit
+    from auth import mint_token
+    if not is_wellformed(token):
+        return JSONResponse({"error": "This invite link is invalid."}, status_code=404)
+    result = await accept_invite(token, utcnow_iso())
+    reason = result.get("reason") if result else "not_found"
+    if reason:
+        msg = {"not_found": "This invite link is invalid.",
+               "revoked": "This invite has been revoked.",
+               "used": "This invite has already been used.",
+               "expired": "This invite has expired — ask for a new one.",
+               "storage_unavailable": "Invites aren't set up yet — apply migration 007."}.get(reason, reason)
+        return JSONResponse({"error": msg}, status_code=400 if reason != "not_found" else 404)
+    portal_token = mint_token(result["email"], role=result.get("role"),
+                              client_id=result.get("client_id"))
+    await write_audit(result.get("workspace_id"), result["email"], "portal_login")
+    return {"token": portal_token, "email": result["email"]}
+
+
+@app.get("/api/audit")
+async def audit_log_endpoint(_acc: dict = Depends(require_role("member"))):
+    from database import list_audit
+    ws = await _acting_workspace(_acc)
+    return {"events": await list_audit(ws) if ws else []}
+
+
 @app.get("/health")
 async def health():
     return {"status": "ok"}

@@ -1,3 +1,4 @@
+import { backendAuthHeaders } from "@/lib/backendToken";
 import { NextRequest } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
@@ -18,7 +19,7 @@ export async function GET(
   const backend = process.env.BACKEND_URL || "http://localhost:8000";
 
   try {
-    const res = await fetch(`${backend}/api/sites/${id}/fix-pack`, { cache: "no-store" });
+    const res = await fetch(`${backend}/api/sites/${id}/fix-pack`, { cache: "no-store", headers: await backendAuthHeaders() });
     if (!res.ok) {
       return new Response(await res.text(), {
         status: res.status,

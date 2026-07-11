@@ -1,3 +1,4 @@
+import { backendAuthHeaders } from "@/lib/backendToken";
 import { NextRequest } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
@@ -20,7 +21,7 @@ export async function POST(
   const target = `${backend}/api/findings/${id}/verify${query}`;
 
   try {
-    const res = await fetch(target, { method: "POST", cache: "no-store" });
+    const res = await fetch(target, { method: "POST", cache: "no-store", headers: await backendAuthHeaders() });
     const body = await res.text();
     return new Response(body, {
       status: res.status,

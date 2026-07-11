@@ -1,22 +1,21 @@
-import { backendAuthHeaders } from "@/lib/backendToken";
 import { NextRequest } from "next/server";
+import { backendAuthHeaders } from "@/lib/backendToken";
 
 const backend = () => process.env.BACKEND_URL || "http://localhost:8000";
 
-// Revoke a share link. The public URL 404s afterwards.
+// Revoke an invite (agency, member+).
 export async function DELETE(
   _req: NextRequest,
   { params }: { params: Promise<{ token: string }> },
 ) {
   const { token } = await params;
   try {
-    const res = await fetch(`${backend()}/api/share/${token}`, {
+    const res = await fetch(`${backend()}/api/invites/${token}`, {
       method: "DELETE",
-      cache: "no-store",
       headers: await backendAuthHeaders(),
+      cache: "no-store",
     });
-    const data = await res.json();
-    return new Response(JSON.stringify(data), {
+    return new Response(await res.text(), {
       status: res.status,
       headers: { "Content-Type": "application/json" },
     });

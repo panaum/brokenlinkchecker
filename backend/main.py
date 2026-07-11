@@ -2062,7 +2062,13 @@ async def accept_invite_endpoint(token: str):
     client's HS256 portal token (no NextAuth). Single-use + expiring."""
     from sharing import is_wellformed
     from database import accept_invite, write_audit
-    from auth import mint_token
+    from auth import mint_token, portal_enforced
+    # Safety gate: with enforcement OFF the backend bypasses scoping, so a client
+    # session would see every site. Refuse to mint one until the portal is armed.
+    if not portal_enforced():
+        return JSONResponse(
+            {"error": "The client portal isn't live yet. Please check back soon."},
+            status_code=503)
     if not is_wellformed(token):
         return JSONResponse({"error": "This invite link is invalid."}, status_code=404)
     result = await accept_invite(token, utcnow_iso())

@@ -8,6 +8,7 @@ import { DashboardSite, DashboardScan } from "@/types";
 import NavBar from "@/components/NavBar";
 import MonitoringPanel from "@/components/MonitoringPanel";
 import ActiveTestingPanel from "@/components/ActiveTestingPanel";
+import BadgeEmbed from "@/components/BadgeEmbed";
 
 function domainOf(url: string): string {
   try {
@@ -197,6 +198,11 @@ export default function SiteDetailPage() {
                   <h2 className="ds-text-primary" style={{ fontSize: "var(--text-heading)", fontWeight: 600, marginBottom: 4 }}>Active form testing</h2>
                   <p className="ds-text-secondary" style={{ fontSize: "var(--text-caption)", marginBottom: 12 }}>Opt in per form to submit a real test entry and confirm delivery. Off by default.</p>
                   <ActiveTestingPanel siteId={site.id} siteUrl={site.url} />
+                </div>
+                <div>
+                  <h2 className="ds-text-primary" style={{ fontSize: "var(--text-heading)", fontWeight: 600, marginBottom: 4 }}>Status badge</h2>
+                  <p className="ds-text-secondary" style={{ fontSize: "var(--text-caption)", marginBottom: 12 }}>An embeddable SVG showing this site&apos;s latest health score.</p>
+                  <BadgeEmbed siteId={site.id} siteUrl={site.url} />
                 </div>
               </div>
             )}

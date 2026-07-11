@@ -1820,6 +1820,99 @@ def _capture_screenshot(url: str) -> str:
             browser.close()
 
 
+# ─── Wave 1: X-ray view ──────────────────────────────────────────────────────
+# On-demand full-page screenshot + clickable-element geometry. Deliberately NOT
+# part of the scan render, so it is fully additive and can never break a scan.
+_xray_cache: dict[str, tuple[dict, float]] = {}
+_XRAY_CACHE_TTL = 180  # seconds
+
+
+@app.get("/api/xray")
+async def xray(url: str = Query(..., description="URL to capture for the X-ray overlay")):
+    """A full-page screenshot plus the on-page box of every clickable element.
+    Best-effort: returns {available: false} rather than erroring, so the report
+    degrades to a plain findings list."""
+    from xray import capture_xray_sync
+    now = time.time()
+    cached = _xray_cache.get(url)
+    if cached and now - cached[1] < _XRAY_CACHE_TTL:
+        return JSONResponse({**cached[0], "cached": True})
+    data = await asyncio.to_thread(capture_xray_sync, url)
+    if data.get("available"):
+        _xray_cache[url] = (data, now)
+        for k in [k for k, (_, t) in _xray_cache.items() if now - t >= _XRAY_CACHE_TTL]:
+            _xray_cache.pop(k, None)
+    return JSONResponse(data, status_code=200 if data.get("available") else 502)
+
+
+# ─── Wave 1: shareable client report ─────────────────────────────────────────
+@app.post("/api/scans/{scan_id}/share")
+async def create_share(scan_id: str):
+    """Mint an unguessable, revocable public link to this scan's report."""
+    from sharing import new_token
+    from database import create_share_token
+    token = new_token()
+    try:
+        created = await create_share_token(scan_id, token)
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+    if not created:
+        return JSONResponse({"error": "Scan not found or share storage unavailable."},
+                            status_code=404)
+    return {"token": token, "url": f"{_frontend_url()}/r/{token}", "path": f"/r/{token}"}
+
+
+@app.delete("/api/share/{token}")
+async def revoke_share(token: str):
+    """Revoke a share link. The public URL 404s afterwards."""
+    from sharing import is_wellformed
+    from database import revoke_share_token
+    if not is_wellformed(token):
+        return JSONResponse({"error": "Malformed token."}, status_code=400)
+    ok = await revoke_share_token(token)
+    return {"revoked": bool(ok)}
+
+
+@app.get("/api/r/{token}")
+async def shared_report(token: str):
+    """Public, read-only report behind a share token. No auth. 404 if the token
+    is unknown or revoked."""
+    from sharing import is_wellformed
+    from database import get_shared_report
+    if not is_wellformed(token):
+        return JSONResponse({"error": "Not found."}, status_code=404)
+    report = await get_shared_report(token)
+    if not report:
+        return JSONResponse({"error": "This report link is invalid or has been revoked."},
+                            status_code=404)
+    return report
+
+
+# ─── Wave 1: embeddable status badge ─────────────────────────────────────────
+@app.get("/api/sites/{site_id}/badge.svg")
+async def site_badge(site_id: str):
+    """A tiny score-colored SVG badge. Public, cacheable; updates after a rescan
+    (short cache). Never scanned -> gray '--'."""
+    from badge import build_badge_svg
+    from database import get_latest_score
+    score = None
+    try:
+        latest = await get_latest_score(site_id)
+        if latest:
+            score = latest.get("health_score")
+    except Exception:
+        score = None
+    svg = build_badge_svg(score)
+    return Response(
+        content=svg,
+        media_type="image/svg+xml",
+        headers={
+            "Cache-Control": "public, max-age=300, s-maxage=300",
+            "Access-Control-Allow-Origin": "*",
+        },
+    )
+
+
 @app.get("/health")
 async def health():
     return {"status": "ok"}

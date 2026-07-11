@@ -250,3 +250,46 @@ export interface DashboardSite {
   last_scanned_at: string
   scans: DashboardScan[]
 }
+
+// --- Wave 1: X-ray + shareable report ---------------------------------------
+/** One clickable element's geometry on the captured page (full-page px). */
+export interface XrayElement {
+  url: string
+  text: string
+  tag: string
+  x: number
+  y: number
+  w: number
+  h: number
+}
+
+/** Result of GET /api/xray - a screenshot + every clickable box. Best-effort. */
+export interface XrayCapture {
+  available: boolean
+  screenshot?: string
+  viewport_width?: number
+  page_width?: number
+  page_height?: number
+  elements?: XrayElement[]
+  error?: string
+  cached?: boolean
+}
+
+/** Result of POST /api/scans/{id}/share. */
+export interface ShareResult {
+  token: string
+  url: string
+  path: string
+}
+
+/** Public report payload behind a share token (GET /api/r/{token}). */
+export interface SharedReport {
+  url: string
+  health_score: number
+  total_links: number
+  broken_count: number
+  dead_cta_count: number
+  redirect_count?: number
+  scanned_at: string
+  results_json: LinkResult[]
+}

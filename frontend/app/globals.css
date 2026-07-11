@@ -354,3 +354,29 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   box-shadow: inset 2px 0 0 var(--signal);
 }
 .cmdk-dim { color: var(--text-muted); }
+
+/* ═══ Print — agency-grade PDF from any report view (Ctrl+P) ═══ */
+.print-only { display: none; }
+@media print {
+  /* Force our colors through — status colors, score, backgrounds. */
+  * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; }
+  /* Drop the ops-room atmosphere and app chrome. */
+  body::before, body::after { display: none !important; }
+  nav, .no-print, [cmdk-overlay], .cmdk-root { display: none !important; }
+  body { background: #070b0d !important; }
+
+  .print-only { display: flex !important; }
+  /* Running header on every printed page: domain · date · score. */
+  .report-print-header {
+    position: fixed; top: 0; left: 0; right: 0;
+    display: flex; align-items: center; justify-content: space-between;
+    padding: 8px 16px; font-family: var(--font-stack-mono); font-size: 11px;
+    color: var(--text-secondary); border-bottom: 1px solid var(--border-subtle);
+  }
+  main { padding-top: 40px !important; }
+
+  /* No finding split across a page break; keep cards intact. */
+  .report-issue, .report-verdict { break-inside: avoid; page-break-inside: avoid; }
+  .ds-card { box-shadow: none !important; }
+  a { text-decoration: none; color: inherit; }
+}

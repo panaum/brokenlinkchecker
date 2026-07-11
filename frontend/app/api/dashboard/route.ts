@@ -1,3 +1,4 @@
+import { backendAuthHeaders } from "@/lib/backendToken";
 import { NextRequest } from "next/server";
 
 export async function GET(req: NextRequest) {
@@ -7,6 +8,7 @@ export async function GET(req: NextRequest) {
   try {
     const res = await fetch(`${backendUrl}/dashboard`, {
       cache: "no-store",
+      headers: await backendAuthHeaders(),
     });
 
     const data = await res.json();

@@ -1,3 +1,4 @@
+import { backendAuthHeaders } from "@/lib/backendToken";
 import { NextRequest } from "next/server";
 import { getServerSession } from "next-auth/next";
 import { authOptions } from "@/app/api/auth/[...nextauth]/route";
@@ -24,7 +25,7 @@ export async function GET(req: NextRequest) {
   try {
     const res = await fetch(
       `${backendUrl}/history?url=${encodeURIComponent(url)}&email=${encodeURIComponent(email)}`,
-      { cache: "no-store" }
+      { cache: "no-store", headers: await backendAuthHeaders() }
     );
 
     const data = await res.json();

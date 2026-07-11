@@ -1,3 +1,4 @@
+import { backendAuthHeaders } from "@/lib/backendToken";
 import { NextRequest } from "next/server";
 
 const backend = () => process.env.BACKEND_URL || "http://localhost:8000";
@@ -17,7 +18,7 @@ export async function POST(
   try {
     const res = await fetch(
       `${backend()}/api/sites/${site_id}/forms/active-test?${qs.toString()}`,
-      { method: "POST", cache: "no-store" },
+      { method: "POST", cache: "no-store", headers: await backendAuthHeaders() },
     );
     const data = await res.json();
     return new Response(JSON.stringify(data), {

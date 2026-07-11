@@ -1,3 +1,4 @@
+import { backendAuthHeaders } from "@/lib/backendToken";
 import { NextRequest, NextResponse } from "next/server";
 
 export async function GET(req: NextRequest) {
@@ -12,6 +13,7 @@ export async function GET(req: NextRequest) {
   try {
     const res = await fetch(`${backendUrl}/uptime?url=${encodeURIComponent(url)}`, {
       cache: "no-store",
+      headers: await backendAuthHeaders(),
     });
 
     const data = await res.json();

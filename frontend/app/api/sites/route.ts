@@ -1,4 +1,5 @@
 import { NextRequest } from "next/server";
+import { backendAuthHeaders } from "@/lib/backendToken";
 
 export async function DELETE(req: NextRequest) {
   const backendUrl = process.env.BACKEND_URL || "http://localhost:8000";
@@ -14,6 +15,7 @@ export async function DELETE(req: NextRequest) {
   try {
     const res = await fetch(`${backendUrl}/sites/${encodeURIComponent(id)}`, {
       method: "DELETE",
+      headers: await backendAuthHeaders(),
     });
 
     const data = await res.json();
@@ -39,7 +41,7 @@ export async function POST(req: NextRequest) {
     const body = await req.json();
     const res = await fetch(`${backendUrl}/sites`, {
       method: "POST",
-      headers: { "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", ...(await backendAuthHeaders()) },
       body: JSON.stringify(body),
     });
 

@@ -1,3 +1,4 @@
+import { backendAuthHeaders } from "@/lib/backendToken";
 import { NextRequest } from "next/server";
 
 const backend = () => process.env.BACKEND_URL || "http://localhost:8000";
@@ -6,7 +7,7 @@ const backend = () => process.env.BACKEND_URL || "http://localhost:8000";
 // counts and last-known status.
 export async function GET(_req: NextRequest) {
   try {
-    const res = await fetch(`${backend()}/api/watchdog/hosts`, { cache: "no-store" });
+    const res = await fetch(`${backend()}/api/watchdog/hosts`, { cache: "no-store", headers: await backendAuthHeaders() });
     const data = await res.json();
     return new Response(JSON.stringify(data), {
       status: res.status,

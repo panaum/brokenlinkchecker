@@ -938,3 +938,73 @@ def _list_form_optins_sync(site_id: str) -> list:
 async def list_form_optins(site_id: str) -> list:
     import asyncio
     return await asyncio.to_thread(_list_form_optins_sync, site_id)
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Per-page third-party integrations (migrations/006_page_integrations.sql)
+#
+# Best-effort, like every other feature table: before the migration the table
+# does not exist, and that must never fail a scan or an endpoint.
+# ─────────────────────────────────────────────────────────────────────────────
+def _save_integrations_sync(scan_id, page_url: str, records: list) -> int:
+    if not records:
+        return 0
+    client = _get_client()
+    rows = [{
+        "scan_id": scan_id, "page_url": page_url,
+        "host": r["host"], "resource_url": r["resource_url"],
+        "category": r["category"], "type": r["type"],
+        "detected_id": r.get("detected_id"),
+        "health_status": r.get("health") or "checking",
+        "last_checked_at": "now()" if r.get("health") not in (None, "checking") else None,
+    } for r in records]
+    try:
+        client.table("page_integrations").upsert(
+            rows, on_conflict="scan_id,page_url,host,resource_url,detected_id").execute()
+        return len(rows)
+    except Exception as e:
+        if _tables_missing(e):
+            print("[Integrations] page_integrations missing — run migrations/006")
+            return 0
+        raise
+
+
+async def save_integrations(scan_id, page_url: str, records: list) -> int:
+    import asyncio
+    return await asyncio.to_thread(_save_integrations_sync, scan_id, page_url, records)
+
+
+def _update_integration_health_sync(scan_id, resource_url: str, health: str) -> None:
+    client = _get_client()
+    try:
+        client.table("page_integrations")\
+            .update({"health_status": health, "last_checked_at": "now()"})\
+            .eq("scan_id", scan_id).eq("resource_url", resource_url).execute()
+    except Exception as e:
+        if not _tables_missing(e):
+            raise
+
+
+async def update_integration_health(scan_id, resource_url: str, health: str) -> None:
+    import asyncio
+    await asyncio.to_thread(_update_integration_health_sync, scan_id, resource_url, health)
+
+
+def _get_integrations_sync(scan_id, page_url: Optional[str]) -> list:
+    client = _get_client()
+    try:
+        q = client.table("page_integrations")\
+            .select("page_url, host, resource_url, category, type, detected_id, "
+                    "health_status, last_checked_at")\
+            .eq("scan_id", scan_id)
+        if page_url:
+            q = q.eq("page_url", page_url)
+        return q.execute().data or []
+    except Exception as e:
+        if _tables_missing(e):
+            return []
+        raise
+
+
+async def get_integrations(scan_id, page_url: Optional[str] = None) -> list:
+    import asyncio
+    return await asyncio.to_thread(_get_integrations_sync, scan_id, page_url)

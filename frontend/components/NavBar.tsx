@@ -8,9 +8,9 @@ import Image from "next/image";
 import AuthButton from "@/components/AuthButton";
 import Changelog from "@/components/Changelog";
 
-// Fire the same shortcut the global palette listens for.
+// Ask the global command palette to open (it listens for this event).
 function openPalette() {
-  document.dispatchEvent(new KeyboardEvent("keydown", { key: "k", metaKey: true, bubbles: true }));
+  window.dispatchEvent(new CustomEvent("linkspy:open-command-palette"));
 }
 
 const NAV_ITEMS = [

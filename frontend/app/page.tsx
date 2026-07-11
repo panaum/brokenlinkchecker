@@ -506,9 +506,10 @@ export default function HomePage() {
             <ReportHeader results={results} detectedBuilders={detectedBuilders} diff={diff} siteId={siteId} />
           </section>
 
-          {/* Third-party integrations on the scanned page */}
+          {/* Third-party integrations on the scanned page. z-30 so its panel
+              overflows above the later results sections (siblings at z-10). */}
           {scanId && scanMeta && (
-            <section className="relative z-10 flex justify-end px-4 sm:px-6 lg:px-8 -mt-2">
+            <section className="relative z-30 flex justify-end px-4 sm:px-6 lg:px-8 -mt-2">
               <IntegrationsPanel scanId={scanId} pageUrl={scanMeta.scannedUrl} />
             </section>
           )}
@@ -547,7 +548,10 @@ export default function HomePage() {
           </section>
 
           {/* Filter bar */}
-          <section className="relative z-10">
+          {/* z-30 so the zone/sort dropdowns overflow ABOVE the results table
+              section (which is a sibling at z-10); equal z-index would let the
+              later table paint over the open dropdown. */}
+          <section className="relative z-30">
             <FilterBar
               results={results}
               filter={filter}

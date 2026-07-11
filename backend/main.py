@@ -1877,15 +1877,23 @@ async def xray(url: str = Query(..., description="URL to capture for the X-ray o
 async def create_share(scan_id: str, _acc: dict = Depends(require_scan_access("member"))):
     """Mint an unguessable, revocable public link to this scan's report."""
     from sharing import new_token
-    from database import create_share_token
+    from database import create_share_token, ShareStorageMissing
     token = new_token()
     try:
         created = await create_share_token(scan_id, token)
+    except ShareStorageMissing:
+        return JSONResponse(
+            {"error": "Report sharing isn't set up on the database yet. Apply "
+                      "migration 008_share_tokens.sql in Supabase, then try again.",
+             "setup_required": True},
+            status_code=400)
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=500)
     if not created:
-        return JSONResponse({"error": "Scan not found or share storage unavailable."},
-                            status_code=404)
+        return JSONResponse(
+            {"error": "That scan couldn't be found — it may not have been saved. "
+                      "Re-scan the page and try sharing again."},
+            status_code=404)
     return {"token": token, "url": f"{_frontend_url()}/r/{token}", "path": f"/r/{token}"}
 
 

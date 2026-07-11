@@ -1049,11 +1049,15 @@ async def get_scan(scan_id) -> Optional[dict]:
     return await asyncio.to_thread(_scan_row_sync, scan_id)
 
 
+class ShareStorageMissing(Exception):
+    """The share_tokens table doesn't exist — migration not applied."""
+
+
 def _create_share_token_sync(scan_id, token: str) -> Optional[dict]:
     client = _get_client()
     scan = _scan_row_sync(scan_id)
     if not scan:
-        return None
+        return None  # genuinely no such scan (distinct from storage missing)
     try:
         client.table("share_tokens").insert({
             "token": token,
@@ -1064,7 +1068,8 @@ def _create_share_token_sync(scan_id, token: str) -> Optional[dict]:
         return {"token": token, "url": scan.get("url", "")}
     except Exception as e:
         if _tables_missing(e):
-            return None
+            # The scan exists but the sharing table doesn't — actionable.
+            raise ShareStorageMissing()
         raise
 
 

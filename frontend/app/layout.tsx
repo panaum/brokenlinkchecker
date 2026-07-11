@@ -1,13 +1,35 @@
 import type { Metadata } from "next";
-import { Poppins } from "next/font/google";
+import { Bricolage_Grotesque, Familjen_Grotesk, JetBrains_Mono } from "next/font/google";
 import "./globals.css";
 import Providers from "@/components/SessionProvider";
+import CommandPalette from "@/components/CommandPalette";
 
-const poppins = Poppins({
+// Identity typography, self-hosted via next/font.
+//  - display: Bricolage Grotesque — technical-editorial, high-personality, for
+//    headings and verdicts.
+//  - body:    Familjen Grotesk — a warm grotesk, readable at body sizes.
+//  - mono:    JetBrains Mono — every piece of DATA (URLs, scores, counts,
+//    timestamps, status codes) with tabular numerals. Data in mono is what
+//    makes an instrument read as an instrument.
+const display = Bricolage_Grotesque({
   subsets: ["latin"],
-  weight: ["300", "400", "500", "600", "700"],
+  weight: ["500", "600", "700", "800"],
   display: "swap",
-  variable: "--font-poppins",
+  variable: "--font-display",
+});
+
+const body = Familjen_Grotesk({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  display: "swap",
+  variable: "--font-body",
+});
+
+const mono = JetBrains_Mono({
+  subsets: ["latin"],
+  weight: ["400", "500", "600", "700"],
+  display: "swap",
+  variable: "--font-mono",
 });
 
 export const metadata: Metadata = {
@@ -36,10 +58,16 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={poppins.variable} suppressHydrationWarning>
-      <body className={`${poppins.className} bg-[#0a0612] antialiased`} suppressHydrationWarning>
+    <html
+      lang="en"
+      className={`${display.variable} ${body.variable} ${mono.variable}`}
+      suppressHydrationWarning
+    >
+      <body className="antialiased" suppressHydrationWarning>
         <Providers>
           {children}
+          {/* Global ⌘K command palette — reachable from every page. */}
+          <CommandPalette />
         </Providers>
       </body>
     </html>

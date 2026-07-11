@@ -80,7 +80,7 @@ async function exportPDF(
   let y = margin;
 
   // Header
-  doc.setFillColor(65, 0, 153);
+  doc.setFillColor(17, 148, 120);
   doc.rect(0, 0, pageW, 28, "F");
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(18);
@@ -103,15 +103,15 @@ async function exportPDF(
   y += 10;
 
   // Health score box
-  doc.setFillColor(245, 240, 255);
+  doc.setFillColor(233, 249, 245);
   doc.roundedRect(margin, y, contentW, 22, 3, 3, "F");
-  doc.setTextColor(65, 0, 153);
+  doc.setTextColor(13, 110, 90);
   doc.setFontSize(22);
   doc.setFont("helvetica", "bold");
   doc.text(`${healthScore}/100`, margin + 6, y + 14);
   doc.setFontSize(10);
   doc.setFont("helvetica", "normal");
-  doc.setTextColor(80, 60, 120);
+  doc.setTextColor(70, 100, 95);
   doc.text("Site Health Score", margin + 38, y + 10);
 
   const total = results.length;
@@ -137,7 +137,7 @@ async function exportPDF(
     doc.setFont("helvetica", "bold");
     doc.text("✓ No issues found — all links are working!", margin, y + 8);
   } else {
-    doc.setFillColor(65, 0, 153);
+    doc.setFillColor(17, 148, 120);
     doc.rect(margin, y, contentW, 7, "F");
     doc.setTextColor(255, 255, 255);
     doc.setFontSize(8);

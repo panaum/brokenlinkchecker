@@ -47,6 +47,8 @@ from database import (
 from correlation import enrich_reasons
 from form_audit import audit_forms, probe_action_methods
 from tracking_audit import audit_tracking
+from integration_audit import collect_integrations, unchecked_resource_urls, status_to_health
+from database import save_integrations, update_integration_health, get_integrations
 from watchdog import (
     inventory_hosts, demote_third_party_failures, aggregate_outages, run_watchdog,
 )
@@ -101,6 +103,41 @@ async def _watchdog_slack(text: str, outage: dict = None) -> None:
             await client.post(webhook_url, json={"blocks": blocks}, timeout=5.0)
     except Exception as e:
         print(f"[Watchdog] Slack failed: {e}")
+
+
+async def _persist_and_check_integrations(scan_id, page_url: str, integrations: list) -> None:
+    """Store this page's integrations, then health-check the few resources the
+    scan did not already check — in the background, never blocking the stream.
+    Best-effort: a failure here never touches the scan."""
+    if not scan_id or not integrations:
+        return
+    try:
+        await save_integrations(scan_id, page_url, integrations)
+    except Exception as e:
+        print(f"[Integrations] save skipped: {type(e).__name__}: {e}")
+        return
+    pending = unchecked_resource_urls(integrations)
+    if pending:
+        asyncio.create_task(_background_integration_health(scan_id, pending))
+
+
+async def _background_integration_health(scan_id, urls: list) -> None:
+    """Lightweight GET per still-unknown resource; persist each verdict as it
+    lands. 5s timeout, follow redirects, bot-blocks stay 'unknown' not 'down'."""
+    async with httpx.AsyncClient(follow_redirects=True, timeout=5) as client:
+        for u in urls:
+            health = "unknown"
+            try:
+                resp = await client.get(u, headers={"User-Agent": "Mozilla/5.0 LinkSpy"})
+                health = status_to_health(resp.status_code)
+            except (httpx.TimeoutException,):
+                health = "unresponsive"
+            except Exception:
+                health = "unknown"
+            try:
+                await update_integration_health(scan_id, u, health)
+            except Exception:
+                pass
 
 
 async def _run_watchdog_after_scan(site_id, results, page_url: str) -> None:
@@ -741,6 +778,11 @@ async def scan_events(url: str, email: str = "anonymous", notify: bool = True):
         expected = await _expected_tracking(url, email)
         results.extend(audit_tracking(signals, results, url, expected=expected))
 
+        # Per-page third-party integrations, from the SAME results + tracking
+        # signals (one detection pass). Collected here while both are in hand;
+        # persisted with the scan_id once it is known, below.
+        page_integrations = collect_integrations(results, signals, url)
+
         # A third-party embed whose HOST is down is the provider's outage, not a
         # broken link on the client's site. Demote it to unverifiable so it never
         # turns their report red or dents their health score — the watchdog
@@ -809,6 +851,10 @@ async def scan_events(url: str, email: str = "anonymous", notify: bool = True):
         # failure never touches the scan.
         await _run_watchdog_after_scan(effective_site_id, results, url)
 
+        # Persist per-page integrations under this scan, then background-check any
+        # resource the scan did not already health-check. Never blocks the stream.
+        await _persist_and_check_integrations(saved.get("scan_id"), url, page_integrations)
+
         diff_payload = _diff_payload(diff, link_counts, now, baseline_status)
 
         # An interactive scan always reports. Monitoring alerts only on change,
@@ -828,6 +874,7 @@ async def scan_events(url: str, email: str = "anonymous", notify: bool = True):
                    "total_links": len(results),
                    "total_placements": total_placements,
                    "diff": diff_payload, "site_id": effective_site_id,
+                   "scan_id": saved.get("scan_id"), "scanned_url": url,
                    **_breakdowns(results, url)}
         yield ("result", ScanOutcome(
             url=url, results=results, health_score=health_score, diff=diff,
@@ -893,6 +940,7 @@ async def scan_site(
             queue = asyncio.Queue()
             completed_pages = 0
             all_results = []
+            site_integrations = {}   # page_url -> [integration records], persisted after save
             # Builders seen anywhere on the site, in first-seen order.
             site_builders: list[str] = []
 
@@ -927,6 +975,10 @@ async def scan_site(
                                 expected=site_expected,
                             ))
                             demote_third_party_failures(page_results, page_url)
+
+                            # Per-page integrations (same results + tracking).
+                            site_integrations[page_url] = collect_integrations(
+                                page_results, page_signals, page_url)
 
                             # Console/request failures are per page.
                             enrich_reasons(page_results, page_signals)
@@ -1047,6 +1099,11 @@ async def scan_site(
             # Watchdog across the whole crawl's third-party hosts.
             await _run_watchdog_after_scan(effective_site_id, final_results, url)
 
+            # Persist every page's integrations under this scan, and background-
+            # check any resource not already health-checked.
+            for p_url, recs in site_integrations.items():
+                await _persist_and_check_integrations(saved.get("scan_id"), p_url, recs)
+
             diff_payload = _diff_payload(diff, link_counts, now, baseline_status)
 
             # Send Slack notification
@@ -1061,7 +1118,7 @@ async def scan_site(
             # Yield final result event
             total_placements = sum(r.get("occurrences", 1) or 1 for r in final_results)
 
-            yield f"data: {json.dumps({'type': 'result', 'data': final_results, 'health_score': health_score, 'pages_scanned': total_pages, 'detected_builders': site_builders, 'total_links': len(final_results), 'total_placements': total_placements, 'diff': diff_payload, 'site_id': effective_site_id, **_breakdowns(final_results, url)})}\n\n"
+            yield f"data: {json.dumps({'type': 'result', 'data': final_results, 'health_score': health_score, 'pages_scanned': total_pages, 'detected_builders': site_builders, 'total_links': len(final_results), 'total_placements': total_placements, 'diff': diff_payload, 'site_id': effective_site_id, 'scan_id': saved.get('scan_id'), 'scanned_url': url, **_breakdowns(final_results, url)})}\n\n"
 
         except Exception as e:
             yield f"data: {json.dumps({'type': 'error', 'message': str(e)})}\n\n"
@@ -1641,6 +1698,36 @@ async def run_active_form_test(site_id: str, form_key: str = Query(...),
         return record
     except Exception as e:
         return JSONResponse({"error": str(e)}, status_code=500)
+
+
+_HEALTH_SORT = {"down": 0, "unresponsive": 1, "checking": 2, "unknown": 3, "healthy": 4}
+
+
+@app.get("/api/scans/{scan_id}/integrations")
+async def scan_integrations(scan_id: str, page: str = Query(default="")):
+    """Third-party integrations for a scan. `page` (URL-encoded query param, so a
+    slashy/query-string page URL survives) filters to one page; omit for all
+    pages grouped. Sorted down first, then unresponsive, then by category."""
+    try:
+        rows = await get_integrations(scan_id, page or None)
+    except Exception as e:
+        return JSONResponse({"error": str(e)}, status_code=500)
+
+    rows.sort(key=lambda r: (_HEALTH_SORT.get(r.get("health_status"), 5),
+                             r.get("category") or "", r.get("host") or ""))
+    if page:
+        return {"page": page, "count": len(rows),
+                "down": sum(1 for r in rows if r.get("health_status") == "down"),
+                "integrations": rows}
+    # Grouped by page when no filter.
+    by_page = {}
+    for r in rows:
+        by_page.setdefault(r["page_url"], []).append(r)
+    return {"pages": [{"page": p, "count": len(items),
+                       "down": sum(1 for r in items if r.get("health_status") == "down"),
+                       "integrations": items}
+                      for p, items in by_page.items()],
+            "total": len(rows)}
 
 
 @app.get("/api/watchdog/hosts")

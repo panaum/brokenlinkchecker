@@ -19,6 +19,7 @@ import PagePreviewCard from "@/components/PagePreviewCard";
 import WhatChangedCard from "@/components/WhatChangedCard";
 import TrackingBanner from "@/components/TrackingBanner";
 import NavBar from "@/components/NavBar";
+import IntegrationsPanel from "@/components/IntegrationsPanel";
 import Link from "next/link";
 import { Wrench } from "lucide-react";
 
@@ -103,6 +104,7 @@ export default function HomePage() {
   const [error, setError] = useState<string | null>(null);
   const [scanComplete, setScanComplete] = useState(false);
   const [scanMeta, setScanMeta] = useState<ScanMeta | null>(null);
+  const [scanId, setScanId] = useState<string | null>(null);
   const [scanMode, setScanMode] = useState<"single" | "site">("single");
   const eventSourceRef = useRef<EventSource | null>(null);
   const scanningRef = useRef(false);
@@ -207,6 +209,7 @@ export default function HomePage() {
             setSchemes((data.schemes as Record<string, number>) ?? {});
             setRedirects((data.redirects as RedirectSummary) ?? null);
             setSiteId((data.site_id as string) ?? null);
+            setScanId((data.scan_id as string) ?? null);
             setScanComplete(true);
             setScanning(false);
             scanningRef.current = false;
@@ -502,6 +505,13 @@ export default function HomePage() {
           <section className="relative z-10">
             <ReportHeader results={results} detectedBuilders={detectedBuilders} diff={diff} siteId={siteId} />
           </section>
+
+          {/* Third-party integrations on the scanned page */}
+          {scanId && scanMeta && (
+            <section className="relative z-10 flex justify-end px-4 sm:px-6 lg:px-8 -mt-2">
+              <IntegrationsPanel scanId={scanId} pageUrl={scanMeta.scannedUrl} />
+            </section>
+          )}
 
           {/* Health score */}
           <section className="relative z-10">

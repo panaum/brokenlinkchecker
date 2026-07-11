@@ -19,6 +19,8 @@ import PagePreviewCard from "@/components/PagePreviewCard";
 import WhatChangedCard from "@/components/WhatChangedCard";
 import TrackingBanner from "@/components/TrackingBanner";
 import NavBar from "@/components/NavBar";
+import Link from "next/link";
+import { Wrench } from "lucide-react";
 
 // ─── History scan entry type ──────────────────────────────────────────────────
 interface HistoryScanEntry {
@@ -360,6 +362,30 @@ export default function HomePage() {
   return (
     <main className="min-h-screen relative overflow-hidden">
       <NavBar />
+
+      {/* Self-heal entry — right side, opens the dedicated page. */}
+      <Link
+        href="/self-heal"
+        className="hidden sm:inline-flex items-center gap-2"
+        style={{
+          position: "absolute",
+          top: 88,
+          right: 24,
+          zIndex: 20,
+          padding: "8px 16px",
+          borderRadius: 999,
+          fontSize: 14,
+          fontWeight: 600,
+          border: "1px solid rgba(168,85,247,0.4)",
+          background: "rgba(168,85,247,0.14)",
+          color: "#c084fc",
+          textDecoration: "none",
+          backdropFilter: "blur(6px)",
+        }}
+      >
+        <Wrench size={15} /> Self-heal
+      </Link>
+
       {/* ── HERO SECTION ── */}
       <section className="relative pt-28 pb-8 noise-overlay overflow-hidden">
         {/* Particle dot background */}

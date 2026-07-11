@@ -70,22 +70,22 @@ alter table sites add column if not exists client_id    uuid references clients 
 create index if not exists sites_workspace_idx on sites (workspace_id);
 create index if not exists sites_client_idx on sites (client_id);
 
--- ── RLS: enable + explicit deny-by-default on every new table. ────────────────
+-- ── RLS: enable + a permissive policy per table. The backend connects with the
+--    anon key (like every other table in this app), so a deny-by-default policy
+--    would lock the backend out. Authorization is enforced in the FastAPI layer
+--    (require_site_access), not here. Drops any prior deny-all policy.
 do $$
 declare t text;
 begin
     foreach t in array array['workspaces','clients','memberships','invites','audit_log']
     loop
         execute format('alter table %I enable row level security', t);
+        execute format('drop policy if exists %I on %I', t || '_deny_all', t);
         if not exists (
             select 1 from pg_policies
-            where schemaname = 'public' and tablename = t
-              and policyname = t || '_deny_all'
+            where schemaname = 'public' and tablename = t and policyname = t || '_all'
         ) then
-            -- Deny all access to non-service roles; service_role bypasses RLS.
-            execute format(
-                'create policy %I on %I for all to public using (false) with check (false)',
-                t || '_deny_all', t);
+            execute format('create policy %I on %I for all to public using (true) with check (true)', t || '_all', t);
         end if;
     end loop;
 end $$;

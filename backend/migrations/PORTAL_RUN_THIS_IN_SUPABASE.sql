@@ -81,16 +81,19 @@ create table if not exists share_tokens (
 );
 create index if not exists share_tokens_scan_idx on share_tokens (scan_id);
 
--- ── 2. RLS: deny-by-default on the new tables (service role bypasses; the app
---       enforces authorization). ───────────────────────────────────────────────
+-- ── 2. RLS: enable + a PERMISSIVE policy per table. The backend uses the anon
+--       key (like every other table here), so authorization is enforced in the
+--       app layer, not by RLS. (A deny-by-default policy would lock the backend
+--       out — that was a bug.) Drops any prior deny-all policy.
 do $$
 declare t text;
 begin
     foreach t in array array['workspaces','clients','memberships','invites','audit_log']
     loop
         execute format('alter table %I enable row level security', t);
-        if not exists (select 1 from pg_policies where schemaname='public' and tablename=t and policyname=t||'_deny_all') then
-            execute format('create policy %I on %I for all to public using (false) with check (false)', t||'_deny_all', t);
+        execute format('drop policy if exists %I on %I', t||'_deny_all', t);
+        if not exists (select 1 from pg_policies where schemaname='public' and tablename=t and policyname=t||'_all') then
+            execute format('create policy %I on %I for all to public using (true) with check (true)', t||'_all', t);
         end if;
     end loop;
     -- share_tokens is permissive (public read behind a capability token).

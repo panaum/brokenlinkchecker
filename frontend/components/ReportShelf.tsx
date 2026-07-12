@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useState } from "react";
 import Link from "next/link";
-import { FileText, Plus, Loader2, ShieldCheck, ArrowRight } from "lucide-react";
+import { FileText, Plus, Loader2, ShieldCheck, Download } from "lucide-react";
 import { staffToken, getPortalToken } from "@/lib/backendClient";
 
 interface ReportRow {
@@ -27,11 +27,23 @@ const T = {
   },
 };
 
-function scoreColor(s: number | null | undefined, green: string): string {
-  if (s == null) return "#928da6";
-  if (s >= 90) return green;
-  if (s >= 70) return "#d97706";
-  return "#dc2626";
+// Small score ring for the document cover.
+function MiniRing({ score, color, track }: { score: number | null | undefined; color: string; track: string }) {
+  const R = 15, C = 2 * Math.PI * R;
+  const pct = score == null ? 0 : Math.max(0, Math.min(100, score));
+  return (
+    <div style={{ position: "relative", width: 40, height: 40, flexShrink: 0 }}>
+      <svg width="40" height="40" viewBox="0 0 40 40">
+        <circle cx="20" cy="20" r={R} fill="none" stroke={track} strokeWidth="4" />
+        <circle cx="20" cy="20" r={R} fill="none" stroke={color} strokeWidth="4" strokeLinecap="round"
+          strokeDasharray={C} strokeDashoffset={C * (1 - pct / 100)} transform="rotate(-90 20 20)" />
+      </svg>
+      <span style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center",
+        fontFamily: "var(--font-stack-mono)", fontSize: 12, fontWeight: 700, color }}>
+        {score ?? "—"}
+      </span>
+    </div>
+  );
 }
 
 export default function ReportShelf({
@@ -132,7 +144,6 @@ export default function ReportShelf({
         <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(210px, 1fr))", gap: 14 }}>
           {reports.map((r) => {
             const d = r.data_json || {};
-            const sc = scoreColor(d.score, c.green);
             return (
               <Link key={r.id} href={`/reports/${r.id}`} className="report-cover"
                 style={{
@@ -149,15 +160,21 @@ export default function ReportShelf({
                   {d.verdict || "Proof-of-work report"}
                 </div>
                 <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", marginTop: 14 }}>
-                  <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
-                    {d.score != null && (
-                      <span style={{ fontFamily: "var(--font-stack-mono)", fontSize: 15, fontWeight: 700, color: sc }}>{d.score}</span>
-                    )}
+                  <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                    <MiniRing score={d.score} color={c.brand} track={c.line} />
                     {d.all_clear
                       ? <span style={{ display: "inline-flex", alignItems: "center", gap: 4, color: c.green, fontSize: 12 }}><ShieldCheck size={13} /> All clear</span>
                       : (d.caught_count ? <span style={{ color: c.sub, fontSize: 12 }}>{d.caught_count} caught</span> : null)}
                   </div>
-                  <ArrowRight size={15} style={{ color: c.muted }} />
+                  {/* Real PDF path: open the report with auto-print → Save as PDF. */}
+                  <span
+                    role="button"
+                    aria-label="Download PDF"
+                    onClick={(e) => { e.preventDefault(); window.open(`/reports/${r.id}?print=1`, "_blank"); }}
+                    style={{ display: "inline-flex", alignItems: "center", gap: 4, color: c.muted, fontSize: 12, cursor: "pointer" }}
+                  >
+                    <Download size={14} /> PDF
+                  </span>
                 </div>
               </Link>
             );

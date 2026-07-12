@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation";
 import { DashboardSite, DashboardScan } from "@/types";
 import { getPortalToken, clearPortalToken } from "@/lib/backendClient";
 import { ShieldCheck, LogOut } from "lucide-react";
+import ReportShelf from "@/components/ReportShelf";
 
 function domainOf(url: string): string {
   try { return new URL(url).hostname.replace(/^www\./, ""); } catch { return url; }
@@ -124,6 +125,11 @@ export default function PortalHome() {
                 })}
               </div>
             )}
+
+            {/* Monthly proof-of-work reports */}
+            <section className="ds-card ds-card-pad" style={{ marginTop: "var(--space-5)" }}>
+              <ReportShelf variant="dark" portal />
+            </section>
 
             {resources.length > 0 && (
               <section className="ds-card ds-card-pad" style={{ marginTop: "var(--space-5)" }}>

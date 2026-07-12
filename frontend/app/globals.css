@@ -384,3 +384,23 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 @keyframes ds-resolve { to { opacity: 0.35; } }
 .ds-resolving { animation: ds-resolve 500ms var(--ease-out-quart) forwards; }
 .ds-verifying { text-decoration: line-through; opacity: 0.6; }
+
+/* ─── Vigilance report print stylesheet (Ctrl+P → clean PDF) ─── */
+@media print {
+  .report-print-btn { display: none !important; }
+  .report-root { background: #fff !important; padding: 0 !important; }
+  .report-root article {
+    box-shadow: none !important; border-radius: 0 !important; max-width: 100% !important;
+  }
+  /* Never split a section or an incident card across pages. */
+  .report-block, .report-incident { break-inside: avoid; page-break-inside: avoid; }
+  .report-masthead { break-after: avoid; }
+  /* Force the light palette + backgrounds to actually print. */
+  .report-root, .report-root * {
+    -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important;
+  }
+  @page { margin: 14mm; }
+}
+
+/* Vigilance report shelf — document-cover hover lift */
+.report-cover:hover { transform: translateY(-3px); box-shadow: 0 8px 24px rgba(0,0,0,0.18); }

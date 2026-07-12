@@ -1,6 +1,7 @@
 "use client";
 
 import { use, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
 import { Printer, Loader2 } from "lucide-react";
 import VigilanceReport, { ReportData } from "@/components/VigilanceReport";
 import { staffToken, getPortalToken } from "@/lib/backendClient";
@@ -9,6 +10,7 @@ interface Report { id: string; site_id: string; period_label: string; data_json:
 
 export default function ReportPage({ params }: { params: Promise<{ report_id: string }> }) {
   const { report_id } = use(params);
+  const wantsPrint = useSearchParams().get("print") === "1";
   const [report, setReport] = useState<Report | null>(null);
   const [error, setError] = useState<string | null>(null);
 
@@ -29,6 +31,14 @@ export default function ReportPage({ params }: { params: Promise<{ report_id: st
       }
     })();
   }, [report_id]);
+
+  // Opened from the shelf's "PDF" action — trigger the print dialog once painted.
+  useEffect(() => {
+    if (report && wantsPrint) {
+      const t = setTimeout(() => window.print(), 400);
+      return () => clearTimeout(t);
+    }
+  }, [report, wantsPrint]);
 
   if (error) {
     return (

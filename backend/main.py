@@ -239,6 +239,16 @@ async def lifespan(app: FastAPI):
                 print("[Sentinel] daily checks + 5-min uptime scheduled")
         except Exception as e:
             print(f"[Sentinel] not scheduled: {e}")
+        # Wave 2 (lead delivery): daily tracer sweep over armed enrollments.
+        try:
+            from tracer import tracer_enabled
+            aps = _scheduler._scheduler
+            if aps:
+                aps.add_job(_run_tracer_sweep, "cron", hour=6, minute=0, id="tracer_daily",
+                            replace_existing=True, misfire_grace_time=3600)
+                print(f"[Tracer] daily sweep scheduled (enabled={tracer_enabled()})")
+        except Exception as e:
+            print(f"[Tracer] not scheduled: {e}")
     except Exception as e:
         # Monitoring failing to start must never take the API down.
         print(f"[Monitor] scheduler did not start: {e}")
@@ -2495,6 +2505,207 @@ async def contract_drift_check(site_id: str, request: Request,
                                     first_seen=c.get("confirmed_at"))
         results.append({"contract_id": c["id"], "form_ref": ref, "violations": violations})
     return {"results": results}
+
+
+# ─── Verified Lead Delivery, Wave 2: the tracer ──────────────────────────────
+async def _real_submit(*, url, selector, payload):
+    """Real one-shot submitter — reuses the proven active-submission executor
+    (payment refusal, honeypot-safe, exactly-once) in a thread."""
+    import asyncio
+    from active_submission_exec import submit_test_form
+    email = next((v for k, v in payload.items() if "email" in k.lower()), None)
+    res = await asyncio.to_thread(submit_test_form, url, selector, test_email=email)
+    res = res or {}
+    return {"submitted": bool(res.get("submitted")), "status": res.get("status"),
+            "screenshot_ref": res.get("screenshot_ref") or res.get("screenshot")}
+
+
+async def _current_confirmed_contract(site_id, contract_key):
+    from database import confirmed_contracts
+    for c in await confirmed_contracts(site_id):
+        if c.get("contract_key") == contract_key:
+            return c
+    return None
+
+
+async def execute_tracer_run(site_id, contract_key, mode="scheduled", run_token="run"):
+    """Full run: gates → submit → verify → cleanup → ledger, with a single flap
+    re-run before alerting, and Slack on any non-verified/cleanup-fail outcome."""
+    from tracer import run_tracer, TracerRefused
+    from database import get_enrollment, get_crm_connection, insert_tracer_run
+    from crm_connectors import make_connector
+    from tracer_crypto import decrypt, redact
+    import json
+
+    contract = await _current_confirmed_contract(site_id, contract_key)
+    enrollment = await get_enrollment(site_id, contract_key)
+    conn_row = await get_crm_connection(site_id)
+    if not contract or not enrollment:
+        return {"error": "No confirmed contract or enrollment for this form."}
+    if not conn_row:
+        return {"error": "Connect a CRM before running the tracer."}
+    try:
+        creds = json.loads(decrypt(conn_row["credentials_enc"]))
+    except Exception:
+        return {"error": "Stored CRM credentials could not be read."}
+    connector = make_connector(conn_row["crm_type"], creds)
+
+    async def _do():
+        return await run_tracer(contract=contract, enrollment=enrollment, connector=connector,
+                                submit_fn=_real_submit, mode=mode, run_token=run_token, max_polls=6)
+    try:
+        result = await _do()
+        # Flap protection: one immediate re-run before we alert on a bad outcome.
+        if result["needs_alert"] and result["alert_kind"] != "failed_cleanup":
+            result = await _do()
+    except TracerRefused as e:
+        return {"refused": redact(str(e))}
+
+    saved = await insert_tracer_run(result["row"])
+    if result["needs_alert"]:
+        kind = result["alert_kind"]
+        loud = ":rotating_light:" if kind in ("failed_cleanup", "failed_arrival") else ":warning:"
+        extra = ""
+        if kind == "failed_cleanup" and result["row"].get("crm_contact_ref"):
+            extra = f" — test contact {result['row']['crm_contact_ref']} NOT removed, delete manually"
+        try:
+            await _watchdog_slack(f"{loud} *Lead tracer: {kind}* on a monitored form{extra}")
+        except Exception:
+            pass
+    return {"outcome": result["row"]["outcome"], "cleanup": result["row"]["cleanup"],
+            "run_id": (saved or {}).get("id"), "mode": mode}
+
+
+async def _run_tracer_sweep():
+    """Daily job: run the tracer for every armed enrollment. Inert unless the
+    flag is on. Small jitter so we don't hammer every CRM at once."""
+    import asyncio
+    from tracer import tracer_enabled
+    from database import active_enrollments
+    if not tracer_enabled():
+        return {"skipped": "flag off"}
+    n = 0
+    for enr in await active_enrollments():
+        try:
+            await asyncio.sleep(min(30, n * 3))   # gentle jitter
+            await execute_tracer_run(enr["site_id"], enr["contract_key"], mode="scheduled")
+            n += 1
+        except Exception:
+            pass
+    return {"ran": n}
+
+
+@app.get("/api/sites/{site_id}/crm")
+async def crm_status(site_id: str, _acc: dict = Depends(require_site_access("member"))):
+    """Connection status only — NEVER the credentials."""
+    from database import get_crm_connection
+    row = await get_crm_connection(site_id)
+    if not row:
+        return {"connected": False}
+    return {"connected": True, "crm_type": row["crm_type"], "test_ok": row.get("test_ok"),
+            "test_detail": row.get("test_detail"), "last_tested_at": row.get("last_tested_at")}
+
+
+@app.post("/api/sites/{site_id}/crm/connect")
+async def crm_connect(site_id: str, request: Request,
+                      _acc: dict = Depends(require_site_access("member"))):
+    from crm_connectors import make_connector, CONNECT_GUIDANCE
+    from tracer_crypto import encrypt
+    from database import save_crm_connection
+    import json
+    body = await request.json()
+    crm_type = (body.get("crm_type") or "").strip()
+    creds = body.get("credentials") or {}
+    if crm_type not in ("hubspot", "ghl"):
+        return JSONResponse({"error": "Unsupported CRM."}, status_code=400)
+    try:
+        connector = make_connector(crm_type, creds)
+        test = await connector.test_connection()
+    except Exception:
+        test = {"ok": False, "detail": "connection test failed"}
+    enc = encrypt(json.dumps(creds))
+    saved = await save_crm_connection(site_id, crm_type, enc, test.get("ok"), test.get("detail"))
+    if not saved:
+        return JSONResponse({"error": "CRM storage unavailable — apply migration 014.",
+                             "setup_required": True}, status_code=400)
+    return {"test_ok": test.get("ok"), "detail": test.get("detail"),
+            "guidance": CONNECT_GUIDANCE.get(crm_type)}
+
+
+@app.post("/api/sites/{site_id}/tracer/enroll")
+async def tracer_enroll(site_id: str, request: Request,
+                        _acc: dict = Depends(require_site_access("member"))):
+    from auth import caller_email
+    from database import save_enrollment
+    from tracer import default_test_email
+    from datetime import datetime, timezone
+    body = await request.json()
+    if not body.get("acknowledged"):
+        return JSONResponse({"error": "You must acknowledge that the test pattern is "
+                             "excluded from automations before enrolling."}, status_code=400)
+    contract_key = body.get("contract_key")
+    patch = {
+        "enabled": True, "acknowledged": True, "acknowledged_by": caller_email(request),
+        "acknowledged_at": datetime.now(timezone.utc).isoformat(),
+        "test_email": body.get("test_email") or default_test_email(),
+        "marker_field": body.get("marker_field"),
+        "dry_run_passed": False, "schedule_active": False,
+    }
+    saved = await save_enrollment(site_id, contract_key, patch)
+    if not saved:
+        return JSONResponse({"error": "Enrollment storage unavailable — apply migration 014.",
+                             "setup_required": True}, status_code=400)
+    return {"enrollment": saved}
+
+
+@app.post("/api/sites/{site_id}/tracer/run-now")
+async def tracer_run_now(site_id: str, request: Request,
+                         _acc: dict = Depends(require_site_access("member"))):
+    """Manual run. First run after enrollment is a DRY-RUN setup validation; the
+    daily schedule stays off until it passes and the operator activates."""
+    from tracer import tracer_enabled
+    from database import get_enrollment, save_enrollment
+    if not tracer_enabled():
+        return JSONResponse({"error": "TRACER_ENABLED is off — arm it before running.",
+                             "flag_off": True}, status_code=400)
+    body = await request.json()
+    contract_key = body.get("contract_key")
+    enr = await get_enrollment(site_id, contract_key)
+    if not enr:
+        return JSONResponse({"error": "This form is not enrolled."}, status_code=400)
+    mode = "dryrun" if not enr.get("dry_run_passed") else "manual"
+    res = await execute_tracer_run(site_id, contract_key, mode=mode)
+    if mode == "dryrun" and res.get("outcome") == "verified":
+        await save_enrollment(site_id, contract_key, {"dry_run_passed": True})
+        res["dry_run_passed"] = True
+    return res
+
+
+@app.post("/api/sites/{site_id}/tracer/activate")
+async def tracer_activate(site_id: str, request: Request,
+                          _acc: dict = Depends(require_site_access("member"))):
+    """Operator confirms setup validation → arm the daily schedule for this form."""
+    from database import get_enrollment, save_enrollment
+    body = await request.json()
+    contract_key = body.get("contract_key")
+    enr = await get_enrollment(site_id, contract_key)
+    if not enr or not enr.get("dry_run_passed"):
+        return JSONResponse({"error": "Run a passing dry-run first."}, status_code=400)
+    saved = await save_enrollment(site_id, contract_key, {"schedule_active": True})
+    return {"enrollment": saved}
+
+
+@app.get("/api/sites/{site_id}/tracer/stamp")
+async def tracer_stamp(site_id: str, _acc: dict = Depends(require_site_access("client_viewer"))):
+    from database import runs_for_site
+    from tracer import stamp_summary
+    return stamp_summary(await runs_for_site(site_id))
+
+
+@app.get("/api/sites/{site_id}/tracer/runs")
+async def tracer_runs(site_id: str, _acc: dict = Depends(require_site_access("client_viewer"))):
+    from database import runs_for_site
+    return {"runs": await runs_for_site(site_id)}
 
 
 @app.get("/health")

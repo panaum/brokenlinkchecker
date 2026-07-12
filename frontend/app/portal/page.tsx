@@ -8,6 +8,7 @@ import { ShieldCheck, LogOut } from "lucide-react";
 import ReportShelf from "@/components/ReportShelf";
 import AdsWasteGuard from "@/components/AdsWasteGuard";
 import SentinelGuard from "@/components/SentinelGuard";
+import LeadTracer from "@/components/LeadTracer";
 
 function domainOf(url: string): string {
   try { return new URL(url).hostname.replace(/^www\./, ""); } catch { return url; }
@@ -127,6 +128,13 @@ export default function PortalHome() {
                 })}
               </div>
             )}
+
+            {/* Verified lead delivery — the record of green, per monitored site */}
+            {sites.map((s) => (
+              <section key={s.id} className="ds-card ds-card-pad" style={{ marginTop: "var(--space-5)" }}>
+                <LeadTracer variant="dark" siteId={s.id} portal />
+              </section>
+            ))}
 
             {/* Disaster sentinel — one guard row per monitored site */}
             {sites.map((s) => (

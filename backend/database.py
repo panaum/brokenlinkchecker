@@ -1954,3 +1954,103 @@ def _site_url_sync(site_id) -> str:
 async def get_site_url(site_id) -> str:
     import asyncio
     return await asyncio.to_thread(_site_url_sync, site_id)
+
+
+# ─── Verified Lead Delivery, Wave 1: form contracts + run ledger ─────────────
+def _next_contract_version_sync(client, contract_key) -> int:
+    rows = client.table("form_contracts").select("version").eq("contract_key", contract_key)\
+        .order("version", desc=True).limit(1).execute().data or []
+    return (rows[0]["version"] + 1) if rows else 1
+
+
+def _save_contract_version_sync(site_id, contract_key, status, draft, confirmed_by=None) -> Optional[dict]:
+    """Append a new immutable version row (draft/confirmed/archived)."""
+    from datetime import datetime, timezone
+    client = _get_client()
+    try:
+        v = _next_contract_version_sync(client, contract_key)
+        row = {
+            "site_id": site_id, "contract_key": contract_key, "version": v, "status": status,
+            "form_ref": draft.get("form_ref", {}), "fields": draft.get("fields", []),
+            "destination": draft.get("destination", {}), "events": draft.get("events", []),
+        }
+        if status == "confirmed":
+            row["confirmed_by"] = confirmed_by
+            row["confirmed_at"] = datetime.now(timezone.utc).isoformat()
+        r = client.table("form_contracts").insert(row).execute()
+        return r.data[0] if r.data else None
+    except Exception as e:
+        if _tables_missing(e):
+            return None
+        raise
+
+
+async def save_contract_version(site_id, contract_key, status, draft, confirmed_by=None) -> Optional[dict]:
+    import asyncio
+    return await asyncio.to_thread(_save_contract_version_sync, site_id, contract_key, status, draft, confirmed_by)
+
+
+def _list_contracts_sync(site_id) -> list:
+    """Latest version per contract_key for a site (the live contracts)."""
+    client = _get_client()
+    try:
+        rows = client.table("form_contracts").select("*").eq("site_id", site_id)\
+            .order("version", desc=True).execute().data or []
+        latest = {}
+        for r in rows:
+            k = r["contract_key"]
+            if k not in latest:      # rows are version-desc, first seen = newest
+                latest[k] = r
+        return list(latest.values())
+    except Exception as e:
+        if _tables_missing(e):
+            return []
+        raise
+
+
+async def list_contracts(site_id) -> list:
+    import asyncio
+    return await asyncio.to_thread(_list_contracts_sync, site_id)
+
+
+def _get_contract_sync(contract_id) -> Optional[dict]:
+    client = _get_client()
+    try:
+        rows = client.table("form_contracts").select("*").eq("id", contract_id).limit(1).execute().data or []
+        return rows[0] if rows else None
+    except Exception as e:
+        if _tables_missing(e):
+            return None
+        raise
+
+
+async def get_contract(contract_id) -> Optional[dict]:
+    import asyncio
+    return await asyncio.to_thread(_get_contract_sync, contract_id)
+
+
+def _confirmed_contracts_sync(site_id) -> list:
+    """Latest CONFIRMED version per key — the contracts drift is checked against."""
+    return [c for c in _list_contracts_sync(site_id) if c.get("status") == "confirmed"]
+
+
+async def confirmed_contracts(site_id) -> list:
+    import asyncio
+    return await asyncio.to_thread(_confirmed_contracts_sync, site_id)
+
+
+def _insert_tracer_run_sync(run: dict) -> Optional[dict]:
+    """Append one immutable ledger row (written by Wave 2)."""
+    client = _get_client()
+    try:
+        r = client.table("tracer_runs").insert(run).execute()
+        return r.data[0] if r.data else None
+    except Exception as e:
+        if _tables_missing(e):
+            return None
+        raise
+
+
+async def insert_tracer_run(run: dict) -> Optional[dict]:
+    import asyncio
+    return await asyncio.to_thread(_insert_tracer_run_sync, run)

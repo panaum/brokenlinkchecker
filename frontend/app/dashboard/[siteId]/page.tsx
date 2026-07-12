@@ -13,6 +13,7 @@ import TimeMachine from "@/components/TimeMachine";
 import ReportShelf from "@/components/ReportShelf";
 import AdsWasteGuard from "@/components/AdsWasteGuard";
 import SentinelGuard from "@/components/SentinelGuard";
+import ContractsPanel from "@/components/ContractsPanel";
 import { cleanStreakDays } from "@/lib/history";
 
 function domainOf(url: string): string {
@@ -43,7 +44,7 @@ export default function SiteDetailPage() {
   const siteId = String(params.siteId);
   const [site, setSite] = useState<DashboardSite | null>(null);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState<"overview" | "settings">("overview");
+  const [tab, setTab] = useState<"overview" | "contracts" | "settings">("overview");
   const [issues, setIssues] = useState<Issue[] | null>(null);
 
   const load = useCallback(async () => {
@@ -123,7 +124,7 @@ export default function SiteDetailPage() {
 
             {/* Tabs */}
             <div style={{ display: "flex", gap: 4, borderBottom: "1px solid var(--border-subtle)", marginBottom: 24 }}>
-              {(["overview", "settings"] as const).map((t) => (
+              {(["overview", "contracts", "settings"] as const).map((t) => (
                 <button
                   key={t}
                   onClick={() => setTab(t)}
@@ -220,6 +221,11 @@ export default function SiteDetailPage() {
                     </div>
                   )}
                 </div>
+              </div>
+            ) : tab === "contracts" ? (
+              // Lead delivery contracts — define & verify what an intact lead is.
+              <div className="ds-card ds-card-pad">
+                <ContractsPanel siteId={site.id} />
               </div>
             ) : (
               // Settings — all per-site config lives here, off the overview cards.

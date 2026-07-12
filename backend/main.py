@@ -2408,6 +2408,95 @@ async def sentinel_check_now(site_id: str, _acc: dict = Depends(require_site_acc
     return await _sentinel_payload(site_id)
 
 
+# ─── Verified Lead Delivery, Wave 1: form contracts ──────────────────────────
+@app.post("/api/sites/{site_id}/contracts/draft")
+async def contract_draft(site_id: str, request: Request,
+                         _acc: dict = Depends(require_site_access("member"))):
+    """Observe a form (hydrated render) and save a DRAFT contract for operator
+    review. Never auto-confirmed."""
+    from lead_contracts import (observe_page_forms, find_form, draft_from_observation,
+                                hydrated_values_for, contract_key)
+    from database import save_contract_version
+    body = await request.json()
+    page_url = (body.get("page_url") or "").strip()
+    if not page_url:
+        return JSONResponse({"error": "page_url is required."}, status_code=400)
+    form_id = body.get("form_id") or ""
+    index = body.get("index")
+    try:
+        observed = await observe_page_forms(page_url)
+    except Exception as e:
+        return JSONResponse({"error": f"Couldn't render the page to observe it: {e}"}, status_code=502)
+    form = find_form(observed, form_id=form_id, index=index)
+    if not form:
+        return JSONResponse({"error": "No form found on that page to draft from."}, status_code=404)
+    draft = draft_from_observation(form, page_url,
+                                   hydrated_values=hydrated_values_for(form),
+                                   scripts_text=observed.get("scripts_text", ""))
+    key = contract_key(site_id, page_url, draft["form_ref"]["form_id"], draft["form_ref"]["selector"])
+    saved = await save_contract_version(site_id, key, "draft", draft)
+    if not saved:
+        return JSONResponse({"error": "Contract storage unavailable — apply migration 013.",
+                             "setup_required": True}, status_code=400)
+    return {"contract": saved, "observed_fields": form.get("fields", [])}
+
+
+@app.get("/api/sites/{site_id}/contracts")
+async def contracts_list(site_id: str, _acc: dict = Depends(require_site_access("member"))):
+    from database import list_contracts
+    return {"contracts": await list_contracts(site_id)}
+
+
+@app.post("/api/sites/{site_id}/contracts/{contract_key}/confirm")
+async def contract_confirm(site_id: str, contract_key: str, request: Request,
+                           _acc: dict = Depends(require_site_access("member"))):
+    """Operator confirms (optionally edited) → a new immutable confirmed version."""
+    from auth import caller_email
+    from database import save_contract_version
+    body = await request.json()
+    draft = {"form_ref": body.get("form_ref", {}), "fields": body.get("fields", []),
+             "destination": body.get("destination", {}), "events": body.get("events", [])}
+    saved = await save_contract_version(site_id, contract_key, "confirmed", draft,
+                                        confirmed_by=caller_email(request))
+    if not saved:
+        return JSONResponse({"error": "Contract storage unavailable — apply migration 013.",
+                             "setup_required": True}, status_code=400)
+    return {"contract": saved}
+
+
+@app.post("/api/sites/{site_id}/contracts/drift-check")
+async def contract_drift_check(site_id: str, request: Request,
+                               _acc: dict = Depends(require_site_access("member"))):
+    """Observe a page and validate every confirmed contract on it against reality.
+    Returns per-contract violations (the drift surface)."""
+    from lead_contracts import observe_page_forms, find_form, validate_drift, hydrated_values_for
+    from database import confirmed_contracts
+    body = await request.json()
+    page_url = (body.get("page_url") or "").strip()
+    if not page_url:
+        return JSONResponse({"error": "page_url is required."}, status_code=400)
+    try:
+        observed = await observe_page_forms(page_url)
+    except Exception as e:
+        return JSONResponse({"error": f"Couldn't render the page: {e}"}, status_code=502)
+    results = []
+    for c in await confirmed_contracts(site_id):
+        ref = c.get("form_ref") or {}
+        if (ref.get("page_url") or "") != page_url:
+            continue
+        form = find_form(observed, form_id=ref.get("form_id") or "")
+        if not form:
+            results.append({"contract_id": c["id"], "form_ref": ref,
+                            "violations": [{"kind": "field_removed", "field": "(whole form)",
+                                            "severity": "critical",
+                                            "consequence": "The whole form is gone from the page → no leads can be submitted."}]})
+            continue
+        violations = validate_drift(c, form, hydrated_values=hydrated_values_for(form),
+                                    first_seen=c.get("confirmed_at"))
+        results.append({"contract_id": c["id"], "form_ref": ref, "violations": violations})
+    return {"results": results}
+
+
 @app.get("/health")
 async def health():
     return {"status": "ok"}

@@ -58,12 +58,6 @@ function fmtDate(iso: string | null): string {
   if (!iso) return "";
   return new Date(iso).toLocaleDateString(undefined, { month: "short", day: "numeric" });
 }
-function scoreColor(s: number | null): string {
-  if (s == null) return MUTED;
-  if (s >= 90) return GREEN;
-  if (s >= 70) return AMBER;
-  return RED;
-}
 
 function Stat({ value, label }: { value: number; label: string }) {
   const shown = useCountUp(value);
@@ -78,7 +72,9 @@ function Stat({ value, label }: { value: number; label: string }) {
 export default function VigilanceReport({ data, siteName }: { data: ReportData; siteName: string }) {
   const shownScore = useCountUp(data.score ?? 0);
   const R = 52; const C = 2 * Math.PI * R;
-  const ring = scoreColor(data.score);
+  // Score ring + numeral are the brand accent (violet). Health lives in the
+  // verdict, the delta, the all-clear line, and the incident dots — never here.
+  const ring = BRAND;
 
   return (
     <div className="report-root" style={{ background: PAGE, minHeight: "100vh", padding: "40px 20px", color: INK, fontFamily: "var(--font-stack-body)" }}>
@@ -185,17 +181,31 @@ export default function VigilanceReport({ data, siteName }: { data: ReportData; 
         {/* ── Trend ── */}
         {data.trend.length >= 2 && (
           <section className="report-block" style={{ padding: "36px 48px", borderBottom: `1px solid ${LINE}` }}>
-            <div style={{ display: "flex", alignItems: "baseline", justifyContent: "space-between", marginBottom: 12 }}>
-              <h2 style={{ fontFamily: "var(--font-stack-display)", fontSize: 20, fontWeight: 700 }}>Health this period</h2>
-              <div style={{ fontFamily: "var(--font-stack-mono)", fontSize: 14, color: GREEN }}>{data.streak_days} days clean</div>
-            </div>
-            <div style={{ height: 120 }}>
-              <ResponsiveContainer width="100%" height="100%">
-                <LineChart data={data.trend}>
-                  <YAxis domain={[0, 100]} width={28} tick={{ fill: MUTED, fontSize: 11 }} axisLine={false} tickLine={false} />
-                  <Line type="monotone" dataKey="score" stroke={BRAND} strokeWidth={2.5} dot={false} isAnimationActive={false} />
-                </LineChart>
-              </ResponsiveContainer>
+            <h2 style={{ fontFamily: "var(--font-stack-display)", fontSize: 20, fontWeight: 700, marginBottom: 16 }}>Health this period</h2>
+            <div style={{ display: "flex", gap: 28, flexWrap: "wrap", alignItems: "stretch" }}>
+              <div style={{ flex: 1, minWidth: 260, height: 120 }}>
+                <ResponsiveContainer width="100%" height="100%">
+                  <LineChart data={data.trend}>
+                    <YAxis domain={[0, 100]} width={28} tick={{ fill: MUTED, fontSize: 11 }} axisLine={false} tickLine={false} />
+                    <Line type="monotone" dataKey="score" stroke={BRAND} strokeWidth={2.5} dot={false} isAnimationActive={false} />
+                  </LineChart>
+                </ResponsiveContainer>
+              </div>
+              {/* Two mono facts beside the line: clean streak + uptime (slot wired in Wave 3) */}
+              <div style={{ display: "flex", gap: 28, alignItems: "center" }}>
+                <div style={{ textAlign: "center" }}>
+                  <div style={{ fontFamily: "var(--font-stack-mono)", fontSize: 30, fontWeight: 700, color: GREEN, lineHeight: 1, fontVariantNumeric: "tabular-nums" }}>{data.streak_days}</div>
+                  <div style={{ color: SECONDARY, fontSize: 12, marginTop: 6, textTransform: "uppercase", letterSpacing: "0.06em" }}>Days clean</div>
+                </div>
+                <div style={{ textAlign: "center" }}>
+                  <div style={{ fontFamily: "var(--font-stack-mono)", fontSize: 30, fontWeight: 700, color: data.uptime_pct == null ? MUTED : INK, lineHeight: 1, fontVariantNumeric: "tabular-nums" }}>
+                    {data.uptime_pct == null ? "—" : `${data.uptime_pct}%`}
+                  </div>
+                  <div style={{ color: SECONDARY, fontSize: 12, marginTop: 6, textTransform: "uppercase", letterSpacing: "0.06em" }}>
+                    Uptime{data.uptime_pct == null ? " · soon" : ""}
+                  </div>
+                </div>
+              </div>
             </div>
           </section>
         )}

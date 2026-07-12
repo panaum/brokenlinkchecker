@@ -20,12 +20,15 @@ export async function middleware(request: NextRequest) {
 export const config = {
   matcher: [
     /*
-     * Protect everything EXCEPT:
+     * Protect the agency app EXCEPT:
      *  - /login
-     *  - /api/auth (NextAuth endpoints)
-     *  - /api/slack (Slack webhook)
+     *  - /api/auth (NextAuth endpoints), /api/slack (Slack webhook)
+     *  - Client-facing surfaces, which authenticate via a backend token (not a
+     *    NextAuth session) and are gated by the backend, not this wall:
+     *      /portal (client home), /reports (the shared report artifact),
+     *      and their proxies /api/portal, /api/reports.
      *  - Next.js internals (_next, favicon, etc.)
      */
-    "/((?!login|api/auth|api/slack|_next/static|_next/image|favicon.ico|icon\\.png|opengraph-image\\.png).*)",
+    "/((?!login|portal|reports|api/auth|api/slack|api/portal|api/reports|_next/static|_next/image|favicon.ico|icon\\.png|opengraph-image\\.png).*)",
   ],
 }

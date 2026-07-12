@@ -14,6 +14,7 @@ import ReportShelf from "@/components/ReportShelf";
 import AdsWasteGuard from "@/components/AdsWasteGuard";
 import SentinelGuard from "@/components/SentinelGuard";
 import ContractsPanel from "@/components/ContractsPanel";
+import LeadTracer from "@/components/LeadTracer";
 import { cleanStreakDays } from "@/lib/history";
 
 function domainOf(url: string): string {
@@ -143,6 +144,11 @@ export default function SiteDetailPage() {
 
             {tab === "overview" ? (
               <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-5)" }}>
+                {/* Verified lead delivery — the record of green (primary surface) */}
+                <div className="ds-card ds-card-pad">
+                  <LeadTracer variant="dark" siteId={site.id} canManage />
+                </div>
+
                 {/* Disaster sentinel — SSL / domain / indexability / uptime guard cards */}
                 <div className="ds-card ds-card-pad">
                   <SentinelGuard variant="dark" siteId={site.id} canManage />

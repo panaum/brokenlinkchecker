@@ -2054,3 +2054,137 @@ def _insert_tracer_run_sync(run: dict) -> Optional[dict]:
 async def insert_tracer_run(run: dict) -> Optional[dict]:
     import asyncio
     return await asyncio.to_thread(_insert_tracer_run_sync, run)
+
+
+# ─── Verified Lead Delivery, Wave 2: CRM connections + enrollments + runs ────
+def _save_crm_connection_sync(site_id, crm_type, credentials_enc, test_ok, test_detail) -> Optional[dict]:
+    from datetime import datetime, timezone
+    client = _get_client()
+    try:
+        row = {"site_id": site_id, "crm_type": crm_type, "credentials_enc": credentials_enc,
+               "test_ok": test_ok, "test_detail": test_detail,
+               "last_tested_at": datetime.now(timezone.utc).isoformat()}
+        r = client.table("crm_connections").upsert(row, on_conflict="site_id,crm_type").execute()
+        return r.data[0] if r.data else None
+    except Exception as e:
+        if _tables_missing(e):
+            return None
+        raise
+
+
+async def save_crm_connection(site_id, crm_type, credentials_enc, test_ok, test_detail) -> Optional[dict]:
+    import asyncio
+    return await asyncio.to_thread(_save_crm_connection_sync, site_id, crm_type, credentials_enc, test_ok, test_detail)
+
+
+def _get_crm_connection_sync(site_id) -> Optional[dict]:
+    client = _get_client()
+    try:
+        rows = client.table("crm_connections").select("*").eq("site_id", site_id).limit(1).execute().data or []
+        return rows[0] if rows else None
+    except Exception as e:
+        if _tables_missing(e):
+            return None
+        raise
+
+
+async def get_crm_connection(site_id) -> Optional[dict]:
+    import asyncio
+    return await asyncio.to_thread(_get_crm_connection_sync, site_id)
+
+
+def _save_enrollment_sync(site_id, contract_key, patch) -> Optional[dict]:
+    client = _get_client()
+    try:
+        row = {"site_id": site_id, "contract_key": contract_key, **patch}
+        r = client.table("tracer_enrollments").upsert(row, on_conflict="site_id,contract_key").execute()
+        return r.data[0] if r.data else None
+    except Exception as e:
+        if _tables_missing(e):
+            return None
+        raise
+
+
+async def save_enrollment(site_id, contract_key, patch) -> Optional[dict]:
+    import asyncio
+    return await asyncio.to_thread(_save_enrollment_sync, site_id, contract_key, patch)
+
+
+def _get_enrollment_sync(site_id, contract_key) -> Optional[dict]:
+    client = _get_client()
+    try:
+        rows = client.table("tracer_enrollments").select("*").eq("site_id", site_id)\
+            .eq("contract_key", contract_key).limit(1).execute().data or []
+        return rows[0] if rows else None
+    except Exception as e:
+        if _tables_missing(e):
+            return None
+        raise
+
+
+async def get_enrollment(site_id, contract_key) -> Optional[dict]:
+    import asyncio
+    return await asyncio.to_thread(_get_enrollment_sync, site_id, contract_key)
+
+
+def _list_enrollments_sync(site_id) -> list:
+    client = _get_client()
+    try:
+        return client.table("tracer_enrollments").select("*").eq("site_id", site_id).execute().data or []
+    except Exception as e:
+        if _tables_missing(e):
+            return []
+        raise
+
+
+async def list_enrollments(site_id) -> list:
+    import asyncio
+    return await asyncio.to_thread(_list_enrollments_sync, site_id)
+
+
+def _active_enrollments_sync() -> list:
+    client = _get_client()
+    try:
+        return client.table("tracer_enrollments").select("*")\
+            .eq("enabled", True).eq("schedule_active", True).execute().data or []
+    except Exception as e:
+        if _tables_missing(e):
+            return []
+        raise
+
+
+async def active_enrollments() -> list:
+    import asyncio
+    return await asyncio.to_thread(_active_enrollments_sync)
+
+
+def _runs_for_site_sync(site_id, limit=200) -> list:
+    client = _get_client()
+    try:
+        return client.table("tracer_runs").select(
+            "id, contract_id, contract_version, started_at, mode, outcome, arrival, cleanup, duration_ms, evidence"
+        ).eq("site_id", site_id).order("started_at", desc=True).limit(limit).execute().data or []
+    except Exception as e:
+        if _tables_missing(e):
+            return []
+        raise
+
+
+async def runs_for_site(site_id, limit=200) -> list:
+    import asyncio
+    return await asyncio.to_thread(_runs_for_site_sync, site_id, limit)
+
+
+def _mark_cleanup_sync(run_id, status) -> None:
+    """The ONLY permitted mutation of a ledger row (enforced by DB trigger)."""
+    client = _get_client()
+    try:
+        client.table("tracer_runs").update({"cleanup": status}).eq("id", run_id).execute()
+    except Exception as e:
+        if not _tables_missing(e):
+            raise
+
+
+async def mark_cleanup(run_id, status) -> None:
+    import asyncio
+    await asyncio.to_thread(_mark_cleanup_sync, run_id, status)

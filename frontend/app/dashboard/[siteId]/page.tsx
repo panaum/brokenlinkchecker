@@ -10,6 +10,7 @@ import MonitoringPanel from "@/components/MonitoringPanel";
 import ActiveTestingPanel from "@/components/ActiveTestingPanel";
 import BadgeEmbed from "@/components/BadgeEmbed";
 import TimeMachine from "@/components/TimeMachine";
+import ReportShelf from "@/components/ReportShelf";
 import { cleanStreakDays } from "@/lib/history";
 
 function domainOf(url: string): string {
@@ -143,6 +144,11 @@ export default function SiteDetailPage() {
                 <div>
                   <h2 className="ds-text-primary font-display" style={{ fontSize: "var(--text-heading)", fontWeight: 700, marginBottom: 12 }}>Time machine</h2>
                   <TimeMachine siteUrl={site.url} />
+                </div>
+
+                {/* Vigilance reports — monthly proof-of-work archive + generate */}
+                <div className="ds-card ds-card-pad">
+                  <ReportShelf variant="dark" siteId={site.id} canGenerate />
                 </div>
 
                 {/* Open issues */}

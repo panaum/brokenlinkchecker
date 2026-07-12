@@ -1583,3 +1583,116 @@ async def delete_resource(resource_id) -> bool:
                 return False
             raise
     return await asyncio.to_thread(_del)
+
+
+# ─── Wave 1: vigilance reports (data source + persistence) ───────────────────
+def _report_source_sync(site_id) -> dict:
+    """Scans + findings + form/integration counts for a site's report."""
+    client = _get_client()
+    scans = client.table("scans")\
+        .select("id, scanned_at, health_score, total_links, broken_count, dead_cta_count")\
+        .eq("site_id", site_id).order("scanned_at", desc=True).limit(180).execute().data or []
+    findings = client.table("findings")\
+        .select("fingerprint, bucket, url, anchor_text, zone, reason, first_seen_at, resolved_at, status")\
+        .eq("site_id", site_id).limit(500).execute().data or []
+    forms = 0
+    integrations = 0
+    if scans:
+        latest_id = scans[0]["id"]
+        try:
+            rj = client.table("scans").select("results_json").eq("id", latest_id).limit(1).execute().data
+            results = (rj[0].get("results_json") if rj else None) or []
+            forms = sum(1 for r in results if isinstance(r, dict) and r.get("resource_type") == "form_action")
+        except Exception:
+            forms = 0
+        try:
+            pi = client.table("page_integrations").select("id", count="exact").eq("scan_id", latest_id).execute()
+            integrations = pi.count or 0
+        except Exception:
+            integrations = 0
+    return {"scans": scans, "findings": findings, "forms_audited": forms, "integrations_watched": integrations}
+
+
+async def report_source(site_id) -> dict:
+    import asyncio
+    return await asyncio.to_thread(_report_source_sync, site_id)
+
+
+def _save_report_sync(site_id, period_start, period_end, label, data) -> Optional[dict]:
+    client = _get_client()
+    try:
+        row = {"site_id": site_id, "period_start": period_start, "period_end": period_end,
+               "period_label": label, "data_json": data}
+        # Upsert on (site_id, period_label) so a re-generate replaces, not duplicates.
+        r = client.table("vigilance_reports").upsert(row, on_conflict="site_id,period_label").execute()
+        return r.data[0] if r.data else None
+    except Exception as e:
+        if _tables_missing(e):
+            return None
+        raise
+
+
+async def save_report(site_id, period_start, period_end, label, data) -> Optional[dict]:
+    import asyncio
+    return await asyncio.to_thread(_save_report_sync, site_id, period_start, period_end, label, data)
+
+
+def _list_reports_sync(site_id) -> list:
+    client = _get_client()
+    try:
+        return client.table("vigilance_reports")\
+            .select("id, period_label, period_start, created_at, data_json")\
+            .eq("site_id", site_id).order("period_start", desc=True).execute().data or []
+    except Exception as e:
+        if _tables_missing(e):
+            return []
+        raise
+
+
+async def list_reports(site_id) -> list:
+    import asyncio
+    return await asyncio.to_thread(_list_reports_sync, site_id)
+
+
+def _get_report_sync(report_id) -> Optional[dict]:
+    client = _get_client()
+    try:
+        rows = client.table("vigilance_reports")\
+            .select("id, site_id, period_label, period_start, period_end, data_json, created_at")\
+            .eq("id", report_id).limit(1).execute().data or []
+        return rows[0] if rows else None
+    except Exception as e:
+        if _tables_missing(e):
+            return None
+        raise
+
+
+async def get_report(report_id) -> Optional[dict]:
+    import asyncio
+    return await asyncio.to_thread(_get_report_sync, report_id)
+
+
+def _reports_for_client_sync(client_id) -> list:
+    """Reports across all sites of a client (portal archive)."""
+    client = _get_client()
+    try:
+        sites = client.table("sites").select("id, url, name").eq("client_id", client_id).execute().data or []
+        ids = [s["id"] for s in sites]
+        if not ids:
+            return []
+        rows = client.table("vigilance_reports")\
+            .select("id, site_id, period_label, period_start, created_at, data_json")\
+            .in_("site_id", ids).order("period_start", desc=True).execute().data or []
+        by_site = {s["id"]: (s.get("name") or s.get("url")) for s in sites}
+        for r in rows:
+            r["site_name"] = by_site.get(r["site_id"], "")
+        return rows
+    except Exception as e:
+        if _tables_missing(e):
+            return []
+        raise
+
+
+async def reports_for_client(client_id) -> list:
+    import asyncio
+    return await asyncio.to_thread(_reports_for_client_sync, client_id)

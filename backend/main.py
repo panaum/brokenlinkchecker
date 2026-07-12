@@ -2142,6 +2142,109 @@ async def portal_resources_endpoint(request: Request):
     return {"resources": await list_resources(m["client_id"], visible_only=True)}
 
 
+# ─── Wave 1: vigilance reports ───────────────────────────────────────────────
+def _resolve_period(period: str):
+    """period 'YYYY-MM' -> that calendar month; else the last 30 days."""
+    from datetime import datetime, timezone, timedelta
+    now = datetime.now(timezone.utc)
+    if period and len(period) == 7 and period[4] == "-":
+        y, m = int(period[:4]), int(period[5:7])
+        start = datetime(y, m, 1, tzinfo=timezone.utc)
+        nm_y, nm_m = (y + 1, 1) if m == 12 else (y, m + 1)
+        end = datetime(nm_y, nm_m, 1, tzinfo=timezone.utc) - timedelta(seconds=1)
+        return start, end, start.strftime("%B %Y")
+    end = now
+    start = now - timedelta(days=30)
+    return start, end, end.strftime("%B %Y")
+
+
+async def _report_slack(site_id, label: str, data: dict, report_id: str) -> None:
+    webhook = os.getenv("SLACK_WEBHOOK_URL")
+    if not webhook:
+        return
+    verdict = data.get("verdict", "")
+    link = f"{_frontend_url()}/reports/{report_id}"
+    text = f":page_facing_up: *Vigilance report ready — {label}*\n{verdict}\n<{link}|Open report>"
+    try:
+        async with httpx.AsyncClient() as client:
+            await client.post(webhook, json={"text": text}, timeout=5.0)
+    except Exception:
+        pass
+
+
+async def _build_report(site_id, period: str):
+    from database import report_source
+    from vigilance_report import compute_report
+    src = await report_source(site_id)
+    start, end, label = _resolve_period(period)
+    data = compute_report(src["scans"], src["findings"], start, end,
+                          forms_audited=src["forms_audited"],
+                          integrations_watched=src["integrations_watched"])
+    return start, end, label, data
+
+
+@app.get("/api/sites/{site_id}/report/preview")
+async def report_preview(site_id: str, period: str = Query(default=""),
+                         _acc: dict = Depends(require_site_access("member"))):
+    _s, _e, label, data = await _build_report(site_id, period)
+    return {"label": label, "data": data}
+
+
+@app.post("/api/sites/{site_id}/report/generate")
+async def report_generate(site_id: str, period: str = Query(default=""),
+                          _acc: dict = Depends(require_site_access("member"))):
+    from database import save_report
+    start, end, label, data = await _build_report(site_id, period)
+    saved = await save_report(site_id, start.isoformat(), end.isoformat(), label, data)
+    if not saved:
+        return JSONResponse({"error": "Report storage unavailable — apply migration 010.",
+                             "setup_required": True}, status_code=400)
+    await _report_slack(site_id, label, data, saved["id"])
+    return {"id": saved["id"], "label": label, "data": data}
+
+
+@app.get("/api/sites/{site_id}/reports")
+async def report_list(site_id: str, _acc: dict = Depends(require_site_access("client_viewer"))):
+    from database import list_reports
+    return {"reports": await list_reports(site_id)}
+
+
+@app.get("/api/reports/{report_id}")
+async def report_get(report_id: str, request: Request):
+    """A single report. Access-checked: agency member or the client_viewer whose
+    client owns the report's site."""
+    from auth import caller_email, portal_enforced
+    from database import get_report, site_scope, resolve_membership
+    report = await get_report(report_id)
+    if not report:
+        return JSONResponse({"error": "Report not found."}, status_code=404)
+    if not portal_enforced():
+        return report
+    email = caller_email(request)
+    if not email:
+        return JSONResponse({"error": "Authentication required."}, status_code=401)
+    scope = await site_scope(report["site_id"])
+    m = await resolve_membership(email, scope["workspace_id"]) if scope and scope.get("workspace_id") else None
+    if not m:
+        return JSONResponse({"error": "No access."}, status_code=403)
+    if m.get("role") == "client_viewer" and m.get("client_id") != (scope or {}).get("client_id"):
+        return JSONResponse({"error": "Out of scope."}, status_code=403)
+    return report
+
+
+@app.get("/api/portal/reports")
+async def portal_reports(request: Request):
+    from auth import caller_email
+    from database import any_membership, reports_for_client
+    email = caller_email(request)
+    if not email:
+        return {"reports": []}
+    m = await any_membership(email)
+    if not m or m.get("role") != "client_viewer" or not m.get("client_id"):
+        return {"reports": []}
+    return {"reports": await reports_for_client(m["client_id"])}
+
+
 @app.get("/health")
 async def health():
     return {"status": "ok"}

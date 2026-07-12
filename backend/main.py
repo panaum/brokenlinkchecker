@@ -227,6 +227,18 @@ async def lifespan(app: FastAPI):
                 print("[AdsGuard] daily verification scheduled")
         except Exception as e:
             print(f"[AdsGuard] verification not scheduled: {e}")
+        # Wave 3: Disaster Sentinel — daily SSL/domain/indexability + 5-min uptime.
+        try:
+            from sentinel import run_sentinel_all, run_uptime_all
+            aps = _scheduler._scheduler
+            if aps:
+                aps.add_job(run_sentinel_all, "interval", hours=24, id="sentinel_daily",
+                            replace_existing=True, kwargs={"notify": _watchdog_slack})
+                aps.add_job(run_uptime_all, "interval", minutes=5, id="sentinel_uptime",
+                            replace_existing=True, kwargs={"notify": _watchdog_slack})
+                print("[Sentinel] daily checks + 5-min uptime scheduled")
+        except Exception as e:
+            print(f"[Sentinel] not scheduled: {e}")
     except Exception as e:
         # Monitoring failing to start must never take the API down.
         print(f"[Monitor] scheduler did not start: {e}")
@@ -2203,7 +2215,34 @@ async def _build_report(site_id, period: str):
     data = compute_report(src["scans"], src["findings"], start, end,
                           forms_audited=src["forms_audited"],
                           integrations_watched=src["integrations_watched"], ads=ads)
+    # Wave 3 hook: fill the uptime slot + a disasters-watched line from the sentinel.
+    try:
+        from database import get_sentinel_status, recent_pings, list_incidents
+        from sentinel import uptime_pct as _uptime_pct
+        pings = await recent_pings(site_id)
+        up = _uptime_pct(pings)
+        if up is not None:
+            data["uptime_pct"] = up
+        status = await get_sentinel_status(site_id)
+        if status or up is not None:
+            incidents = await list_incidents(site_id)
+            in_period = [i for i in incidents if _in_report_period(i.get("down_at"), start, end)]
+            data["disasters"] = {"watched": 4, "incidents": len(in_period)}
+    except Exception:
+        pass
     return start, end, label, data
+
+
+def _in_report_period(iso, start, end):
+    from datetime import datetime, timezone
+    if not iso:
+        return False
+    try:
+        d = datetime.fromisoformat(str(iso).replace("Z", "+00:00"))
+        d = d if d.tzinfo else d.replace(tzinfo=timezone.utc)
+        return start <= d <= end
+    except Exception:
+        return False
 
 
 @app.get("/api/sites/{site_id}/report/preview")
@@ -2335,6 +2374,38 @@ async def portal_ads(request: Request):
     if not m or m.get("role") != "client_viewer" or not m.get("client_id"):
         return summarize_guard([])
     return summarize_guard(await ad_destinations_for_client(m["client_id"]))
+
+
+# ─── Wave 3: Disaster Sentinel ───────────────────────────────────────────────
+async def _sentinel_payload(site_id):
+    from database import get_sentinel_status, recent_pings, list_incidents
+    from sentinel import summarize_sentinel
+    status = await get_sentinel_status(site_id)
+    pings = await recent_pings(site_id)
+    summary = summarize_sentinel(status, pings)
+    summary["incidents"] = await list_incidents(site_id, limit=20)
+    return summary
+
+
+@app.get("/api/sites/{site_id}/sentinel")
+async def sentinel_get(site_id: str, _acc: dict = Depends(require_site_access("client_viewer"))):
+    return await _sentinel_payload(site_id)
+
+
+@app.post("/api/sites/{site_id}/sentinel/check-now")
+async def sentinel_check_now(site_id: str, _acc: dict = Depends(require_site_access("member"))):
+    """Run the sentinel checks + one uptime ping now, so the guard can be tested
+    without waiting for the daily/5-min schedule."""
+    from database import get_site_url
+    from sentinel import run_sentinel_for_site, run_uptime_for_site
+    url = await get_site_url(site_id)
+    site = {"id": site_id, "url": url}
+    try:
+        await run_sentinel_for_site(site, notify=_watchdog_slack)
+        await run_uptime_for_site(site, notify=_watchdog_slack)
+    except Exception as e:
+        return JSONResponse({"error": f"Check failed: {e}"}, status_code=500)
+    return await _sentinel_payload(site_id)
 
 
 @app.get("/health")

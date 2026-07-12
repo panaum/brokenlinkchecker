@@ -7,6 +7,7 @@ import { getPortalToken, clearPortalToken } from "@/lib/backendClient";
 import { ShieldCheck, LogOut } from "lucide-react";
 import ReportShelf from "@/components/ReportShelf";
 import AdsWasteGuard from "@/components/AdsWasteGuard";
+import SentinelGuard from "@/components/SentinelGuard";
 
 function domainOf(url: string): string {
   try { return new URL(url).hostname.replace(/^www\./, ""); } catch { return url; }
@@ -126,6 +127,13 @@ export default function PortalHome() {
                 })}
               </div>
             )}
+
+            {/* Disaster sentinel — one guard row per monitored site */}
+            {sites.map((s) => (
+              <section key={s.id} className="ds-card ds-card-pad" style={{ marginTop: "var(--space-5)" }}>
+                <SentinelGuard variant="dark" siteId={s.id} portal />
+              </section>
+            ))}
 
             {/* Monthly proof-of-work reports */}
             <section className="ds-card ds-card-pad" style={{ marginTop: "var(--space-5)" }}>

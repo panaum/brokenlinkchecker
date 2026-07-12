@@ -1802,3 +1802,155 @@ def _ad_destinations_for_client_sync(client_id) -> list:
 async def ad_destinations_for_client(client_id) -> list:
     import asyncio
     return await asyncio.to_thread(_ad_destinations_for_client_sync, client_id)
+
+
+# ─── Wave 3: Disaster Sentinel ───────────────────────────────────────────────
+def _sentinel_status_sync(site_id) -> Optional[dict]:
+    client = _get_client()
+    try:
+        rows = client.table("sentinel_status").select("*").eq("site_id", site_id).limit(1).execute().data or []
+        return rows[0] if rows else None
+    except Exception as e:
+        if _tables_missing(e):
+            return None
+        raise
+
+
+async def get_sentinel_status(site_id) -> Optional[dict]:
+    import asyncio
+    return await asyncio.to_thread(_sentinel_status_sync, site_id)
+
+
+def _upsert_sentinel_status_sync(site_id, patch) -> Optional[dict]:
+    client = _get_client()
+    try:
+        row = {"site_id": site_id, **patch}
+        r = client.table("sentinel_status").upsert(row, on_conflict="site_id").execute()
+        return r.data[0] if r.data else None
+    except Exception as e:
+        if _tables_missing(e):
+            return None
+        raise
+
+
+async def upsert_sentinel_status(site_id, patch) -> Optional[dict]:
+    import asyncio
+    return await asyncio.to_thread(_upsert_sentinel_status_sync, site_id, patch)
+
+
+def _add_uptime_ping_sync(site_id, up) -> None:
+    client = _get_client()
+    try:
+        client.table("uptime_pings").insert({"site_id": site_id, "up": bool(up)}).execute()
+    except Exception as e:
+        if not _tables_missing(e):
+            raise
+
+
+async def add_uptime_ping(site_id, up) -> None:
+    import asyncio
+    await asyncio.to_thread(_add_uptime_ping_sync, site_id, up)
+
+
+def _recent_pings_sync(site_id, limit=8640) -> list:
+    client = _get_client()
+    try:
+        rows = client.table("uptime_pings").select("up, at").eq("site_id", site_id)\
+            .order("at", desc=True).limit(limit).execute().data or []
+        return [bool(r["up"]) for r in rows]
+    except Exception as e:
+        if _tables_missing(e):
+            return []
+        raise
+
+
+async def recent_pings(site_id, limit=8640) -> list:
+    import asyncio
+    return await asyncio.to_thread(_recent_pings_sync, site_id, limit)
+
+
+def _open_incident_sync(site_id) -> None:
+    from datetime import datetime, timezone
+    client = _get_client()
+    try:
+        # don't stack: only open if there's no currently-open incident
+        openrows = client.table("sentinel_incidents").select("id").eq("site_id", site_id)\
+            .is_("restored_at", "null").limit(1).execute().data or []
+        if not openrows:
+            client.table("sentinel_incidents").insert(
+                {"site_id": site_id, "down_at": datetime.now(timezone.utc).isoformat()}).execute()
+    except Exception as e:
+        if not _tables_missing(e):
+            raise
+
+
+async def open_incident(site_id) -> None:
+    import asyncio
+    await asyncio.to_thread(_open_incident_sync, site_id)
+
+
+def _close_incident_sync(site_id) -> bool:
+    from datetime import datetime, timezone
+    client = _get_client()
+    try:
+        openrows = client.table("sentinel_incidents").select("id").eq("site_id", site_id)\
+            .is_("restored_at", "null").order("down_at", desc=True).limit(1).execute().data or []
+        if openrows:
+            client.table("sentinel_incidents").update(
+                {"restored_at": datetime.now(timezone.utc).isoformat()}).eq("id", openrows[0]["id"]).execute()
+            return True
+        return False
+    except Exception as e:
+        if _tables_missing(e):
+            return False
+        raise
+
+
+async def close_incident(site_id) -> bool:
+    import asyncio
+    return await asyncio.to_thread(_close_incident_sync, site_id)
+
+
+def _list_incidents_sync(site_id, limit=50) -> list:
+    client = _get_client()
+    try:
+        return client.table("sentinel_incidents").select("id, down_at, restored_at")\
+            .eq("site_id", site_id).order("down_at", desc=True).limit(limit).execute().data or []
+    except Exception as e:
+        if _tables_missing(e):
+            return []
+        raise
+
+
+async def list_incidents(site_id, limit=50) -> list:
+    import asyncio
+    return await asyncio.to_thread(_list_incidents_sync, site_id, limit)
+
+
+def _all_sites_min_sync() -> list:
+    client = _get_client()
+    try:
+        return client.table("sites").select("id, url").execute().data or []
+    except Exception as e:
+        if _tables_missing(e):
+            return []
+        raise
+
+
+async def all_sites_min() -> list:
+    import asyncio
+    return await asyncio.to_thread(_all_sites_min_sync)
+
+
+def _site_url_sync(site_id) -> str:
+    client = _get_client()
+    try:
+        rows = client.table("sites").select("url").eq("id", site_id).limit(1).execute().data or []
+        return rows[0].get("url", "") if rows else ""
+    except Exception:
+        return ""
+
+
+async def get_site_url(site_id) -> str:
+    import asyncio
+    return await asyncio.to_thread(_site_url_sync, site_id)

@@ -12,6 +12,7 @@ import BadgeEmbed from "@/components/BadgeEmbed";
 import TimeMachine from "@/components/TimeMachine";
 import ReportShelf from "@/components/ReportShelf";
 import AdsWasteGuard from "@/components/AdsWasteGuard";
+import SentinelGuard from "@/components/SentinelGuard";
 import { cleanStreakDays } from "@/lib/history";
 
 function domainOf(url: string): string {
@@ -141,6 +142,11 @@ export default function SiteDetailPage() {
 
             {tab === "overview" ? (
               <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-5)" }}>
+                {/* Disaster sentinel — SSL / domain / indexability / uptime guard cards */}
+                <div className="ds-card ds-card-pad">
+                  <SentinelGuard variant="dark" siteId={site.id} canManage />
+                </div>
+
                 {/* Time machine — scrub through every snapshot of this site. */}
                 <div>
                   <h2 className="ds-text-primary font-display" style={{ fontSize: "var(--text-heading)", fontWeight: 700, marginBottom: 12 }}>Time machine</h2>

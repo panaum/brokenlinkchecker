@@ -11,6 +11,7 @@ import ActiveTestingPanel from "@/components/ActiveTestingPanel";
 import BadgeEmbed from "@/components/BadgeEmbed";
 import TimeMachine from "@/components/TimeMachine";
 import ReportShelf from "@/components/ReportShelf";
+import AdsWasteGuard from "@/components/AdsWasteGuard";
 import { cleanStreakDays } from "@/lib/history";
 
 function domainOf(url: string): string {
@@ -149,6 +150,11 @@ export default function SiteDetailPage() {
                 {/* Vigilance reports — monthly proof-of-work archive + generate */}
                 <div className="ds-card ds-card-pad">
                   <ReportShelf variant="dark" siteId={site.id} canGenerate />
+                </div>
+
+                {/* Google Ads waste-guard — imported destinations, verified daily */}
+                <div className="ds-card ds-card-pad">
+                  <AdsWasteGuard variant="dark" siteId={site.id} canManage />
                 </div>
 
                 {/* Open issues */}

@@ -1696,3 +1696,109 @@ def _reports_for_client_sync(client_id) -> list:
 async def reports_for_client(client_id) -> list:
     import asyncio
     return await asyncio.to_thread(_reports_for_client_sync, client_id)
+
+
+# ─── Wave 2: Google Ads waste-guard (imported destinations) ──────────────────
+import hashlib as _hashlib
+
+
+def _ad_fingerprint(campaign, ad_group, final_url) -> str:
+    raw = f"{campaign}|{ad_group}|{final_url}".encode("utf-8", "ignore")
+    return _hashlib.sha1(raw).hexdigest()
+
+
+def _replace_ad_destinations_sync(site_id, destinations) -> dict:
+    """A fresh import replaces the current picture (delete + insert)."""
+    client = _get_client()
+    try:
+        client.table("ad_destinations").delete().eq("site_id", site_id).execute()
+        rows = []
+        for d in destinations:
+            fp = _ad_fingerprint(d["campaign"], d.get("ad_group", ""), d["final_url"])
+            rows.append({
+                "site_id": site_id, "campaign": d["campaign"], "ad_group": d.get("ad_group", ""),
+                "final_url": d["final_url"], "cost_per_day": d.get("cost_per_day"),
+                "status": "unchecked", "fingerprint": fp,
+            })
+        if rows:
+            client.table("ad_destinations").insert(rows).execute()
+        return {"imported": len(rows)}
+    except Exception as e:
+        if _tables_missing(e):
+            return {"imported": 0, "setup_required": True}
+        raise
+
+
+async def replace_ad_destinations(site_id, destinations) -> dict:
+    import asyncio
+    return await asyncio.to_thread(_replace_ad_destinations_sync, site_id, destinations)
+
+
+def _list_ad_destinations_sync(site_id) -> list:
+    client = _get_client()
+    try:
+        return client.table("ad_destinations").select(
+            "id, campaign, ad_group, final_url, cost_per_day, status, response_ms, "
+            "last_checked_at, breach_since, imported_at"
+        ).eq("site_id", site_id).order("campaign").execute().data or []
+    except Exception as e:
+        if _tables_missing(e):
+            return []
+        raise
+
+
+async def list_ad_destinations(site_id) -> list:
+    import asyncio
+    return await asyncio.to_thread(_list_ad_destinations_sync, site_id)
+
+
+def _update_ad_status_sync(dest_id, status, response_ms, breach_since) -> None:
+    from datetime import datetime, timezone
+    client = _get_client()
+    patch = {"status": status, "response_ms": response_ms,
+             "last_checked_at": datetime.now(timezone.utc).isoformat(), "breach_since": breach_since}
+    client.table("ad_destinations").update(patch).eq("id", dest_id).execute()
+
+
+async def update_ad_status(dest_id, status, response_ms, breach_since) -> None:
+    import asyncio
+    await asyncio.to_thread(_update_ad_status_sync, dest_id, status, response_ms, breach_since)
+
+
+def _sites_with_ads_sync() -> list:
+    client = _get_client()
+    try:
+        rows = client.table("ad_destinations").select("site_id").execute().data or []
+        return sorted({r["site_id"] for r in rows})
+    except Exception as e:
+        if _tables_missing(e):
+            return []
+        raise
+
+
+async def sites_with_ads() -> list:
+    import asyncio
+    return await asyncio.to_thread(_sites_with_ads_sync)
+
+
+def _ad_destinations_for_client_sync(client_id) -> list:
+    client = _get_client()
+    try:
+        sites = client.table("sites").select("id, url, name").eq("client_id", client_id).execute().data or []
+        ids = [s["id"] for s in sites]
+        if not ids:
+            return []
+        rows = client.table("ad_destinations").select(
+            "id, site_id, campaign, ad_group, final_url, cost_per_day, status, response_ms, "
+            "last_checked_at, breach_since, imported_at"
+        ).in_("site_id", ids).order("campaign").execute().data or []
+        return rows
+    except Exception as e:
+        if _tables_missing(e):
+            return []
+        raise
+
+
+async def ad_destinations_for_client(client_id) -> list:
+    import asyncio
+    return await asyncio.to_thread(_ad_destinations_for_client_sync, client_id)

@@ -32,6 +32,7 @@ export interface ReportData {
   }>;
   trend: Array<{ date: string; score: number }>;
   uptime_pct: number | null;
+  ads?: { destinations_verified: number; incidents: number; has_cost: boolean; spend_at_risk: number | null } | null;
 }
 
 function useCountUp(target: number, ms = 600): number {
@@ -135,6 +136,18 @@ export default function VigilanceReport({ data, siteName }: { data: ReportData; 
             <Stat value={data.vigilance.forms_audited} label="Forms audited" />
             <Stat value={data.vigilance.integrations_watched} label="Integrations watched" />
           </div>
+          {/* Ad spend protected — only when Ads destinations were imported (honest) */}
+          {data.ads && data.ads.destinations_verified > 0 && (
+            <div style={{ marginTop: 24, paddingTop: 20, borderTop: `1px solid ${LINE}`, textAlign: "center", color: SECONDARY, fontSize: 14 }}>
+              <b style={{ color: INK }}>{data.ads.destinations_verified}</b> ad destination{data.ads.destinations_verified === 1 ? "" : "s"} verified daily
+              {data.ads.incidents > 0
+                ? <> · <b style={{ color: RED }}>{data.ads.incidents}</b> live ad{data.ads.incidents === 1 ? "" : "s"} caught pointing at a dead page</>
+                : <> · none pointing at a dead page</>}
+              {data.ads.has_cost && data.ads.spend_at_risk != null && data.ads.spend_at_risk > 0 && (
+                <> · ≈ ${data.ads.spend_at_risk.toLocaleString()}/day protected</>
+              )}
+            </div>
+          )}
         </section>
 
         {/* ── Caught & fixed timeline ── */}

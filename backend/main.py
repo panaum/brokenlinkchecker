@@ -216,6 +216,17 @@ async def lifespan(app: FastAPI):
         sites = await get_monitored_sites()
         loaded = _scheduler.start(sites)
         print(f"[Monitor] scheduler started with {loaded} monitored site(s)")
+        # Wave 2: daily ads waste-guard verification on the same scheduler.
+        try:
+            from ads_guard import run_ads_verification
+            aps = _scheduler._scheduler
+            if aps:
+                aps.add_job(run_ads_verification, "interval", hours=24,
+                            id="ads_verification", replace_existing=True,
+                            kwargs={"notify": _watchdog_slack})
+                print("[AdsGuard] daily verification scheduled")
+        except Exception as e:
+            print(f"[AdsGuard] verification not scheduled: {e}")
     except Exception as e:
         # Monitoring failing to start must never take the API down.
         print(f"[Monitor] scheduler did not start: {e}")
@@ -2173,13 +2184,25 @@ async def _report_slack(site_id, label: str, data: dict, report_id: str) -> None
 
 
 async def _build_report(site_id, period: str):
-    from database import report_source
+    from database import report_source, list_ad_destinations
     from vigilance_report import compute_report
     src = await report_source(site_id)
     start, end, label = _resolve_period(period)
+    # Wave 2 hook: fold ad-destination protection into the report (honest — spend
+    # only when cost was imported).
+    ads = None
+    try:
+        dests = await list_ad_destinations(site_id)
+        if dests:
+            from ads_guard import summarize_guard
+            g = summarize_guard(dests)
+            ads = {"destinations_verified": g["total"], "incidents": g["broken"],
+                   "has_cost": g["has_cost"], "spend_at_risk": g["spend"]["daily_at_risk"]}
+    except Exception:
+        ads = None
     data = compute_report(src["scans"], src["findings"], start, end,
                           forms_audited=src["forms_audited"],
-                          integrations_watched=src["integrations_watched"])
+                          integrations_watched=src["integrations_watched"], ads=ads)
     return start, end, label, data
 
 
@@ -2243,6 +2266,75 @@ async def portal_reports(request: Request):
     if not m or m.get("role") != "client_viewer" or not m.get("client_id"):
         return {"reports": []}
     return {"reports": await reports_for_client(m["client_id"])}
+
+
+# ─── Wave 2: Google Ads waste-guard ──────────────────────────────────────────
+@app.post("/api/sites/{site_id}/ads/preview")
+async def ads_preview(site_id: str, request: Request,
+                      _acc: dict = Depends(require_site_access("member"))):
+    """Parse an uploaded Ads export and return the parsed preview — no commit."""
+    from ads_import import parse_ads_csv
+    body = (await request.body()).decode("utf-8", "replace")
+    return parse_ads_csv(body)
+
+
+@app.post("/api/sites/{site_id}/ads/import")
+async def ads_import_endpoint(site_id: str, request: Request,
+                              _acc: dict = Depends(require_site_access("member"))):
+    from ads_import import parse_ads_csv
+    from database import replace_ad_destinations
+    body = (await request.body()).decode("utf-8", "replace")
+    parsed = parse_ads_csv(body)
+    if not parsed["destinations"]:
+        msg = parsed["warnings"][0] if parsed["warnings"] else "No ad destinations found in the file."
+        return JSONResponse({"error": msg, "warnings": parsed["warnings"]}, status_code=400)
+    res = await replace_ad_destinations(site_id, parsed["destinations"])
+    if res.get("setup_required"):
+        return JSONResponse({"error": "Ads storage unavailable — apply migration 011.",
+                             "setup_required": True}, status_code=400)
+    return {"imported": res["imported"], "campaigns": parsed["campaigns"],
+            "has_cost": parsed["has_cost"], "skipped": parsed["skipped"]}
+
+
+@app.get("/api/sites/{site_id}/ads")
+async def ads_list(site_id: str, _acc: dict = Depends(require_site_access("client_viewer"))):
+    from database import list_ad_destinations
+    from ads_guard import summarize_guard
+    return summarize_guard(await list_ad_destinations(site_id))
+
+
+@app.post("/api/sites/{site_id}/ads/verify-now")
+async def ads_verify_now(site_id: str, _acc: dict = Depends(require_site_access("member"))):
+    """Verify every destination now (so the guard can be tested without waiting
+    for the daily run). Same flap discipline, but on-demand."""
+    from datetime import datetime, timezone
+    from database import list_ad_destinations, update_ad_status
+    from ads_guard import verify_ad, summarize_guard
+    dests = await list_ad_destinations(site_id)
+    async with httpx.AsyncClient(follow_redirects=True, timeout=20) as client:
+        for d in dests:
+            status, ms, _code = await verify_ad(d["final_url"], client=client)
+            breach_since = d.get("breach_since")
+            if status == "broken" and not breach_since:
+                breach_since = datetime.now(timezone.utc).isoformat()
+            elif status != "broken":
+                breach_since = None
+            await update_ad_status(d["id"], status, ms, breach_since)
+    return summarize_guard(await list_ad_destinations(site_id))
+
+
+@app.get("/api/portal/ads")
+async def portal_ads(request: Request):
+    from auth import caller_email
+    from database import any_membership, ad_destinations_for_client
+    from ads_guard import summarize_guard
+    email = caller_email(request)
+    if not email:
+        return summarize_guard([])
+    m = await any_membership(email)
+    if not m or m.get("role") != "client_viewer" or not m.get("client_id"):
+        return summarize_guard([])
+    return summarize_guard(await ad_destinations_for_client(m["client_id"]))
 
 
 @app.get("/health")

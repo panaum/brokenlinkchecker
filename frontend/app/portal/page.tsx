@@ -6,6 +6,7 @@ import { DashboardSite, DashboardScan } from "@/types";
 import { getPortalToken, clearPortalToken } from "@/lib/backendClient";
 import { ShieldCheck, LogOut } from "lucide-react";
 import ReportShelf from "@/components/ReportShelf";
+import AdsWasteGuard from "@/components/AdsWasteGuard";
 
 function domainOf(url: string): string {
   try { return new URL(url).hostname.replace(/^www\./, ""); } catch { return url; }
@@ -129,6 +130,11 @@ export default function PortalHome() {
             {/* Monthly proof-of-work reports */}
             <section className="ds-card ds-card-pad" style={{ marginTop: "var(--space-5)" }}>
               <ReportShelf variant="dark" portal />
+            </section>
+
+            {/* Google Ads waste-guard (read-only for clients) */}
+            <section className="ds-card ds-card-pad" style={{ marginTop: "var(--space-5)" }}>
+              <AdsWasteGuard variant="dark" portal />
             </section>
 
             {resources.length > 0 && (

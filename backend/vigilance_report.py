@@ -40,7 +40,7 @@ def _month_label(start):
 
 
 def compute_report(scans, findings, period_start, period_end,
-                   forms_audited=0, integrations_watched=0, economics=None):
+                   forms_audited=0, integrations_watched=0, economics=None, ads=None):
     """Return the report payload. `scans` and `findings` are dicts/objects with the
     stored fields; `period_start/end` are aware datetimes.
 
@@ -142,6 +142,7 @@ def compute_report(scans, findings, period_start, period_end,
         "incidents": incidents,
         "trend": trend,
         "uptime_pct": None,  # wired in Wave 3
+        "ads": ads,          # {destinations_verified, incidents, has_cost, spend_at_risk} or None
     }
 
 

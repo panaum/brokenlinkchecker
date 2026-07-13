@@ -2517,3 +2517,61 @@ def _get_attestation_sync(attestation_id=None, token=None) -> Optional[dict]:
 async def get_attestation(attestation_id=None, token=None) -> Optional[dict]:
     import asyncio
     return await asyncio.to_thread(_get_attestation_sync, attestation_id, token)
+
+
+# ─── Inbound-404 triage: imported dead-URL demand ────────────────────────────
+def _replace_404_demand_sync(site_id, records, source) -> dict:
+    from datetime import datetime, timezone
+    client = _get_client()
+    try:
+        client.table("inbound_404_demand").delete().eq("site_id", site_id).eq("source", source).execute()
+        now = datetime.now(timezone.utc).isoformat()
+        rows = [{"site_id": site_id, "url_normalized": r["url_normalized"], "hits": r["hits"],
+                 "source": source, "top_referrers": r.get("top_referrers", []),
+                 "last_seen": r.get("last_seen"), "imported_at": now} for r in records]
+        for i in range(0, len(rows), 500):
+            client.table("inbound_404_demand").insert(rows[i:i + 500]).execute()
+        return {"imported": len(rows)}
+    except Exception as e:
+        if _tables_missing(e):
+            return {"imported": 0, "setup_required": True}
+        raise
+
+
+async def replace_404_demand(site_id, records, source) -> dict:
+    import asyncio
+    return await asyncio.to_thread(_replace_404_demand_sync, site_id, records, source)
+
+
+def _list_404_demand_sync(site_id) -> list:
+    client = _get_client()
+    try:
+        return client.table("inbound_404_demand").select(
+            "url_normalized, hits, source, top_referrers, last_seen, imported_at"
+        ).eq("site_id", site_id).order("hits", desc=True).limit(2000).execute().data or []
+    except Exception as e:
+        if _tables_missing(e):
+            return []
+        raise
+
+
+async def list_404_demand(site_id) -> list:
+    import asyncio
+    return await asyncio.to_thread(_list_404_demand_sync, site_id)
+
+
+def _latest_scan_results_sync(site_id) -> list:
+    client = _get_client()
+    try:
+        rows = client.table("scans").select("results_json").eq("site_id", site_id)\
+            .order("scanned_at", desc=True).limit(1).execute().data or []
+        return (rows[0].get("results_json") if rows else None) or []
+    except Exception as e:
+        if _tables_missing(e):
+            return []
+        raise
+
+
+async def latest_scan_results(site_id) -> list:
+    import asyncio
+    return await asyncio.to_thread(_latest_scan_results_sync, site_id)

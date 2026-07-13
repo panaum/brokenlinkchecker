@@ -3061,6 +3061,86 @@ async def attestation_public(token: str):
             "document": row["document"]}
 
 
+# ─── Inbound-404 triage ──────────────────────────────────────────────────────
+def _findings_from_results(results):
+    """Broken/dead links from the latest scan → triage findings."""
+    out = []
+    for r in (results or []):
+        if not isinstance(r, dict):
+            continue
+        if (r.get("bucket") in ("broken", "dead_cta")) and r.get("url"):
+            out.append({"url": r["url"], "anchor_text": r.get("anchor_text", ""),
+                        "zone": (r.get("zones") or [r.get("zone", "")])[0] if (r.get("zones") or r.get("zone")) else "",
+                        "priority": r.get("priority") or "low", "reason": r.get("reason", ""),
+                        "bucket": r.get("bucket")})
+    return out
+
+
+_PRIORITY_RANK = {"critical": 4, "high": 3, "medium": 2, "low": 1}
+
+
+@app.post("/api/sites/{site_id}/inbound-404/preview")
+async def inbound404_preview(site_id: str, request: Request,
+                             _acc: dict = Depends(require_site_access("member"))):
+    """Parse an upload and return the parsed demand — no commit. The UI renders
+    this as a mini demand chart so the payoff is visible before importing."""
+    from inbound_404 import parse_404_csv
+    body = (await request.body()).decode("utf-8", "replace")
+    parsed = parse_404_csv(body)
+    return {"source": parsed["source"], "count": parsed["count"], "total_hits": parsed["total_hits"],
+            "skipped": parsed["skipped"], "warnings": parsed["warnings"],
+            "records": parsed["records"][:40]}
+
+
+@app.post("/api/sites/{site_id}/inbound-404/import")
+async def inbound404_import(site_id: str, request: Request,
+                            _acc: dict = Depends(require_site_access("member"))):
+    from inbound_404 import parse_404_csv
+    from database import replace_404_demand
+    body = (await request.body()).decode("utf-8", "replace")
+    parsed = parse_404_csv(body)
+    if not parsed["records"]:
+        return JSONResponse({"error": parsed["warnings"][0] if parsed["warnings"] else "No dead URLs found.",
+                             "warnings": parsed["warnings"]}, status_code=400)
+    res = await replace_404_demand(site_id, parsed["records"], parsed["source"])
+    if res.get("setup_required"):
+        return JSONResponse({"error": "Demand storage unavailable — apply migration 019.",
+                             "setup_required": True}, status_code=400)
+    return {"imported": res["imported"], "source": parsed["source"], "total_hits": parsed["total_hits"]}
+
+
+@app.get("/api/sites/{site_id}/inbound-404/triage")
+async def inbound404_triage(site_id: str, _acc: dict = Depends(require_site_access("client_viewer"))):
+    from database import latest_scan_results, list_404_demand
+    from inbound_404 import rerank, is_stale
+    findings = _findings_from_results(await latest_scan_results(site_id))
+    demand = await list_404_demand(site_id)
+    source = demand[0]["source"] if demand else "server_log"
+    imported_at = demand[0].get("imported_at") if demand else None
+    out = rerank(findings, demand, source=source,
+                 impact_of=lambda m: _PRIORITY_RANK.get(m.get("priority"), 1))
+    out["stale"] = bool(imported_at and is_stale(imported_at))
+    out["imported_at"] = imported_at
+    return out
+
+
+@app.post("/api/sites/{site_id}/inbound-404/redirect")
+async def inbound404_redirect(site_id: str, request: Request,
+                              _acc: dict = Depends(require_site_access("member"))):
+    """Ghost URL → a targeted redirect rule (measured demand, zero internal links
+    = exactly the URLs worth redirecting). Returns an exportable rule."""
+    body = await request.json()
+    url = (body.get("url") or "").strip()
+    target = (body.get("target") or "/").strip()
+    if not url:
+        return JSONResponse({"error": "url is required."}, status_code=400)
+    from urllib.parse import urlparse
+    path = urlparse(url).path or url
+    return {"rule": {"from": path, "to": target, "type": "301"},
+            "nginx": f"rewrite ^{path}$ {target} permanent;",
+            "note": "Add this to your redirect map / server config. Chosen because real demand hits it and nothing on the site links to it."}
+
+
 @app.get("/health")
 async def health():
     return {"status": "ok"}

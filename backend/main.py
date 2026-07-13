@@ -237,6 +237,8 @@ async def lifespan(app: FastAPI):
                 aps.add_job(run_uptime_all, "interval", minutes=5, id="sentinel_uptime",
                             replace_existing=True, kwargs={"notify": _watchdog_slack})
                 print("[Sentinel] daily checks + 5-min uptime scheduled")
+                aps.add_job(_recompute_fragility_all, "cron", hour=4, minute=0, id="fragility_recompute",
+                            replace_existing=True, misfire_grace_time=3600)
                 aps.add_job(_recompute_perf_all, "cron", hour=3, minute=30, id="perf_recompute",
                             replace_existing=True, misfire_grace_time=3600)
         except Exception as e:
@@ -2836,6 +2838,96 @@ async def performance_cost_index(request: Request, _acc: dict = Depends(require_
     index.sort(key=lambda x: -x["median_added_ms"])
     return {"portfolio_baseline_p50": round(baseline), "index": index,
             "method": "Observational: median load on sites where the host is present, minus the portfolio median. Not a controlled measurement."}
+
+
+# ─── Insight Layer PR3: Fragility & Decay Score ──────────────────────────────
+async def _recompute_fragility(site_id):
+    from database import (findings_for_site, site_scan_stats, upsert_fragility)
+    from fragility import (dedupe_events, compute_metrics, fragility_score, score_trend,
+                           history_gate, recurrence_clusters)
+    stats = await site_scan_stats(site_id)
+    events = dedupe_events(await findings_for_site(site_id))
+    monitoring_days = None
+    if stats.get("first_at"):
+        from datetime import datetime, timezone
+        fa = datetime.fromisoformat(str(stats["first_at"]).replace("Z", "+00:00"))
+        monitoring_days = (datetime.now(timezone.utc) - fa).days
+    gate = history_gate(monitoring_days, stats.get("count"))
+    if not gate["sufficient"]:
+        row = {"site_id": site_id, "insufficient": True, "score": None, "band": None,
+               "factors": [], "metrics": gate, "trend": []}
+        await upsert_fragility(row)
+        return {**row, "recurrence": []}
+    metrics = compute_metrics(events)
+    scored = fragility_score(metrics)
+    trend = score_trend(events, stats.get("first_at"))
+    row = {"site_id": site_id, "insufficient": False, "score": scored["score"],
+           "band": scored["band"], "factors": scored["factors"], "metrics": metrics, "trend": trend}
+    await upsert_fragility(row)
+    return {**row, "recurrence": recurrence_clusters(events)}
+
+
+async def _recompute_fragility_all():
+    from database import all_sites_min
+    for s in await all_sites_min():
+        try:
+            await _recompute_fragility(s["id"])
+        except Exception:
+            pass
+
+
+@app.get("/api/sites/{site_id}/fragility")
+async def fragility_get(site_id: str, _acc: dict = Depends(require_site_access("member"))):
+    """Agency view: full score + factors + trend + recurrence + suggestion."""
+    from database import fragility_pref
+    from fragility import allocation_suggestion
+    data = await _recompute_fragility(site_id)
+    if data.get("insufficient"):
+        return {"insufficient": True, "gate": data.get("metrics")}
+    m = data["metrics"]
+    quiet = None
+    if data.get("trend"):
+        quiet = m.get("mtbb_days")
+    data["suggestion"] = allocation_suggestion(data["band"], quiet or 0, "weekly")
+    data["client_visible"] = await fragility_pref(site_id)
+    return data
+
+
+@app.get("/api/sites/{site_id}/fragility/client")
+async def fragility_client(site_id: str, _acc: dict = Depends(require_site_access("client_viewer"))):
+    """Portal view: ONLY a positive improvement story, and only when the agency
+    has turned it on. Never the raw 'brittle' label."""
+    from database import get_fragility, fragility_pref
+    if not await fragility_pref(site_id):
+        return {"visible": False}
+    f = await get_fragility(site_id)
+    if not f or f.get("insufficient") or not f.get("trend"):
+        return {"visible": False}
+    trend = f["trend"]
+    first, last = trend[0]["score"], trend[-1]["score"]
+    if last >= first:                      # only frame improvement, never regression
+        return {"visible": False}
+    pct = round((first - last) / first * 100) if first else 0
+    return {"visible": True, "improvement_pct": pct,
+            "text": f"Stability up {pct}% since monitoring began.",
+            "trend": [{"at": t["at"], "stability": 100 - t["score"]} for t in trend]}
+
+
+@app.post("/api/sites/{site_id}/fragility/visibility")
+async def fragility_visibility(site_id: str, request: Request,
+                               _acc: dict = Depends(require_site_access("member"))):
+    from database import fragility_pref
+    body = await request.json()
+    visible = await fragility_pref(site_id, set_visible=bool(body.get("client_visible")))
+    return {"client_visible": visible}
+
+
+@app.get("/api/fragility/portfolio")
+async def fragility_portfolio(_acc: dict = Depends(require_role("member"))):
+    """Ranked agency view — most fragile first (reads the nightly cache)."""
+    from database import list_fragility
+    rows = await list_fragility()
+    return {"sites": rows}
 
 
 @app.get("/health")

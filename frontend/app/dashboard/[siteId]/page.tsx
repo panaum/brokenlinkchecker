@@ -17,6 +17,7 @@ import ContractsPanel from "@/components/ContractsPanel";
 import LeadTracer from "@/components/LeadTracer";
 import IntentMap from "@/components/IntentMap";
 import PerformanceLedger from "@/components/PerformanceLedger";
+import FragilityPanel from "@/components/FragilityPanel";
 import { cleanStreakDays } from "@/lib/history";
 
 function domainOf(url: string): string {
@@ -154,6 +155,11 @@ export default function SiteDetailPage() {
                 {/* Disaster sentinel — SSL / domain / indexability / uptime guard cards */}
                 <div className="ds-card ds-card-pad">
                   <SentinelGuard variant="dark" siteId={site.id} canManage />
+                </div>
+
+                {/* Fragility & decay — longitudinal read of findings history */}
+                <div className="ds-card ds-card-pad">
+                  <FragilityPanel variant="dark" siteId={site.id} />
                 </div>
 
                 {/* Time machine — scrub through every snapshot of this site. */}

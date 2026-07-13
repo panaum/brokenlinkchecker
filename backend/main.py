@@ -237,6 +237,8 @@ async def lifespan(app: FastAPI):
                 aps.add_job(run_uptime_all, "interval", minutes=5, id="sentinel_uptime",
                             replace_existing=True, kwargs={"notify": _watchdog_slack})
                 print("[Sentinel] daily checks + 5-min uptime scheduled")
+                aps.add_job(_recompute_perf_all, "cron", hour=3, minute=30, id="perf_recompute",
+                            replace_existing=True, misfire_grace_time=3600)
         except Exception as e:
             print(f"[Sentinel] not scheduled: {e}")
         # Wave 2 (lead delivery): daily tracer sweep over armed enrollments.
@@ -2732,6 +2734,108 @@ async def intent_map_endpoint(site_id: str, _acc: dict = Depends(require_site_ac
         or "CRM/Forms" in cats
     return compute_intent_map(links, integration_categories=cats,
                               chat_healthy=chat_healthy, has_site_form=has_form)
+
+
+# ─── Insight Layer PR2: Performance Regression Ledger ────────────────────────
+async def _recompute_perf_all():
+    """Nightly: refresh perf snapshots for every site (cheap — only new scans)."""
+    from database import all_sites_min
+    for s in await all_sites_min():
+        try:
+            await _recompute_perf(s["id"])
+        except Exception:
+            pass
+    return {"ok": True}
+
+
+async def _recompute_perf(site_id):
+    """Backfill/refresh perf_snapshots from scans.results_json — recomputable
+    from source at any time. Only computes scans not already cached."""
+    from database import (scans_min_for_site, perf_series, scan_results, upsert_perf_snapshot)
+    from perf_ledger import aggregate_scan
+    scans = await scans_min_for_site(site_id)
+    have = {s["scan_id"] for s in await perf_series(site_id)}
+    for s in scans:
+        if s["id"] in have:
+            continue
+        results = await scan_results(s["id"])
+        agg = aggregate_scan(results)
+        await upsert_perf_snapshot({
+            "scan_id": s["id"], "site_id": site_id, "scanned_at": s["scanned_at"],
+            "p50": agg["p50"], "p90": agg["p90"], "sample_count": agg["n"],
+            "resource_count": len(results or []),
+        })
+
+
+async def _suspects_for_window(series, reg):
+    """What changed between the scan before the regression and its first scan."""
+    from database import get_integrations
+    from perf_ledger import correlate_suspects, suspect_language
+    idx = next((i for i, p in enumerate(series) if p.get("scanned_at") == reg["start_at"]), None)
+    if idx is None or idx == 0:
+        return {"suspects": [], "language": suspect_language([])}
+    before_scan, after_scan = series[idx - 1], series[idx]
+
+    async def sig(row):
+        ints = await get_integrations(row["scan_id"]) or []
+        return {"integrations": {(i.get("host") or i.get("category")) for i in ints if (i.get("host") or i.get("category"))},
+                "resource_count": row.get("resource_count") or 0, "redirect_hops": 0}
+    suspects = correlate_suspects(await sig(before_scan), await sig(after_scan))
+    return {"suspects": suspects, "language": suspect_language(suspects)}
+
+
+@app.get("/api/sites/{site_id}/performance")
+async def performance_ledger(site_id: str, _acc: dict = Depends(require_site_access("client_viewer"))):
+    from database import perf_series
+    from perf_ledger import detect_regressions, build_verdict
+    await _recompute_perf(site_id)
+    series = await perf_series(site_id)
+    regs = detect_regressions(series)
+    for r in regs:
+        r["window"] = await _suspects_for_window(series, r)
+    verdict = build_verdict(series, regs)
+    # Name the suspect in the verdict when a single ongoing regression has one.
+    if verdict.get("state") == "slower" and verdict.get("regression"):
+        w = verdict["regression"].get("window") or {}
+        lang = w.get("language") or {}
+        if lang.get("confidence") == "likely":
+            verdict["text"] = verdict["text"].rstrip(".") + f" — {lang['text']}."
+    return {"verdict": verdict, "regressions": regs,
+            "series": [{"scanned_at": p["scanned_at"], "p50": p["p50"], "p90": p["p90"]} for p in series]}
+
+
+@app.get("/api/performance/cost-index")
+async def performance_cost_index(request: Request, _acc: dict = Depends(require_role("member"))):
+    """Third-party latency cost across the whole portfolio — needs the multi-site
+    vantage. Observational: per host, median site-p50 where present minus the
+    portfolio median where absent."""
+    from database import all_perf_snapshots, perf_series, get_integrations
+    from statistics import median
+    snaps = await all_perf_snapshots()
+    sites = sorted({s["site_id"] for s in snaps})
+    # latest p50 + integration hosts per site
+    site_p50, host_sites = {}, {}
+    for sid in sites:
+        ser = await perf_series(sid)
+        if not ser or ser[-1].get("p50") is None:
+            continue
+        site_p50[sid] = ser[-1]["p50"]
+        ints = await get_integrations(ser[-1]["scan_id"]) or []
+        for h in {(i.get("host") or i.get("category")) for i in ints if (i.get("host") or i.get("category"))}:
+            host_sites.setdefault(h, set()).add(sid)
+    all_p50 = list(site_p50.values())
+    baseline = median(all_p50) if all_p50 else 0
+    index = []
+    for host, ss in host_sites.items():
+        present = [site_p50[s] for s in ss if s in site_p50]
+        if len(present) < 2:
+            continue
+        index.append({"host": host, "sites": len(present),
+                      "median_added_ms": round(median(present) - baseline)})
+    index = [x for x in index if x["median_added_ms"] > 0]
+    index.sort(key=lambda x: -x["median_added_ms"])
+    return {"portfolio_baseline_p50": round(baseline), "index": index,
+            "method": "Observational: median load on sites where the host is present, minus the portfolio median. Not a controlled measurement."}
 
 
 @app.get("/health")

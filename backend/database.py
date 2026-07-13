@@ -2206,3 +2206,79 @@ def _latest_scan_for_site_sync(site_id) -> Optional[dict]:
 async def latest_scan_for_site(site_id) -> Optional[dict]:
     import asyncio
     return await asyncio.to_thread(_latest_scan_for_site_sync, site_id)
+
+
+# ─── Insight Layer PR2: performance snapshots (derived, recomputable) ─────────
+def _scans_min_for_site_sync(site_id) -> list:
+    client = _get_client()
+    try:
+        return client.table("scans").select("id, scanned_at")\
+            .eq("site_id", site_id).order("scanned_at").limit(500).execute().data or []
+    except Exception as e:
+        if _tables_missing(e):
+            return []
+        raise
+
+
+async def scans_min_for_site(site_id) -> list:
+    import asyncio
+    return await asyncio.to_thread(_scans_min_for_site_sync, site_id)
+
+
+def _scan_results_sync(scan_id) -> list:
+    client = _get_client()
+    try:
+        rows = client.table("scans").select("results_json").eq("id", scan_id).limit(1).execute().data
+        return (rows[0].get("results_json") if rows else None) or []
+    except Exception:
+        return []
+
+
+async def scan_results(scan_id) -> list:
+    import asyncio
+    return await asyncio.to_thread(_scan_results_sync, scan_id)
+
+
+def _upsert_perf_snapshot_sync(row) -> None:
+    client = _get_client()
+    try:
+        client.table("perf_snapshots").upsert(row, on_conflict="scan_id").execute()
+    except Exception as e:
+        if not _tables_missing(e):
+            raise
+
+
+async def upsert_perf_snapshot(row) -> None:
+    import asyncio
+    await asyncio.to_thread(_upsert_perf_snapshot_sync, row)
+
+
+def _perf_series_sync(site_id) -> list:
+    client = _get_client()
+    try:
+        return client.table("perf_snapshots").select("scan_id, scanned_at, p50, p90, sample_count, resource_count")\
+            .eq("site_id", site_id).order("scanned_at").execute().data or []
+    except Exception as e:
+        if _tables_missing(e):
+            return []
+        raise
+
+
+async def perf_series(site_id) -> list:
+    import asyncio
+    return await asyncio.to_thread(_perf_series_sync, site_id)
+
+
+def _all_perf_snapshots_sync() -> list:
+    client = _get_client()
+    try:
+        return client.table("perf_snapshots").select("site_id, scan_id").execute().data or []
+    except Exception as e:
+        if _tables_missing(e):
+            return []
+        raise
+
+
+async def all_perf_snapshots() -> list:
+    import asyncio
+    return await asyncio.to_thread(_all_perf_snapshots_sync)

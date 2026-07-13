@@ -10,6 +10,7 @@ import AdsWasteGuard from "@/components/AdsWasteGuard";
 import SentinelGuard from "@/components/SentinelGuard";
 import LeadTracer from "@/components/LeadTracer";
 import IntentMap from "@/components/IntentMap";
+import GovernancePanel from "@/components/GovernancePanel";
 import FragilityPanel from "@/components/FragilityPanel";
 
 function domainOf(url: string): string {
@@ -135,6 +136,13 @@ export default function PortalHome() {
             {sites.map((s) => (
               <section key={s.id} className="ds-card ds-card-pad" style={{ marginTop: "var(--space-5)" }}>
                 <IntentMap variant="dark" siteId={s.id} portal />
+              </section>
+            ))}
+
+            {/* Data-governance observations — softened, scope statement always shown */}
+            {sites.map((s) => (
+              <section key={s.id} className="ds-card ds-card-pad" style={{ marginTop: "var(--space-5)" }}>
+                <GovernancePanel variant="dark" siteId={s.id} portal />
               </section>
             ))}
 

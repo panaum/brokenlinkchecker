@@ -11,6 +11,7 @@ import SentinelGuard from "@/components/SentinelGuard";
 import LeadTracer from "@/components/LeadTracer";
 import IntentMap from "@/components/IntentMap";
 import GovernancePanel from "@/components/GovernancePanel";
+import InboundTriage from "@/components/InboundTriage";
 import FragilityPanel from "@/components/FragilityPanel";
 
 function domainOf(url: string): string {
@@ -143,6 +144,13 @@ export default function PortalHome() {
             {sites.map((s) => (
               <section key={s.id} className="ds-card ds-card-pad" style={{ marginTop: "var(--space-5)" }}>
                 <GovernancePanel variant="dark" siteId={s.id} portal />
+              </section>
+            ))}
+
+            {/* Inbound-404 — measured demand as reassurance (read-only) */}
+            {sites.map((s) => (
+              <section key={s.id} className="ds-card ds-card-pad" style={{ marginTop: "var(--space-5)" }}>
+                <InboundTriage variant="dark" siteId={s.id} portal />
               </section>
             ))}
 

@@ -13,6 +13,7 @@ import TimeMachine from "@/components/TimeMachine";
 import ReportShelf from "@/components/ReportShelf";
 import AdsWasteGuard from "@/components/AdsWasteGuard";
 import SentinelGuard from "@/components/SentinelGuard";
+import InboundTriage from "@/components/InboundTriage";
 import ConsentSessions from "@/components/ConsentSessions";
 import GovernancePanel from "@/components/GovernancePanel";
 import ContractsPanel from "@/components/ContractsPanel";
@@ -157,6 +158,11 @@ export default function SiteDetailPage() {
                 {/* Disaster sentinel — SSL / domain / indexability / uptime guard cards */}
                 <div className="ds-card ds-card-pad">
                   <SentinelGuard variant="dark" siteId={site.id} canManage />
+                </div>
+
+                {/* Inbound-404 triage — rank dead URLs by measured visitor demand */}
+                <div className="ds-card ds-card-pad">
+                  <InboundTriage variant="dark" siteId={site.id} canManage />
                 </div>
 
                 {/* Consent behavior observation ledger (PR1 — surfaces land in PR2) */}

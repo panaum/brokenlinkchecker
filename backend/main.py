@@ -2994,6 +2994,73 @@ async def governance_summary(site_id: str, _acc: dict = Depends(require_site_acc
     return build_governance(await consent_sessions(site_id, limit=500))
 
 
+# ─── Data-Governance Attestation PR3: the quarterly attestation ──────────────
+@app.post("/api/sites/{site_id}/attestation/generate")
+async def attestation_generate(site_id: str, request: Request,
+                               _acc: dict = Depends(require_site_access("member"))):
+    import secrets
+    from database import (consent_sessions, list_consent_enrollments, get_site_url, save_attestation)
+    from attestation import quarter_bounds, compute_attestation, content_hash
+    body = await request.json()
+    q = (body.get("quarter") or "").strip()          # "2026-Q2"
+    try:
+        year, quarter = int(q[:4]), int(q[-1])
+        start, end, label = quarter_bounds(year, quarter)
+    except Exception:
+        return JSONResponse({"error": "quarter must look like '2026-Q2'."}, status_code=400)
+    sessions = await consent_sessions(site_id, limit=1000)
+    enrollments = await list_consent_enrollments(site_id)
+    site_url = await get_site_url(site_id)
+    agency = body.get("agency_name") or "Apexure"
+    doc = compute_attestation(sessions, enrollments, start, end, agency_name=agency, site_url=site_url)
+    row = {"site_id": site_id, "period_label": label, "period_start": start.isoformat(),
+           "period_end": end.isoformat(), "document": doc, "content_hash": content_hash(doc),
+           "share_token": secrets.token_urlsafe(24), "agency_name": agency,
+           "engine_version": doc["methodology"]["engine_version"],
+           "classification_version": doc["methodology"]["classification_version"]}
+    saved = await save_attestation(row)
+    if not saved:
+        return JSONResponse({"error": "Attestation storage unavailable — apply migration 018.",
+                             "setup_required": True}, status_code=400)
+    return {"id": saved["id"], "label": label, "content_hash": row["content_hash"],
+            "share_token": row["share_token"]}
+
+
+@app.get("/api/sites/{site_id}/attestations")
+async def attestations_list(site_id: str, _acc: dict = Depends(require_site_access("client_viewer"))):
+    from database import list_attestations
+    return {"attestations": await list_attestations(site_id)}
+
+
+@app.get("/api/attestations/{attestation_id}")
+async def attestation_get(attestation_id: str, request: Request):
+    from database import get_attestation, site_scope, resolve_membership
+    from auth import caller_email, portal_enforced
+    row = await get_attestation(attestation_id=attestation_id)
+    if not row:
+        return JSONResponse({"error": "Attestation not found."}, status_code=404)
+    if not portal_enforced():
+        return row
+    email = caller_email(request)
+    scope = await site_scope(row["site_id"]) if email else None
+    m = await resolve_membership(email, scope["workspace_id"]) if scope and scope.get("workspace_id") else None
+    if not m:
+        return JSONResponse({"error": "No access."}, status_code=403)
+    return row
+
+
+@app.get("/api/attest/{token}")
+async def attestation_public(token: str):
+    """Public, tokenized — for the client's legal/procurement recipient."""
+    from database import get_attestation
+    row = await get_attestation(token=token)
+    if not row:
+        return JSONResponse({"error": "This attestation link is not valid."}, status_code=404)
+    return {"period_label": row["period_label"], "content_hash": row["content_hash"],
+            "agency_name": row.get("agency_name"), "issued_at": row.get("issued_at"),
+            "document": row["document"]}
+
+
 @app.get("/health")
 async def health():
     return {"status": "ok"}

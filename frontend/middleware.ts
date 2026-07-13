@@ -26,9 +26,10 @@ export const config = {
      *  - Client-facing surfaces, which authenticate via a backend token (not a
      *    NextAuth session) and are gated by the backend, not this wall:
      *      /portal (client home), /reports (the shared report artifact),
-     *      and their proxies /api/portal, /api/reports.
+     *      /attest (public tokenized attestation), and their proxies
+     *      /api/portal, /api/reports, /api/attest.
      *  - Next.js internals (_next, favicon, etc.)
      */
-    "/((?!login|portal|reports|api/auth|api/slack|api/portal|api/reports|_next/static|_next/image|favicon.ico|icon\\.png|opengraph-image\\.png).*)",
+    "/((?!login|portal|reports|attest|api/auth|api/slack|api/portal|api/reports|api/attest|api/attestations|_next/static|_next/image|favicon.ico|icon\\.png|opengraph-image\\.png).*)",
   ],
 }

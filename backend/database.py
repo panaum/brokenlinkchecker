@@ -2465,3 +2465,55 @@ def _all_consent_enrollments_sync() -> list:
 async def all_consent_enrollments() -> list:
     import asyncio
     return await asyncio.to_thread(_all_consent_enrollments_sync)
+
+
+# ─── Data-Governance Attestation PR3: issued attestations ────────────────────
+def _save_attestation_sync(row) -> Optional[dict]:
+    client = _get_client()
+    try:
+        r = client.table("attestations").insert(row).execute()
+        return r.data[0] if r.data else None
+    except Exception as e:
+        if _tables_missing(e):
+            return None
+        raise
+
+
+async def save_attestation(row) -> Optional[dict]:
+    import asyncio
+    return await asyncio.to_thread(_save_attestation_sync, row)
+
+
+def _list_attestations_sync(site_id) -> list:
+    client = _get_client()
+    try:
+        return client.table("attestations").select(
+            "id, period_label, period_start, period_end, content_hash, share_token, agency_name, issued_at"
+        ).eq("site_id", site_id).order("issued_at", desc=True).execute().data or []
+    except Exception as e:
+        if _tables_missing(e):
+            return []
+        raise
+
+
+async def list_attestations(site_id) -> list:
+    import asyncio
+    return await asyncio.to_thread(_list_attestations_sync, site_id)
+
+
+def _get_attestation_sync(attestation_id=None, token=None) -> Optional[dict]:
+    client = _get_client()
+    try:
+        q = client.table("attestations").select("*")
+        q = q.eq("id", attestation_id) if attestation_id else q.eq("share_token", token)
+        rows = q.limit(1).execute().data or []
+        return rows[0] if rows else None
+    except Exception as e:
+        if _tables_missing(e):
+            return None
+        raise
+
+
+async def get_attestation(attestation_id=None, token=None) -> Optional[dict]:
+    import asyncio
+    return await asyncio.to_thread(_get_attestation_sync, attestation_id, token)

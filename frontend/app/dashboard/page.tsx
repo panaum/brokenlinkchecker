@@ -71,16 +71,26 @@ type FeedItem = {
 };
 
 // --- One card: at-a-glance only. Config lives on the Site Detail page. ---
+// Stability band → a health-coded chip (never violet — health has its own
+// colors). "sturdy" reads calm, "brittle" asks for attention.
+const BAND_CHIP: Record<string, { label: string; cls: string }> = {
+  sturdy: { label: "Sturdy", cls: "ds-status-healthy" },
+  normal: { label: "Steady", cls: "ds-status-neutral" },
+  brittle: { label: "Brittle", cls: "ds-status-attention" },
+};
+
 function SiteCard({
   site,
   scanning,
   onRescan,
   onDelete,
+  band,
 }: {
   site: DashboardSite;
   scanning: boolean;
   onRescan: () => void;
   onDelete: () => void;
+  band?: string;
 }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef<HTMLDivElement>(null);
@@ -142,6 +152,11 @@ function SiteCard({
             {middleTruncateUrl(site.url)}
           </div>
         </div>
+        {band && BAND_CHIP[band] && (
+          <span className={`ds-status ${BAND_CHIP[band].cls}`} style={{ flexShrink: 0 }} title="Stability band — how often this site breaks over time">
+            {BAND_CHIP[band].label}
+          </span>
+        )}
         <span className={`ds-status ${status.cls}`} style={{ flexShrink: 0 }}>
           <span className="ds-status-dot" />
         </span>
@@ -254,6 +269,9 @@ export default function DashboardPage() {
 
   const [confirmDelete, setConfirmDelete] = useState<{ id: string; name: string } | null>(null);
   const [deletingId, setDeletingId] = useState<string | null>(null);
+  // Stability band per site (from the nightly fragility cache) — a quiet chip,
+  // never blocks a card if the endpoint is unavailable.
+  const [bands, setBands] = useState<Record<string, string>>({});
 
   const fetchDashboard = async () => {
     try {
@@ -289,6 +307,14 @@ export default function DashboardPage() {
   useEffect(() => {
     document.title = "Dashboard | LinkSpy";
     fetchDashboard();
+    fetch("/api/fragility/portfolio")
+      .then((r) => (r.ok ? r.json() : { sites: [] }))
+      .then((d: { sites?: { site_id: string; band?: string; insufficient?: boolean }[] }) => {
+        const map: Record<string, string> = {};
+        for (const s of d.sites ?? []) if (s.band && !s.insufficient) map[s.site_id] = s.band;
+        setBands(map);
+      })
+      .catch(() => {});
   }, []);
 
   const handleScanSite = async (id: string, url: string) => {
@@ -446,6 +472,7 @@ export default function DashboardPage() {
                 scanning={scanningIds.has(site.id)}
                 onRescan={() => handleScanSite(site.id, site.url)}
                 onDelete={() => setConfirmDelete({ id: site.id, name: displayName(site) })}
+                band={bands[site.id]}
               />
             ))
           )}

@@ -2244,6 +2244,35 @@ async def _build_report(site_id, period: str):
             data["disasters"] = {"watched": 4, "incidents": len(in_period)}
     except Exception:
         pass
+    # Follow-up: fold MEASURED inbound-404 demand into the report — honestly.
+    #  · covered incidents carry their measured hit count, so "impact" is
+    #    evidence-backed rather than a synthetic traffic-share guess (ROI-tighten)
+    #  · a real-visitor line counts ONLY human (server_log) demand; Googlebot
+    #    (gsc) crawl demand is never called a visitor (no bot/human conflation)
+    try:
+        from database import list_404_demand
+        from diffing import normalize_url
+        demand = await list_404_demand(site_id)
+        if demand:
+            by_url = {}
+            for d in demand:
+                key = d.get("url_normalized")
+                rec = by_url.setdefault(key, {"hits": 0, "sources": set()})
+                rec["hits"] += int(d.get("hits") or 0)
+                rec["sources"].add(d.get("source") or "server_log")
+            for inc in data.get("incidents", []):
+                rec = by_url.get(normalize_url(inc.get("url") or ""))
+                if rec and rec["hits"] > 0:
+                    inc["measured_hits"] = rec["hits"]
+                    inc["measured_human"] = "server_log" in rec["sources"]
+            human = [d for d in demand if (d.get("source") or "server_log") == "server_log"]
+            if human:
+                data["real_visitor_impact"] = {
+                    "hits": sum(int(d.get("hits") or 0) for d in human),
+                    "dead_urls": len({d.get("url_normalized") for d in human}),
+                }
+    except Exception:
+        pass
     return start, end, label, data
 
 
@@ -2924,9 +2953,19 @@ async def fragility_visibility(site_id: str, request: Request,
 
 @app.get("/api/fragility/portfolio")
 async def fragility_portfolio(_acc: dict = Depends(require_role("member"))):
-    """Ranked agency view — most fragile first (reads the nightly cache)."""
-    from database import list_fragility
+    """Ranked agency view — most fragile first (reads the nightly cache). Scoped
+    to the caller's workspace when enforcement is on, so bands never leak across
+    workspaces."""
+    from database import list_fragility, _get_client
+    import asyncio as _asyncio
     rows = await list_fragility()
+    workspace_id = _acc.get("workspace_id")
+    if workspace_id:
+        def _ids():
+            return {r["id"] for r in (_get_client().table("sites").select("id")
+                    .eq("workspace_id", workspace_id).execute().data or [])}
+        allowed = await _asyncio.to_thread(_ids)
+        rows = [r for r in rows if r.get("site_id") in allowed]
     return {"sites": rows}
 
 
@@ -2948,16 +2987,51 @@ async def consent_enroll(site_id: str, request: Request,
     return {"enrollment": saved, "note": "The consent ledger begins recording now; earlier behaviour cannot be backfilled."}
 
 
+async def _consent_drift_alert(site_id, page_url, prior_sessions, new_sessions):
+    """Fire ONE Slack line when a run surfaces a NEW observation that wasn't in
+    the prior run of the same page+regime+mode (drift). Change-only + quiet by
+    construction: a first-ever run, or a run with nothing new, stays silent.
+    Never a legal conclusion — states the observed technical change only."""
+    from consent_governance import diff_sessions
+    webhook = os.getenv("SLACK_WEBHOOK_URL")
+    if not webhook:
+        return
+    fresh = []
+    for ns in new_sessions:
+        if ns.get("verdicts") is None:
+            continue
+        cands = [s for s in prior_sessions
+                 if s.get("page_url") == page_url and s.get("regime") == ns.get("regime")
+                 and s.get("mode") == ns.get("mode") and s.get("verdicts") is not None]
+        cands.sort(key=lambda s: s.get("created_at") or "")
+        if not cands:
+            continue                        # first run for this page+regime → not drift
+        for (rg, code, host) in diff_sessions(cands[-1].get("verdicts"), ns.get("verdicts"))["new"]:
+            fresh.append((rg, code, host))
+    if not fresh:
+        return
+    lines = "; ".join(f"{rg} · {code}" + (f" ({host})" if host else "") for rg, code, host in fresh[:6])
+    text = (f":mag: *Consent drift* on {page_url} — {len(fresh)} new observation"
+            f"{'s' if len(fresh) != 1 else ''} since the last run: {lines}. "
+            "Observational only — not a compliance determination.")
+    try:
+        async with httpx.AsyncClient() as client:
+            await client.post(webhook, json={"text": text}, timeout=5.0)
+    except Exception:
+        pass
+
+
 @app.post("/api/sites/{site_id}/consent/run")
 async def consent_run(site_id: str, request: Request,
                       _acc: dict = Depends(require_site_access("member"))):
-    from database import save_consent_session
+    from database import save_consent_session, consent_sessions as _prior_sessions
     from consent_render import run_consent_session
     body = await request.json()
     page_url = (body.get("page_url") or "").strip()
     regime = body.get("regime") or "BOTH"
     if not page_url:
         return JSONResponse({"error": "page_url is required."}, status_code=400)
+    prior = await _prior_sessions(site_id, limit=500)
     try:
         sessions = await run_consent_session(site_id, page_url, regime)
     except Exception as e:
@@ -2966,6 +3040,10 @@ async def consent_run(site_id: str, request: Request,
     for s in sessions:
         if await save_consent_session(s):
             saved += 1
+    try:
+        await _consent_drift_alert(site_id, page_url, prior, sessions)
+    except Exception:
+        pass
     obs = sum(len([v for v in s["verdicts"] if v.get("kind") == "observation"]) for s in sessions)
     return {"sessions": saved, "observations": obs, "modes": [s["mode"] for s in sessions]}
 

@@ -29,10 +29,12 @@ export interface ReportData {
   incidents: Array<{
     found_at: string | null; fixed_at: string | null; verified: boolean;
     bucket: string; what: string; where: string; url: string; hours_to_fix?: number; roi_line?: string;
+    measured_hits?: number; measured_human?: boolean;
   }>;
   trend: Array<{ date: string; score: number }>;
   uptime_pct: number | null;
   ads?: { destinations_verified: number; incidents: number; has_cost: boolean; spend_at_risk: number | null } | null;
+  real_visitor_impact?: { hits: number; dead_urls: number };
 }
 
 function useCountUp(target: number, ms = 600): number {
@@ -144,6 +146,14 @@ export default function VigilanceReport({ data, siteName }: { data: ReportData; 
               )}
             </div>
           )}
+          {/* Real-visitor impact — measured human demand only (from an imported
+              404 log). Never bot demand; omitted entirely when nothing imported. */}
+          {data.real_visitor_impact && data.real_visitor_impact.hits > 0 && (
+            <div style={{ marginTop: 20, paddingTop: 20, borderTop: `1px solid ${LINE}`, textAlign: "center", color: SECONDARY, fontSize: 14 }}>
+              <b style={{ color: INK }}>{data.real_visitor_impact.hits.toLocaleString()}</b> real {data.real_visitor_impact.hits === 1 ? "visitor" : "visitors"} reached a dead URL across{" "}
+              <b style={{ color: INK }}>{data.real_visitor_impact.dead_urls}</b> {data.real_visitor_impact.dead_urls === 1 ? "page" : "pages"} — measured from your imported log, not estimated.
+            </div>
+          )}
         </section>
 
         {/* ── Caught & fixed timeline ── */}
@@ -170,6 +180,13 @@ export default function VigilanceReport({ data, siteName }: { data: ReportData; 
                       {inc.fixed_at && <span style={{ color: GREEN }}>→ Fixed {fmtDate(inc.fixed_at)}</span>}
                       {inc.hours_to_fix != null && <span>({inc.hours_to_fix}h)</span>}
                     </div>
+                    {inc.measured_hits != null && inc.measured_hits > 0 && (
+                      <div style={{ marginTop: 8, display: "inline-flex", alignItems: "center", gap: 6, background: inc.measured_human ? "#fef3c7" : "#f1f5f9", color: inc.measured_human ? "#92400e" : SECONDARY, fontSize: 12, fontWeight: 600, padding: "3px 10px", borderRadius: 999 }}>
+                        {inc.measured_human
+                          ? `${inc.measured_hits.toLocaleString()} real ${inc.measured_hits === 1 ? "visitor" : "visitors"} hit this before we fixed it`
+                          : `${inc.measured_hits.toLocaleString()} Googlebot ${inc.measured_hits === 1 ? "hit" : "hits"} (measured)`}
+                      </div>
+                    )}
                     {inc.roi_line && <div style={{ marginTop: 8, color: BRAND, fontSize: 13, fontWeight: 600 }}>{inc.roi_line}</div>}
                   </div>
                 </div>

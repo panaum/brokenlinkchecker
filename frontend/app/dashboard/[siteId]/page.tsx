@@ -14,6 +14,7 @@ import ReportShelf from "@/components/ReportShelf";
 import AdsWasteGuard from "@/components/AdsWasteGuard";
 import SentinelGuard from "@/components/SentinelGuard";
 import ConsentSessions from "@/components/ConsentSessions";
+import GovernancePanel from "@/components/GovernancePanel";
 import ContractsPanel from "@/components/ContractsPanel";
 import LeadTracer from "@/components/LeadTracer";
 import IntentMap from "@/components/IntentMap";
@@ -49,7 +50,7 @@ export default function SiteDetailPage() {
   const siteId = String(params.siteId);
   const [site, setSite] = useState<DashboardSite | null>(null);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState<"overview" | "promises" | "performance" | "contracts" | "settings">("overview");
+  const [tab, setTab] = useState<"overview" | "promises" | "performance" | "governance" | "contracts" | "settings">("overview");
   const [issues, setIssues] = useState<Issue[] | null>(null);
 
   const load = useCallback(async () => {
@@ -129,7 +130,7 @@ export default function SiteDetailPage() {
 
             {/* Tabs */}
             <div style={{ display: "flex", gap: 4, borderBottom: "1px solid var(--border-subtle)", marginBottom: 24 }}>
-              {(["overview", "promises", "performance", "contracts", "settings"] as const).map((t) => (
+              {(["overview", "promises", "performance", "governance", "contracts", "settings"] as const).map((t) => (
                 <button
                   key={t}
                   onClick={() => setTab(t)}
@@ -249,6 +250,10 @@ export default function SiteDetailPage() {
             ) : tab === "performance" ? (
               <div className="ds-card ds-card-pad">
                 <PerformanceLedger variant="dark" siteId={site.id} canManage />
+              </div>
+            ) : tab === "governance" ? (
+              <div className="ds-card ds-card-pad">
+                <GovernancePanel variant="dark" siteId={site.id} />
               </div>
             ) : tab === "contracts" ? (
               // Lead delivery contracts — define & verify what an intact lead is.

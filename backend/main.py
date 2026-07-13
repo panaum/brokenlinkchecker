@@ -2983,6 +2983,17 @@ async def consent_enrollments_list(site_id: str, _acc: dict = Depends(require_si
     return {"enrollments": await list_consent_enrollments(site_id)}
 
 
+# ─── Data-Governance Attestation PR2: governance surface ─────────────────────
+@app.get("/api/sites/{site_id}/governance")
+async def governance_summary(site_id: str, _acc: dict = Depends(require_site_access("client_viewer"))):
+    """Verdict-first governance summary per regime, from the consent ledger.
+    Drift (a newly-appearing observation) is classified as an incident; a
+    continuously-failing item is a finding. Observational only."""
+    from database import consent_sessions
+    from consent_governance import build_governance
+    return build_governance(await consent_sessions(site_id, limit=500))
+
+
 @app.get("/health")
 async def health():
     return {"status": "ok"}

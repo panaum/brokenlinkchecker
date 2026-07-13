@@ -21,6 +21,7 @@ import LeadTracer from "@/components/LeadTracer";
 import IntentMap from "@/components/IntentMap";
 import PerformanceLedger from "@/components/PerformanceLedger";
 import FragilityPanel from "@/components/FragilityPanel";
+import QaBridgePanel from "@/components/QaBridgePanel";
 import { cleanStreakDays } from "@/lib/history";
 
 function domainOf(url: string): string {
@@ -283,6 +284,11 @@ export default function SiteDetailPage() {
                   <h2 className="ds-text-primary" style={{ fontSize: "var(--text-heading)", fontWeight: 600, marginBottom: 4 }}>Status badge</h2>
                   <p className="ds-text-secondary" style={{ fontSize: "var(--text-caption)", marginBottom: 12 }}>An embeddable SVG showing this site&apos;s latest health score.</p>
                   <BadgeEmbed siteId={site.id} siteUrl={site.url} />
+                </div>
+                <div>
+                  <h2 className="ds-text-primary" style={{ fontSize: "var(--text-heading)", fontWeight: 600, marginBottom: 4 }}>QA Dashboard link</h2>
+                  <p className="ds-text-secondary" style={{ fontSize: "var(--text-caption)", marginBottom: 12 }}>Connect this site to a QA deliverable so the QA app shows each delivery check&apos;s live status (&ldquo;still true today&rdquo;). Internal only.</p>
+                  <QaBridgePanel siteId={site.id} />
                 </div>
               </div>
             )}

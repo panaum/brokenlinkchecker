@@ -2930,6 +2930,59 @@ async def fragility_portfolio(_acc: dict = Depends(require_role("member"))):
     return {"sites": rows}
 
 
+# ─── Data-Governance Attestation PR1: consent engine ─────────────────────────
+@app.post("/api/sites/{site_id}/consent/enroll")
+async def consent_enroll(site_id: str, request: Request,
+                         _acc: dict = Depends(require_site_access("member"))):
+    from database import save_consent_enrollment
+    body = await request.json()
+    page_url = (body.get("page_url") or "").strip()
+    regime = body.get("regime") or "BOTH"
+    if not page_url or regime not in ("UK", "US", "BOTH"):
+        return JSONResponse({"error": "page_url and a valid regime (UK/US/BOTH) are required."}, status_code=400)
+    saved = await save_consent_enrollment(site_id, page_url, regime, body.get("cadence") or "weekly")
+    if not saved:
+        return JSONResponse({"error": "Consent storage unavailable — apply migration 017.",
+                             "setup_required": True}, status_code=400)
+    # History accrues from here — the UI states this to the operator.
+    return {"enrollment": saved, "note": "The consent ledger begins recording now; earlier behaviour cannot be backfilled."}
+
+
+@app.post("/api/sites/{site_id}/consent/run")
+async def consent_run(site_id: str, request: Request,
+                      _acc: dict = Depends(require_site_access("member"))):
+    from database import save_consent_session
+    from consent_render import run_consent_session
+    body = await request.json()
+    page_url = (body.get("page_url") or "").strip()
+    regime = body.get("regime") or "BOTH"
+    if not page_url:
+        return JSONResponse({"error": "page_url is required."}, status_code=400)
+    try:
+        sessions = await run_consent_session(site_id, page_url, regime)
+    except Exception as e:
+        return JSONResponse({"error": f"Render failed: {e}"}, status_code=502)
+    saved = 0
+    for s in sessions:
+        if await save_consent_session(s):
+            saved += 1
+    obs = sum(len([v for v in s["verdicts"] if v.get("kind") == "observation"]) for s in sessions)
+    return {"sessions": saved, "observations": obs, "modes": [s["mode"] for s in sessions]}
+
+
+@app.get("/api/sites/{site_id}/consent/sessions")
+async def consent_sessions_list(site_id: str, _acc: dict = Depends(require_site_access("client_viewer"))):
+    from database import consent_sessions
+    from consent_verdict import SCOPE_STATEMENT
+    return {"scope_statement": SCOPE_STATEMENT, "sessions": await consent_sessions(site_id)}
+
+
+@app.get("/api/sites/{site_id}/consent/enrollments")
+async def consent_enrollments_list(site_id: str, _acc: dict = Depends(require_site_access("member"))):
+    from database import list_consent_enrollments
+    return {"enrollments": await list_consent_enrollments(site_id)}
+
+
 @app.get("/health")
 async def health():
     return {"status": "ok"}

@@ -2384,3 +2384,84 @@ def _fragility_pref_sync(site_id, set_visible=None) -> bool:
 async def fragility_pref(site_id, set_visible=None) -> bool:
     import asyncio
     return await asyncio.to_thread(_fragility_pref_sync, site_id, set_visible)
+
+
+# ─── Data-Governance Attestation PR1: consent ledger ─────────────────────────
+def _save_consent_session_sync(row) -> Optional[dict]:
+    client = _get_client()
+    try:
+        r = client.table("consent_sessions").insert(row).execute()
+        return r.data[0] if r.data else None
+    except Exception as e:
+        if _tables_missing(e):
+            return None
+        raise
+
+
+async def save_consent_session(row) -> Optional[dict]:
+    import asyncio
+    return await asyncio.to_thread(_save_consent_session_sync, row)
+
+
+def _consent_sessions_sync(site_id, limit=100) -> list:
+    client = _get_client()
+    try:
+        return client.table("consent_sessions").select(
+            "id, page_url, regime, mode, requests, cmp, optout, verdicts, engine_version, classification_version, created_at"
+        ).eq("site_id", site_id).order("created_at", desc=True).limit(limit).execute().data or []
+    except Exception as e:
+        if _tables_missing(e):
+            return []
+        raise
+
+
+async def consent_sessions(site_id, limit=100) -> list:
+    import asyncio
+    return await asyncio.to_thread(_consent_sessions_sync, site_id, limit)
+
+
+def _save_consent_enrollment_sync(site_id, page_url, regime, cadence) -> Optional[dict]:
+    client = _get_client()
+    try:
+        row = {"site_id": site_id, "page_url": page_url, "regime": regime, "cadence": cadence, "enabled": True}
+        r = client.table("consent_enrollments").upsert(row, on_conflict="site_id,page_url").execute()
+        return r.data[0] if r.data else None
+    except Exception as e:
+        if _tables_missing(e):
+            return None
+        raise
+
+
+async def save_consent_enrollment(site_id, page_url, regime, cadence="weekly") -> Optional[dict]:
+    import asyncio
+    return await asyncio.to_thread(_save_consent_enrollment_sync, site_id, page_url, regime, cadence)
+
+
+def _list_consent_enrollments_sync(site_id) -> list:
+    client = _get_client()
+    try:
+        return client.table("consent_enrollments").select("*").eq("site_id", site_id).execute().data or []
+    except Exception as e:
+        if _tables_missing(e):
+            return []
+        raise
+
+
+async def list_consent_enrollments(site_id) -> list:
+    import asyncio
+    return await asyncio.to_thread(_list_consent_enrollments_sync, site_id)
+
+
+def _all_consent_enrollments_sync() -> list:
+    client = _get_client()
+    try:
+        return client.table("consent_enrollments").select("*").eq("enabled", True).execute().data or []
+    except Exception as e:
+        if _tables_missing(e):
+            return []
+        raise
+
+
+async def all_consent_enrollments() -> list:
+    import asyncio
+    return await asyncio.to_thread(_all_consent_enrollments_sync)

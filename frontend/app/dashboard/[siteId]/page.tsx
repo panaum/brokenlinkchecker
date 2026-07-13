@@ -15,6 +15,7 @@ import AdsWasteGuard from "@/components/AdsWasteGuard";
 import SentinelGuard from "@/components/SentinelGuard";
 import ContractsPanel from "@/components/ContractsPanel";
 import LeadTracer from "@/components/LeadTracer";
+import IntentMap from "@/components/IntentMap";
 import { cleanStreakDays } from "@/lib/history";
 
 function domainOf(url: string): string {
@@ -45,7 +46,7 @@ export default function SiteDetailPage() {
   const siteId = String(params.siteId);
   const [site, setSite] = useState<DashboardSite | null>(null);
   const [loading, setLoading] = useState(true);
-  const [tab, setTab] = useState<"overview" | "contracts" | "settings">("overview");
+  const [tab, setTab] = useState<"overview" | "promises" | "contracts" | "settings">("overview");
   const [issues, setIssues] = useState<Issue[] | null>(null);
 
   const load = useCallback(async () => {
@@ -125,7 +126,7 @@ export default function SiteDetailPage() {
 
             {/* Tabs */}
             <div style={{ display: "flex", gap: 4, borderBottom: "1px solid var(--border-subtle)", marginBottom: 24 }}>
-              {(["overview", "contracts", "settings"] as const).map((t) => (
+              {(["overview", "promises", "contracts", "settings"] as const).map((t) => (
                 <button
                   key={t}
                   onClick={() => setTab(t)}
@@ -227,6 +228,10 @@ export default function SiteDetailPage() {
                     </div>
                   )}
                 </div>
+              </div>
+            ) : tab === "promises" ? (
+              <div className="ds-card ds-card-pad">
+                <IntentMap variant="dark" siteId={site.id} canEnroll />
               </div>
             ) : tab === "contracts" ? (
               // Lead delivery contracts — define & verify what an intact lead is.

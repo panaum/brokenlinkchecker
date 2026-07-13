@@ -2188,3 +2188,21 @@ def _mark_cleanup_sync(run_id, status) -> None:
 async def mark_cleanup(run_id, status) -> None:
     import asyncio
     await asyncio.to_thread(_mark_cleanup_sync, run_id, status)
+
+
+# ─── Insight Layer, PR1: latest scan for the intent map ──────────────────────
+def _latest_scan_for_site_sync(site_id) -> Optional[dict]:
+    client = _get_client()
+    try:
+        rows = client.table("scans").select("id, results_json, scanned_at")\
+            .eq("site_id", site_id).order("scanned_at", desc=True).limit(1).execute().data or []
+        return rows[0] if rows else None
+    except Exception as e:
+        if _tables_missing(e):
+            return None
+        raise
+
+
+async def latest_scan_for_site(site_id) -> Optional[dict]:
+    import asyncio
+    return await asyncio.to_thread(_latest_scan_for_site_sync, site_id)

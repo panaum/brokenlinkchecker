@@ -2708,6 +2708,32 @@ async def tracer_runs(site_id: str, _acc: dict = Depends(require_site_access("cl
     return {"runs": await runs_for_site(site_id)}
 
 
+# ─── Insight Layer, PR1: the Intent Map ──────────────────────────────────────
+@app.get("/api/sites/{site_id}/intent-map")
+async def intent_map_endpoint(site_id: str, _acc: dict = Depends(require_site_access("client_viewer"))):
+    """Every money-promise the site makes, and whether it's honored. Read-only
+    join over the latest scan's links + integrations + form signals."""
+    from database import latest_scan_for_site, get_integrations
+    from intent_map import compute_intent_map
+    scan = await latest_scan_for_site(site_id)
+    if not scan:
+        return {"verdict": "No scan yet — run a scan to map this site's promises.",
+                "all_clear": False, "counts": {"conversion_total": 0, "honored": 0, "broken": 0,
+                "unverified": 0, "functional_total": 0}, "promises": [], "no_scan": True}
+    links = scan.get("results_json") or []
+    integrations = await get_integrations(scan["id"]) or []
+    cats = {i.get("category") for i in integrations if i.get("category")}
+    chat_healthy = None
+    for i in integrations:
+        if i.get("category") == "Chat/Support":
+            chat_healthy = i.get("health") in ("healthy", None)
+            break
+    has_form = any((r.get("resource_type") if isinstance(r, dict) else None) == "form_action" for r in links) \
+        or "CRM/Forms" in cats
+    return compute_intent_map(links, integration_categories=cats,
+                              chat_healthy=chat_healthy, has_site_form=has_form)
+
+
 @app.get("/health")
 async def health():
     return {"status": "ok"}

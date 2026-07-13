@@ -9,6 +9,7 @@ import ReportShelf from "@/components/ReportShelf";
 import AdsWasteGuard from "@/components/AdsWasteGuard";
 import SentinelGuard from "@/components/SentinelGuard";
 import LeadTracer from "@/components/LeadTracer";
+import IntentMap from "@/components/IntentMap";
 
 function domainOf(url: string): string {
   try { return new URL(url).hostname.replace(/^www\./, ""); } catch { return url; }
@@ -128,6 +129,13 @@ export default function PortalHome() {
                 })}
               </div>
             )}
+
+            {/* Promise map — every money-promise, honored or not (boardroom-soft) */}
+            {sites.map((s) => (
+              <section key={s.id} className="ds-card ds-card-pad" style={{ marginTop: "var(--space-5)" }}>
+                <IntentMap variant="dark" siteId={s.id} portal />
+              </section>
+            ))}
 
             {/* Verified lead delivery — the record of green, per monitored site */}
             {sites.map((s) => (

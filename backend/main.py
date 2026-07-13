@@ -20,7 +20,7 @@ def _frontend_url() -> str:
     local frontend doesn't send people to production."""
     return os.getenv("FRONTEND_URL", DEFAULT_FRONTEND_URL).rstrip("/")
 
-from fastapi import FastAPI, Query, Depends, Request
+from fastapi import FastAPI, Query, Depends, Request, Header
 from auth import (
     require_site_access, require_scan_access, require_finding_access, require_role,
 )
@@ -3137,6 +3137,113 @@ async def attestation_public(token: str):
     return {"period_label": row["period_label"], "content_hash": row["content_hash"],
             "agency_name": row.get("agency_name"), "issued_at": row.get("issued_at"),
             "document": row["document"]}
+
+
+# ─── QA-bridge ("Still True Today") — one-way status for the QA app ───────────
+# LinkSpy EXPOSES live verification status; the QA app reads and renders. No
+# writes from QA→LinkSpy. The status endpoint reads the latest STORED results
+# only — it never triggers a scan or a probe.
+
+# Read-only endpoint → a lenient fixed-window limiter (pure helper, injectable
+# clock) is plenty; it exists to blunt abuse, not to meter fair use.
+from qa_bridge import RateLimiter as _QaRateLimiter, parse_service_key as _qa_parse_key
+_qa_rl = _QaRateLimiter(max_requests=120, window_s=60.0)
+
+
+async def _qa_authenticate(authorization, x_api_key):
+    """Resolve the dedicated service key from either header. Returns the key row
+    or None. Keys are hashed at rest; the raw token is never stored or logged."""
+    from database import qa_key_verify
+    raw = _qa_parse_key(authorization, x_api_key)
+    if not raw:
+        return None
+    return await qa_key_verify(raw)
+
+
+@app.get("/api/qa-bridge/status")
+async def qa_bridge_status(qa_page_ref: str = Query(...),
+                           authorization: str = Header(default=None),
+                           x_api_key: str = Header(default=None)):
+    """Read-only live status for a mapped QA deliverable. Auth: dedicated
+    service API key (Bearer or X-Api-Key). Unmapped ref → {mapped:false}, 200.
+    Verdicts are computed from the LATEST STORED results — no scan is triggered."""
+    from database import qa_get_map, qa_snapshot
+    from qa_catalog import derive_checks, summarize, CATALOG_VERSION
+    key = await _qa_authenticate(authorization, x_api_key)
+    if not key:
+        return JSONResponse({"error": "A valid QA-bridge service key is required."}, status_code=401)
+    if not _qa_rl.allow(key["id"], time.time()):
+        return JSONResponse({"error": "Rate limit exceeded. Try again shortly."}, status_code=429)
+
+    mapping = await qa_get_map(qa_page_ref)
+    if not mapping:
+        return {"mapped": False}
+    snap = await qa_snapshot(mapping["linkspy_site_id"], mapping.get("page_url"),
+                             baseline_at=mapping.get("created_at"))
+    checks = derive_checks(snap)
+    return {"mapped": True, "catalog_version": CATALOG_VERSION,
+            "site": {"id": mapping["linkspy_site_id"]},
+            "page_url": mapping.get("page_url"),
+            "as_of": snap.get("as_of"),
+            "summary": summarize(checks),
+            "checks": checks}
+
+
+# ─── QA-bridge admin (agency-internal) — mapping + service keys ───────────────
+@app.get("/api/sites/{site_id}/qa-bridge/maps")
+async def qa_maps_list(site_id: str, _acc: dict = Depends(require_site_access("member"))):
+    from database import qa_list_maps
+    return {"maps": await qa_list_maps(site_id)}
+
+
+@app.post("/api/sites/{site_id}/qa-bridge/maps")
+async def qa_maps_add(site_id: str, request: Request,
+                      _acc: dict = Depends(require_site_access("member"))):
+    from database import qa_add_map
+    body = await request.json()
+    ref = (body.get("qa_page_ref") or "").strip()
+    if not ref:
+        return JSONResponse({"error": "qa_page_ref is required."}, status_code=400)
+    page_url = (body.get("page_url") or "").strip() or None
+    saved = await qa_add_map(ref, site_id, page_url, _acc.get("email"))
+    if not saved:
+        return JSONResponse({"error": "QA-bridge storage unavailable — apply migration 020.",
+                             "setup_required": True}, status_code=400)
+    return {"map": saved}
+
+
+@app.delete("/api/sites/{site_id}/qa-bridge/maps/{map_id}")
+async def qa_maps_unlink(site_id: str, map_id: str,
+                         _acc: dict = Depends(require_site_access("member"))):
+    from database import qa_unlink
+    return {"unlinked": await qa_unlink(map_id, site_id)}
+
+
+@app.get("/api/qa-bridge/keys")
+async def qa_keys_list(_acc: dict = Depends(require_role("member"))):
+    """Key metadata only — never the raw token (which exists once, at creation)."""
+    from database import qa_key_list
+    return {"keys": await qa_key_list()}
+
+
+@app.post("/api/qa-bridge/keys")
+async def qa_keys_create(request: Request, _acc: dict = Depends(require_role("member"))):
+    from database import qa_key_create
+    body = await request.json()
+    created = await qa_key_create((body.get("label") or "").strip() or None, _acc.get("email"))
+    if not created:
+        return JSONResponse({"error": "QA-bridge storage unavailable — apply migration 020.",
+                             "setup_required": True}, status_code=400)
+    # raw_token is shown exactly once; the client must copy it now.
+    return {"id": created["id"], "label": created.get("label"), "key_prefix": created["key_prefix"],
+            "raw_token": created["raw_token"],
+            "note": "Copy this key now — it is shown once and stored only as a hash."}
+
+
+@app.delete("/api/qa-bridge/keys/{key_id}")
+async def qa_keys_revoke(key_id: str, _acc: dict = Depends(require_role("member"))):
+    from database import qa_key_revoke
+    return {"revoked": await qa_key_revoke(key_id)}
 
 
 # ─── Inbound-404 triage ──────────────────────────────────────────────────────

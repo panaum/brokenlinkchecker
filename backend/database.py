@@ -2575,3 +2575,299 @@ def _latest_scan_results_sync(site_id) -> list:
 async def latest_scan_results(site_id) -> list:
     import asyncio
     return await asyncio.to_thread(_latest_scan_results_sync, site_id)
+
+
+# ─── QA-bridge ("Still True Today") — identity mapping, service keys, snapshot ─
+# ONE-WAY: these read/write LinkSpy's own tables only. The QA app reads via the
+# status endpoint; nothing here is written on the QA app's behalf.
+def _qa_hash(raw: str) -> str:
+    import hashlib
+    return hashlib.sha256((raw or "").encode("utf-8")).hexdigest()
+
+
+def _qa_add_map_sync(qa_page_ref, site_id, page_url, created_by) -> Optional[dict]:
+    client = _get_client()
+    try:
+        row = {"qa_page_ref": qa_page_ref, "linkspy_site_id": site_id,
+               "page_url": page_url or None, "created_by": created_by}
+        # explicit re-link overwrites the prior source for this QA ref
+        r = client.table("qa_bridge_map").upsert(row, on_conflict="qa_page_ref").execute()
+        return r.data[0] if r.data else None
+    except Exception as e:
+        if _tables_missing(e):
+            return None
+        raise
+
+
+async def qa_add_map(qa_page_ref, site_id, page_url=None, created_by=None) -> Optional[dict]:
+    import asyncio
+    return await asyncio.to_thread(_qa_add_map_sync, qa_page_ref, site_id, page_url, created_by)
+
+
+def _qa_list_maps_sync(site_id) -> list:
+    client = _get_client()
+    try:
+        return client.table("qa_bridge_map").select("*").eq("linkspy_site_id", site_id)\
+            .order("created_at", desc=True).execute().data or []
+    except Exception as e:
+        if _tables_missing(e):
+            return []
+        raise
+
+
+async def qa_list_maps(site_id) -> list:
+    import asyncio
+    return await asyncio.to_thread(_qa_list_maps_sync, site_id)
+
+
+def _qa_get_map_sync(qa_page_ref) -> Optional[dict]:
+    client = _get_client()
+    try:
+        rows = client.table("qa_bridge_map").select("*").eq("qa_page_ref", qa_page_ref)\
+            .limit(1).execute().data or []
+        return rows[0] if rows else None
+    except Exception as e:
+        if _tables_missing(e):
+            return None
+        raise
+
+
+async def qa_get_map(qa_page_ref) -> Optional[dict]:
+    import asyncio
+    return await asyncio.to_thread(_qa_get_map_sync, qa_page_ref)
+
+
+def _qa_unlink_sync(map_id, site_id) -> bool:
+    client = _get_client()
+    try:
+        r = client.table("qa_bridge_map").delete().eq("id", map_id)\
+            .eq("linkspy_site_id", site_id).execute()
+        return bool(r.data)
+    except Exception as e:
+        if _tables_missing(e):
+            return False
+        raise
+
+
+async def qa_unlink(map_id, site_id) -> bool:
+    import asyncio
+    return await asyncio.to_thread(_qa_unlink_sync, map_id, site_id)
+
+
+def _qa_key_create_sync(label, created_by) -> Optional[dict]:
+    import secrets
+    client = _get_client()
+    raw = "qab_" + secrets.token_urlsafe(32)
+    try:
+        row = {"label": label, "key_hash": _qa_hash(raw), "key_prefix": raw[:12],
+               "created_by": created_by}
+        r = client.table("qa_bridge_keys").insert(row).execute()
+        if not r.data:
+            return None
+        # the raw token is returned exactly once — never stored, never logged
+        return {**r.data[0], "raw_token": raw}
+    except Exception as e:
+        if _tables_missing(e):
+            return None
+        raise
+
+
+async def qa_key_create(label=None, created_by=None) -> Optional[dict]:
+    import asyncio
+    return await asyncio.to_thread(_qa_key_create_sync, label, created_by)
+
+
+def _qa_key_verify_sync(raw) -> Optional[dict]:
+    client = _get_client()
+    if not raw:
+        return None
+    try:
+        rows = client.table("qa_bridge_keys").select("*")\
+            .eq("key_hash", _qa_hash(raw)).is_("revoked_at", "null").limit(1).execute().data or []
+        if not rows:
+            return None
+        from datetime import datetime, timezone
+        try:
+            client.table("qa_bridge_keys").update(
+                {"last_used_at": datetime.now(timezone.utc).isoformat()}).eq("id", rows[0]["id"]).execute()
+        except Exception:
+            pass
+        return rows[0]
+    except Exception as e:
+        if _tables_missing(e):
+            return None
+        raise
+
+
+async def qa_key_verify(raw) -> Optional[dict]:
+    import asyncio
+    return await asyncio.to_thread(_qa_key_verify_sync, raw)
+
+
+def _qa_key_list_sync() -> list:
+    client = _get_client()
+    try:
+        return client.table("qa_bridge_keys").select(
+            "id, label, key_prefix, created_by, created_at, last_used_at, revoked_at")\
+            .order("created_at", desc=True).execute().data or []
+    except Exception as e:
+        if _tables_missing(e):
+            return []
+        raise
+
+
+async def qa_key_list() -> list:
+    import asyncio
+    return await asyncio.to_thread(_qa_key_list_sync)
+
+
+def _qa_key_revoke_sync(key_id) -> bool:
+    client = _get_client()
+    try:
+        from datetime import datetime, timezone
+        r = client.table("qa_bridge_keys").update(
+            {"revoked_at": datetime.now(timezone.utc).isoformat()}).eq("id", key_id).execute()
+        return bool(r.data)
+    except Exception as e:
+        if _tables_missing(e):
+            return False
+        raise
+
+
+async def qa_key_revoke(key_id) -> bool:
+    import asyncio
+    return await asyncio.to_thread(_qa_key_revoke_sync, key_id)
+
+
+def _qa_snapshot_sync(site_id, page_url, baseline_at) -> dict:
+    """Assemble a verification snapshot from the LATEST STORED results only.
+    Never triggers a scan or a probe — pure reads. Every source is best-effort;
+    a missing table yields a neutral (couldn't-verify / omitted) slot, never an
+    error."""
+    from datetime import datetime, timezone
+    client = _get_client()
+    snap = {"as_of": None, "sentinel": None,
+            "uptime": {"pct": None, "down": False, "has_pings": False, "last_checked_at": None},
+            "scan": {"has_scan": False, "scanned_at": None, "broken_on_page": None, "forms": []},
+            "tracking": {}, "expected_tracking": {},
+            "perf": {"current_p50": None, "baseline_p50": None, "scanned_at": None},
+            "tracer": {"enrolled": False, "verdict": None, "last_run_at": None},
+            "incident_ref": None}
+    stamps = []
+
+    # site row → expected tracking (operator-declared ids)
+    try:
+        srow = client.table("sites").select("url, expected_tracking").eq("id", site_id)\
+            .limit(1).execute().data or []
+        exp = (srow[0].get("expected_tracking") if srow else None) or {}
+        snap["expected_tracking"] = {"ga4": bool(exp.get("ga4")), "gtm": bool(exp.get("gtm")),
+                                     "pixel": bool(exp.get("meta_pixel"))}
+    except Exception:
+        pass
+
+    # sentinel status (ssl/domain/last-checked)
+    try:
+        s = _sentinel_status_sync(site_id)
+        if s:
+            snap["sentinel"] = {"ssl_expiry": s.get("ssl_expiry"), "ssl_issuer": s.get("ssl_issuer"),
+                                "domain_expiry": s.get("domain_expiry"),
+                                "last_checked_at": s.get("last_checked_at")}
+            if s.get("last_checked_at"):
+                stamps.append(s["last_checked_at"])
+    except Exception:
+        pass
+
+    # uptime from recent pings (newest-first bools)
+    try:
+        pings = _recent_pings_sync(site_id, limit=8640)
+        if pings:
+            up = sum(1 for p in pings if p)
+            snap["uptime"] = {"pct": round(up / len(pings) * 100, 2),
+                              "down": (len(pings) >= 2 and pings[0] is False and pings[1] is False),
+                              "has_pings": True, "last_checked_at": None}
+    except Exception:
+        pass
+
+    # latest scan → broken count + form structural intactness + its integrations
+    scan_id = None
+    try:
+        rows = client.table("scans").select("id, results_json, scanned_at").eq("site_id", site_id)\
+            .order("scanned_at", desc=True).limit(1).execute().data or []
+        if rows:
+            scan_id = rows[0]["id"]
+            results = rows[0].get("results_json") or []
+            scanned_at = rows[0].get("scanned_at")
+            broken = sum(1 for r in results if isinstance(r, dict) and r.get("bucket") == "broken")
+            forms = [{"intact": (r.get("bucket") != "broken" and r.get("label") != "broken")}
+                     for r in results if isinstance(r, dict) and r.get("resource_type") == "form_action"]
+            snap["scan"] = {"has_scan": True, "scanned_at": scanned_at,
+                            "broken_on_page": broken, "forms": forms}
+            if scanned_at:
+                stamps.append(scanned_at)
+    except Exception:
+        pass
+
+    # tracking detection for that scan (category → ga4/gtm/pixel)
+    if scan_id:
+        try:
+            ints = _get_integrations_sync(scan_id, page_url)
+            cat_key = {"Analytics": "ga4", "Tag Management": "gtm", "Advertising": "pixel"}
+            health_map = {"healthy": True, "down": False, "unresponsive": False}
+            for it in ints:
+                k = cat_key.get(it.get("category"))
+                if not k or k in snap["tracking"]:
+                    continue
+                snap["tracking"][k] = {"present": True,
+                                       "healthy": health_map.get(it.get("health_status")),
+                                       "id": it.get("detected_id")}
+        except Exception:
+            pass
+
+    # perf ledger: current p50 (latest) + baseline p50 (nearest at/before mapping)
+    try:
+        series = _perf_series_sync(site_id)
+        if series:
+            snap["perf"]["current_p50"] = series[-1].get("p50")
+            snap["perf"]["scanned_at"] = series[-1].get("scanned_at")
+            base = None
+            if baseline_at:
+                earlier = [s for s in series if (s.get("scanned_at") or "") <= baseline_at]
+                base = (earlier[-1] if earlier else series[0])
+            else:
+                base = series[0]
+            snap["perf"]["baseline_p50"] = base.get("p50") if base else None
+    except Exception:
+        pass
+
+    # tracer: enrolled + latest run outcome for this site
+    try:
+        enrolls = _list_enrollments_sync(site_id)
+        snap["tracer"]["enrolled"] = bool(enrolls)
+        runs = client.table("tracer_runs").select("outcome, created_at").eq("site_id", site_id)\
+            .order("created_at", desc=True).limit(1).execute().data or []
+        if runs:
+            outcome = runs[0].get("outcome")
+            snap["tracer"]["last_run_at"] = runs[0].get("created_at")
+            if outcome == "verified":
+                snap["tracer"]["verdict"] = "verified"
+            elif outcome in ("failed_submit", "failed_arrival"):
+                snap["tracer"]["verdict"] = "failed"
+    except Exception:
+        pass
+
+    # open uptime incident → incident_ref for the failing uptime check
+    try:
+        openrows = client.table("sentinel_incidents").select("id").eq("site_id", site_id)\
+            .is_("restored_at", "null").order("down_at", desc=True).limit(1).execute().data or []
+        if openrows:
+            snap["incident_ref"] = openrows[0]["id"]
+    except Exception:
+        pass
+
+    snap["as_of"] = max(stamps) if stamps else datetime.now(timezone.utc).isoformat()
+    return snap
+
+
+async def qa_snapshot(site_id, page_url=None, baseline_at=None) -> dict:
+    import asyncio
+    return await asyncio.to_thread(_qa_snapshot_sync, site_id, page_url, baseline_at)

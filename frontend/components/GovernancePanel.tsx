@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useState } from "react";
-import { ScrollText, ShieldCheck, AlertTriangle, Info, Wrench, Clock } from "lucide-react";
+import { ScrollText, ShieldCheck, AlertTriangle, Info, Wrench, FileText, Loader2, Link2 } from "lucide-react";
 import { staffToken, getPortalToken } from "@/lib/backendClient";
 
 type Variant = "dark" | "light";
@@ -112,6 +112,65 @@ export default function GovernancePanel({ variant, siteId, portal }: { variant: 
           )}
         </div>
       ))}
+
+      {!portal && <AttestationShelf siteId={siteId} c={c} />}
+    </div>
+  );
+}
+
+function AttestationShelf({ siteId, c }: { siteId: string; c: typeof T.dark }) {
+  const now = new Date();
+  const defQ = `${now.getFullYear()}-Q${Math.floor(now.getMonth() / 3) + 1}`;
+  const [quarter, setQuarter] = useState(defQ);
+  const [list, setList] = useState<Array<{ id: string; period_label: string; content_hash: string; share_token: string; issued_at: string }>>([]);
+  const [busy, setBusy] = useState(false);
+  const [copied, setCopied] = useState("");
+
+  const staff = async (): Promise<Record<string, string>> => { const t = await staffToken(); return t ? { Authorization: `Bearer ${t}`, "Content-Type": "application/json" } : { "Content-Type": "application/json" }; };
+  const load = useCallback(async () => {
+    try { const r = await fetch(`/api/sites/${siteId}/attestations`, { headers: await staff() }); setList((await r.json()).attestations || []); } catch { setList([]); }
+  }, [siteId]);
+  useEffect(() => { load(); }, [load]);
+
+  const generate = async () => {
+    setBusy(true);
+    try { await fetch(`/api/sites/${siteId}/attestation/generate`, { method: "POST", headers: await staff(), body: JSON.stringify({ quarter }) }); await load(); } finally { setBusy(false); }
+  };
+  const copyShare = (token: string) => { navigator.clipboard?.writeText(`${location.origin}/attest/${token}`); setCopied(token); setTimeout(() => setCopied(""), 1500); };
+
+  return (
+    <div style={{ marginTop: 24, paddingTop: 18, borderTop: `1px solid ${c.line}` }}>
+      <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", flexWrap: "wrap", gap: 10, marginBottom: 12 }}>
+        <div style={{ display: "flex", alignItems: "center", gap: 8 }}>
+          <FileText size={16} style={{ color: c.brand }} />
+          <span style={{ fontFamily: "var(--font-stack-display)", fontWeight: 700, fontSize: 15, color: c.ink }}>Quarterly attestation</span>
+        </div>
+        <div style={{ display: "flex", gap: 8 }}>
+          <input value={quarter} onChange={(e) => setQuarter(e.target.value)} placeholder="2026-Q2" data-gramm="false"
+            style={{ width: 100, background: c.raised, border: `1px solid ${c.line}`, borderRadius: 8, padding: "7px 10px", fontSize: 13, color: c.ink }} />
+          <button onClick={generate} disabled={busy} style={{ display: "inline-flex", alignItems: "center", gap: 6, background: c.brand, color: "#fff", border: "none", borderRadius: 8, padding: "7px 13px", fontSize: 13, fontWeight: 600, cursor: busy ? "wait" : "pointer" }}>
+            {busy ? <Loader2 size={13} className="animate-spin" /> : <FileText size={13} />} Issue attestation
+          </button>
+        </div>
+      </div>
+      {list.length === 0 ? (
+        <div style={{ color: c.muted, fontSize: 12.5 }}>No attestations issued yet. Issue one to hand to a client&apos;s legal or procurement team.</div>
+      ) : (
+        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+          {list.map((a) => (
+            <div key={a.id} style={{ display: "flex", alignItems: "center", gap: 10, padding: "9px 12px", border: `1px solid ${c.line}`, borderRadius: 10, background: c.card }}>
+              <span style={{ fontWeight: 600, color: c.ink, fontSize: 13 }}>{a.period_label}</span>
+              <span style={{ color: c.muted, fontSize: 11, fontFamily: "var(--font-stack-mono)" }}>{a.content_hash.slice(0, 12)}…</span>
+              <span style={{ marginLeft: "auto", display: "flex", gap: 8 }}>
+                <a href={`/attestations/${a.id}`} target="_blank" rel="noreferrer" style={{ color: c.brand, fontSize: 12.5, textDecoration: "none", fontWeight: 600 }}>Open</a>
+                <button onClick={() => copyShare(a.share_token)} style={{ display: "inline-flex", alignItems: "center", gap: 4, background: "none", border: "none", color: c.sub, fontSize: 12.5, cursor: "pointer" }}>
+                  <Link2 size={13} /> {copied === a.share_token ? "Copied" : "Share link"}
+                </button>
+              </span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   );
 }

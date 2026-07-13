@@ -10,6 +10,7 @@ import AdsWasteGuard from "@/components/AdsWasteGuard";
 import SentinelGuard from "@/components/SentinelGuard";
 import LeadTracer from "@/components/LeadTracer";
 import IntentMap from "@/components/IntentMap";
+import FragilityPanel from "@/components/FragilityPanel";
 
 function domainOf(url: string): string {
   try { return new URL(url).hostname.replace(/^www\./, ""); } catch { return url; }
@@ -135,6 +136,11 @@ export default function PortalHome() {
               <section key={s.id} className="ds-card ds-card-pad" style={{ marginTop: "var(--space-5)" }}>
                 <IntentMap variant="dark" siteId={s.id} portal />
               </section>
+            ))}
+
+            {/* Stability improvement — draws its own card only when the agency enabled it */}
+            {sites.map((s) => (
+              <FragilityPanel key={s.id} variant="dark" siteId={s.id} portal />
             ))}
 
             {/* Verified lead delivery — the record of green, per monitored site */}

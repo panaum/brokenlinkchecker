@@ -2282,3 +2282,105 @@ def _all_perf_snapshots_sync() -> list:
 async def all_perf_snapshots() -> list:
     import asyncio
     return await asyncio.to_thread(_all_perf_snapshots_sync)
+
+
+# ─── Insight Layer PR3: findings history for fragility ───────────────────────
+def _findings_for_site_sync(site_id, limit=4000) -> list:
+    client = _get_client()
+    try:
+        return client.table("findings").select(
+            "fingerprint, bucket, zone, url, first_seen_at, resolved_at, status"
+        ).eq("site_id", site_id).order("first_seen_at").limit(limit).execute().data or []
+    except Exception as e:
+        if _tables_missing(e):
+            return []
+        raise
+
+
+async def findings_for_site(site_id, limit=4000) -> list:
+    import asyncio
+    return await asyncio.to_thread(_findings_for_site_sync, site_id, limit)
+
+
+# ─── Insight Layer PR3: fragility persistence ────────────────────────────────
+def _site_scan_stats_sync(site_id) -> dict:
+    client = _get_client()
+    try:
+        rows = client.table("scans").select("scanned_at").eq("site_id", site_id)\
+            .order("scanned_at").limit(1000).execute().data or []
+        return {"count": len(rows), "first_at": rows[0]["scanned_at"] if rows else None}
+    except Exception as e:
+        if _tables_missing(e):
+            return {"count": 0, "first_at": None}
+        raise
+
+
+async def site_scan_stats(site_id) -> dict:
+    import asyncio
+    return await asyncio.to_thread(_site_scan_stats_sync, site_id)
+
+
+def _upsert_fragility_sync(row) -> None:
+    client = _get_client()
+    try:
+        client.table("fragility_scores").upsert(row, on_conflict="site_id").execute()
+    except Exception as e:
+        if not _tables_missing(e):
+            raise
+
+
+async def upsert_fragility(row) -> None:
+    import asyncio
+    await asyncio.to_thread(_upsert_fragility_sync, row)
+
+
+def _get_fragility_sync(site_id) -> Optional[dict]:
+    client = _get_client()
+    try:
+        rows = client.table("fragility_scores").select("*").eq("site_id", site_id).limit(1).execute().data or []
+        return rows[0] if rows else None
+    except Exception as e:
+        if _tables_missing(e):
+            return None
+        raise
+
+
+async def get_fragility(site_id) -> Optional[dict]:
+    import asyncio
+    return await asyncio.to_thread(_get_fragility_sync, site_id)
+
+
+def _list_fragility_sync() -> list:
+    client = _get_client()
+    try:
+        return client.table("fragility_scores").select("site_id, score, band, factors, insufficient")\
+            .order("score", desc=True).execute().data or []
+    except Exception as e:
+        if _tables_missing(e):
+            return []
+        raise
+
+
+async def list_fragility() -> list:
+    import asyncio
+    return await asyncio.to_thread(_list_fragility_sync)
+
+
+def _fragility_pref_sync(site_id, set_visible=None) -> bool:
+    client = _get_client()
+    try:
+        if set_visible is not None:
+            client.table("fragility_prefs").upsert({"site_id": site_id, "client_visible": bool(set_visible)},
+                                                   on_conflict="site_id").execute()
+            return bool(set_visible)
+        rows = client.table("fragility_prefs").select("client_visible").eq("site_id", site_id).limit(1).execute().data or []
+        return bool(rows[0]["client_visible"]) if rows else False
+    except Exception as e:
+        if _tables_missing(e):
+            return False
+        raise
+
+
+async def fragility_pref(site_id, set_visible=None) -> bool:
+    import asyncio
+    return await asyncio.to_thread(_fragility_pref_sync, site_id, set_visible)

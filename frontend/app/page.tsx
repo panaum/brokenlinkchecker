@@ -558,8 +558,10 @@ export default function HomePage() {
           </section>
 
           {/* Report controls: Share + X-ray + integrations. z-30 so panels
-              overflow above the later results sections (siblings at z-10). */}
-          <section className="relative z-30 ds-container flex flex-wrap items-center justify-end gap-3 px-4 sm:px-6 lg:px-8 -mt-2">
+              overflow above the later results sections (siblings at z-10).
+              Width matches ReportHeader (max-w-5xl) so the right-aligned buttons
+              line up with the header card instead of overhanging it. */}
+          <section className="relative z-30 w-full max-w-5xl mx-auto flex flex-wrap items-center justify-end gap-3 px-4 mt-3">
             <button
               className="ds-btn-ghost"
               onClick={() => setShowXray((v) => !v)}

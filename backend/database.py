@@ -2871,3 +2871,76 @@ def _qa_snapshot_sync(site_id, page_url, baseline_at) -> dict:
 async def qa_snapshot(site_id, page_url=None, baseline_at=None) -> dict:
     import asyncio
     return await asyncio.to_thread(_qa_snapshot_sync, site_id, page_url, baseline_at)
+
+
+# ─── Registry (Phase 1, Seam 1) — deliverables + client/site pickers ─────────
+# clients/sites reads work regardless of migration 022; the deliverables reads/
+# writes return a NOT_PROVISIONED sentinel until 022 is applied — never a crash.
+REGISTRY_NOT_PROVISIONED = {"__registry__": "not_provisioned"}
+REGISTRY_CONFLICT = {"__registry__": "conflict"}
+
+
+def _is_unique_violation(e) -> bool:
+    d = f"{describe_exception(e)}".lower()
+    return "23505" in d or "duplicate key" in d or "already exists" in d
+
+
+def _registry_clients_sync(search) -> list:
+    client = _get_client()
+    q = client.table("clients").select("id, name").order("name")
+    if search:
+        q = q.ilike("name", f"%{search}%")
+    return q.limit(200).execute().data or []
+
+
+async def registry_clients(search=None) -> list:
+    import asyncio
+    return await asyncio.to_thread(_registry_clients_sync, search)
+
+
+def _registry_client_sites_sync(client_id) -> list:
+    client = _get_client()
+    return client.table("sites").select("id, name, url").eq("client_id", client_id)\
+        .order("name").limit(500).execute().data or []
+
+
+async def registry_client_sites(client_id) -> list:
+    import asyncio
+    return await asyncio.to_thread(_registry_client_sites_sync, client_id)
+
+
+def _registry_insert_deliverable_sync(site_id, kind, name, external_ref, url) -> dict:
+    client = _get_client()
+    row = {"site_id": site_id, "kind": kind, "name": name,
+           "external_ref": external_ref or None, "url": url or None}
+    try:
+        r = client.table("deliverables").insert(row).execute()
+        return r.data[0] if r.data else {}
+    except Exception as e:
+        if _tables_missing(e):
+            return dict(REGISTRY_NOT_PROVISIONED)
+        if _is_unique_violation(e):
+            return dict(REGISTRY_CONFLICT)
+        raise
+
+
+async def registry_insert_deliverable(site_id, kind, name, external_ref=None, url=None) -> dict:
+    import asyncio
+    return await asyncio.to_thread(_registry_insert_deliverable_sync, site_id, kind, name, external_ref, url)
+
+
+def _registry_get_deliverable_sync(external_ref) -> Optional[dict]:
+    client = _get_client()
+    try:
+        rows = client.table("deliverables").select("*").eq("external_ref", external_ref)\
+            .limit(1).execute().data or []
+        return rows[0] if rows else None
+    except Exception as e:
+        if _tables_missing(e):
+            return dict(REGISTRY_NOT_PROVISIONED)
+        raise
+
+
+async def registry_get_deliverable(external_ref) -> Optional[dict]:
+    import asyncio
+    return await asyncio.to_thread(_registry_get_deliverable_sync, external_ref)

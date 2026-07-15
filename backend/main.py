@@ -3280,6 +3280,78 @@ async def jobs_stats(_acc: dict = Depends(require_role("member"))):
             **(await _jobs.stats())}
 
 
+# ─── Registry (Phase 1, Seam 1) — service-key auth (reuses qa-bridge keys) ────
+async def _registry_auth(authorization, x_api_key):
+    """Returns (key_row, None) on success or (None, JSONResponse) to short-circuit.
+    Same service-key mechanism as the qa-bridge (hashed, rotatable, rate-limited)."""
+    key = await _qa_authenticate(authorization, x_api_key)
+    if not key:
+        return None, JSONResponse({"error": "A valid registry service key is required."}, status_code=401)
+    if not _qa_rl.allow(key["id"], time.time()):
+        return None, JSONResponse({"error": "Rate limit exceeded. Try again shortly."}, status_code=429)
+    return key, None
+
+
+@app.get("/api/registry/clients")
+async def registry_clients_route(search: str = Query(default=""),
+                                 authorization: str = Header(default=None),
+                                 x_api_key: str = Header(default=None)):
+    from database import registry_clients
+    _key, err = await _registry_auth(authorization, x_api_key)
+    if err:
+        return err
+    return {"clients": await registry_clients(search.strip() or None)}
+
+
+@app.get("/api/registry/clients/{client_id}/sites")
+async def registry_sites_route(client_id: str,
+                               authorization: str = Header(default=None),
+                               x_api_key: str = Header(default=None)):
+    from database import registry_client_sites
+    _key, err = await _registry_auth(authorization, x_api_key)
+    if err:
+        return err
+    return {"sites": await registry_client_sites(client_id)}
+
+
+@app.post("/api/registry/deliverables")
+async def registry_create_deliverable(request: Request,
+                                      authorization: str = Header(default=None),
+                                      x_api_key: str = Header(default=None)):
+    from database import registry_insert_deliverable
+    _key, err = await _registry_auth(authorization, x_api_key)
+    if err:
+        return err
+    body = await request.json()
+    site_id = (body.get("site_id") or "").strip()
+    kind = (body.get("kind") or "page").strip()
+    name = (body.get("name") or "").strip()
+    if not site_id or kind not in ("page", "project", "site") or not name:
+        return JSONResponse({"error": "site_id, a valid kind (page|project|site), and name are required."},
+                            status_code=400)
+    res = await registry_insert_deliverable(site_id, kind, name, body.get("external_ref"), body.get("url"))
+    if res.get("__registry__") == "not_provisioned":
+        return JSONResponse({"registry": "not_provisioned"}, status_code=503)
+    if res.get("__registry__") == "conflict":
+        return JSONResponse({"error": "A deliverable with this external_ref already exists for this site.",
+                             "conflict": True}, status_code=409)
+    return {"deliverable": res}
+
+
+@app.get("/api/registry/deliverables")
+async def registry_get_deliverable_route(external_ref: str = Query(...),
+                                         authorization: str = Header(default=None),
+                                         x_api_key: str = Header(default=None)):
+    from database import registry_get_deliverable
+    _key, err = await _registry_auth(authorization, x_api_key)
+    if err:
+        return err
+    res = await registry_get_deliverable(external_ref)
+    if isinstance(res, dict) and res.get("__registry__") == "not_provisioned":
+        return JSONResponse({"registry": "not_provisioned"}, status_code=503)
+    return {"deliverable": res}
+
+
 # ─── Inbound-404 triage ──────────────────────────────────────────────────────
 def _findings_from_results(results):
     """Broken/dead links from the latest scan → triage findings."""

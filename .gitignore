@@ -19,3 +19,8 @@ Thumbs.db
 
 # Local Claude Code permissions — machine-specific
 .claude/
+
+# database backups — never commit (contain all data)
+*.dump
+*.sql.gz
+/backups/

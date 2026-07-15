@@ -253,10 +253,32 @@ async def lifespan(app: FastAPI):
                 print(f"[Tracer] daily sweep scheduled (enabled={tracer_enabled()})")
         except Exception as e:
             print(f"[Tracer] not scheduled: {e}")
+        # Gate 0B: jobs queue + worker in SHADOW mode. Gated behind JOBS_SHADOW,
+        # so a deploy changes NOTHING until migration 021 is applied and the flag
+        # is set. Worker drains; monitoring_scan runs dry-run (no scan); the
+        # legacy scheduler keeps scanning for real in parallel.
+        try:
+            if os.getenv("JOBS_SHADOW") == "1":
+                import jobs as _jobs
+                app.state.jobs_worker = asyncio.create_task(_jobs.run_worker())
+                aps = _scheduler._scheduler
+                if aps:
+                    aps.add_job(_jobs.shadow_enqueue_monitoring, "interval", minutes=30,
+                                id="jobs_shadow_monitoring", replace_existing=True,
+                                misfire_grace_time=600)
+                print("[jobs] SHADOW active: worker + dry-run monitoring enqueue")
+        except Exception as e:
+            print(f"[jobs] shadow not started: {e}")
     except Exception as e:
         # Monitoring failing to start must never take the API down.
         print(f"[Monitor] scheduler did not start: {e}")
     yield
+    try:
+        _t = getattr(app.state, "jobs_worker", None)
+        if _t:
+            _t.cancel()
+    except Exception:
+        pass
     try:
         _scheduler.shutdown()
     except Exception:
@@ -3244,6 +3266,18 @@ async def qa_keys_create(request: Request, _acc: dict = Depends(require_role("me
 async def qa_keys_revoke(key_id: str, _acc: dict = Depends(require_role("member"))):
     from database import qa_key_revoke
     return {"revoked": await qa_key_revoke(key_id)}
+
+
+# ─── Jobs queue — read-only admin (Gate 0B) ──────────────────────────────────
+@app.get("/api/admin/jobs/stats")
+async def jobs_stats(_acc: dict = Depends(require_role("member"))):
+    """Queue depth, oldest queued age, running/failed/dead counts, recent
+    failures. Read-only — never enqueues or mutates."""
+    import jobs as _jobs
+    return {"worker_kinds": _jobs.registered_kinds(),
+            "shadow": os.getenv("JOBS_SHADOW") == "1",
+            "monitoring_live": _jobs.monitoring_is_live(),
+            **(await _jobs.stats())}
 
 
 # ─── Inbound-404 triage ──────────────────────────────────────────────────────

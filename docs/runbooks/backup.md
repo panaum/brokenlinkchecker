@@ -27,20 +27,23 @@ For the QA project that is `DIRECT_URL`.
 ## 1. Method A — `pg_dump` against the direct connection (the real method)
 
 This is the authoritative backup. Run it from any machine with `pg_dump`
-(matching the server's major version, currently PG 15/16) and network access.
+**The client MAJOR version must be ≥ the server** — the Supabase server is
+**PostgreSQL 17**, so use **pg_dump 17** (`C:\Program Files\PostgreSQL\17\bin`).
+A v16 client aborts with "server version mismatch". Dumps go to **`C:\backups`**
+(never inside OneDrive). Supabase needs SSL → set `PGSSLMODE=require`.
 
 ```bash
-# --- QA / Deliverables Dashboard ---
-# Uses DIRECT_URL (port 5432). Custom format (-Fc) = compact + restorable.
+# --- QA / Deliverables Dashboard ---  (uses DIRECT_URL, port 5432)
+export PGSSLMODE=require
 STAMP="$(date +%Y%m%d-%H%M%S)"
-pg_dump "$DIRECT_URL" \
-  --no-owner --no-privileges --format=custom \
-  --file="qa-dashboard-${STAMP}.dump"
-
-# Verify it is real (non-trivial size + lists objects):
-ls -lh "qa-dashboard-${STAMP}.dump"
-pg_restore --list "qa-dashboard-${STAMP}.dump" | head -40
+pg_dump "$DIRECT_URL" --no-owner --no-privileges --format=custom \
+  --file="C:/backups/qa-dashboard-${STAMP}.dump"
+pg_restore --list "C:/backups/qa-dashboard-${STAMP}.dump" | head -40   # verify non-zero + tables
 ```
+
+**Baseline of record (Gate −1, 2026-07-15):**
+`C:\backups\qa-dashboard-20260715-224052.dump` — 424,516 bytes, `pg_restore
+--list` exit 0, all app tables present.
 
 ```bash
 # --- LinkSpy ---

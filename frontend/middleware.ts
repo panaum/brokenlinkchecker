@@ -30,6 +30,6 @@ export const config = {
      *      /api/portal, /api/reports, /api/attest.
      *  - Next.js internals (_next, favicon, etc.)
      */
-    "/((?!login|portal|reports|attest|api/auth|api/slack|api/portal|api/reports|api/attest|api/attestations|_next/static|_next/image|favicon.ico|icon\\.png|opengraph-image\\.png).*)",
+    "/((?!login|handoff|portal|reports|attest|api/auth|api/slack|api/portal|api/reports|api/attest|api/attestations|_next/static|_next/image|favicon.ico|icon\\.png|opengraph-image\\.png).*)",
   ],
 }

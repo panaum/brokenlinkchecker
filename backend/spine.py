@@ -33,6 +33,33 @@ def _age_seconds(iso) -> float:
         return 1e12
 
 
+# ── qa.completed → monitoring auto-enroll (Part A) ──
+def should_auto_enroll(flag_on: bool, monitoring_enabled) -> bool:
+    """Enroll only when the flag is on AND the site is currently unmonitored.
+    Never downgrades an existing cadence (monitored → skip)."""
+    return bool(flag_on) and not bool(monitoring_enabled)
+
+
+async def maybe_auto_enroll(registry_site_id, registry_deliverable_id):
+    """On qa.completed: enroll an UNMONITORED site into weekly monitoring. Gated
+    by AUTO_ENROLL (default off = no-op). Idempotent by state (once enabled, later
+    events skip). Never touches a site that is already monitored."""
+    if not (os.getenv("AUTO_ENROLL") == "1" and registry_site_id):
+        return {"enrolled": False}
+    from database import get_site, set_monitoring, timeline_add
+    site = await get_site(registry_site_id)
+    if not site or not should_auto_enroll(True, site.get("monitoring_enabled")):
+        return {"enrolled": False}
+    await set_monitoring(registry_site_id, True, "Weekly")
+    await timeline_add(registry_site_id, registry_deliverable_id, "monitoring.auto_enrolled",
+                       {"cadence": "Weekly"}, source="auto_enroll")
+    frontend = os.getenv("FRONTEND_URL")
+    link = f"{frontend.rstrip('/')}/dashboard/{registry_site_id}" if frontend else "(revert in the dashboard)"
+    await _slack(f":satellite: auto-enrolled {site.get('url') or registry_site_id} to weekly "
+                 f"monitoring after QA sign-off — one-click revert: {link}")
+    return {"enrolled": True}
+
+
 # ── the battery: run the existing catalog, write pre-fills ──
 @handler("qa_battery")
 async def qa_battery(payload):

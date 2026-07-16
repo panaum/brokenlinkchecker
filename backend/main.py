@@ -3423,6 +3423,14 @@ async def spine_inbox_endpoint(request: Request):
         await _enqueue("qa_battery", {"deliverable_id": reg_deliverable, "url": payload.get("url")},
                        idempotency_key=event_id)
         enqueued = True
+    # Part A: qa.completed → weekly auto-enroll (gated by AUTO_ENROLL; never
+    # touches an already-monitored site). Best-effort — never breaks the inbox.
+    if etype == EVENT_TYPES["QA_COMPLETED"]:
+        try:
+            from spine import maybe_auto_enroll
+            await maybe_auto_enroll(reg_site, reg_deliverable)
+        except Exception as e:
+            print(f"[auto_enroll] skipped: {e}")
     await spine_inbox_mark(event_id, "processed")
     return {"ok": True, "enqueued": enqueued}
 

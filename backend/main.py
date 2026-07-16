@@ -81,6 +81,7 @@ from sitemap import discover_site_urls
 from database import get_monitored_sites, set_monitoring, get_site
 import monitoring
 from monitoring import MonitorScheduler, run_monitored_scan, monitoring_status, weekly_digest
+import spine  # noqa: F401 — registers qa_battery / heartbeat_watch / reconcile job handlers
 from models import RawLink
 from checker import check_single
 from contextlib import asynccontextmanager
@@ -269,6 +270,30 @@ async def lifespan(app: FastAPI):
                 print("[jobs] SHADOW active: worker + dry-run monitoring enqueue")
         except Exception as e:
             print(f"[jobs] shadow not started: {e}")
+        # Spine routines (Phase 2C): enqueue heartbeat_watch hourly + reconcile
+        # nightly, ONLY when the spine is configured (SPINE_SECRET set). The
+        # already-running shadow worker executes them; nothing runs until the
+        # operator flips SPINE_SECRET.
+        try:
+            if os.getenv("SPINE_SECRET"):
+                from jobs import enqueue as _spine_enq
+                from datetime import datetime as _dt, timezone as _tz
+                aps = _scheduler._scheduler
+                if aps:
+                    async def _enq_hbw():
+                        await _spine_enq("heartbeat_watch", {},
+                                         idempotency_key="hbw:" + _dt.now(_tz.utc).strftime("%Y%m%d%H"))
+
+                    async def _enq_rec():
+                        await _spine_enq("reconcile", {},
+                                         idempotency_key="rec:" + _dt.now(_tz.utc).strftime("%Y%m%d"))
+                    aps.add_job(_enq_hbw, "interval", hours=1, id="spine_heartbeat_watch",
+                                replace_existing=True, misfire_grace_time=600)
+                    aps.add_job(_enq_rec, "cron", hour=2, minute=0, id="spine_reconcile",
+                                replace_existing=True, misfire_grace_time=3600)
+                    print("[spine] routines scheduled (heartbeat_watch hourly, reconcile nightly)")
+        except Exception as e:
+            print(f"[spine] routines not scheduled: {e}")
     except Exception as e:
         # Monitoring failing to start must never take the API down.
         print(f"[Monitor] scheduler did not start: {e}")
@@ -3350,6 +3375,107 @@ async def registry_get_deliverable_route(external_ref: str = Query(...),
     if isinstance(res, dict) and res.get("__registry__") == "not_provisioned":
         return JSONResponse({"registry": "not_provisioned"}, status_code=503)
     return {"deliverable": res}
+
+
+# ─── Spine inbox / timeline / pre-fills (Phase 2C + 3) ────────────────────────
+@app.post("/api/spine/inbox")
+async def spine_inbox_endpoint(request: Request):
+    """Verify HMAC + skew → idempotent inbox upsert (dup → 200) → timeline →
+    (if ready_for_qa AND SPINE_CONSUME=1) enqueue a qa_battery job. Heartbeats
+    update a marker and are never enqueued."""
+    from spine_contract import verify as _spine_verify, SPINE_SIG_HEADER, SPINE_SENT_AT_HEADER, EVENT_TYPES
+    from database import (spine_inbox_insert, spine_inbox_mark, timeline_add,
+                          spine_marker_set)
+    secret = os.getenv("SPINE_SECRET")
+    if not secret:
+        return JSONResponse({"error": "spine not configured"}, status_code=503)
+    raw = await request.body()
+    ok, reason = _spine_verify(raw, secret, request.headers.get(SPINE_SIG_HEADER),
+                               request.headers.get(SPINE_SENT_AT_HEADER), time.time())
+    if not ok:
+        return JSONResponse({"error": f"unauthorized: {reason}"}, status_code=401)
+    try:
+        env = json.loads(raw)
+    except Exception:
+        return JSONResponse({"error": "bad json"}, status_code=400)
+    event_id, etype = env.get("id"), env.get("type")
+    if not event_id or not etype:
+        return JSONResponse({"error": "missing id/type"}, status_code=400)
+    payload = env.get("payload") or {}
+    reg_deliverable, reg_site = env.get("registry_deliverable_id"), env.get("registry_site_id")
+
+    ins = await spine_inbox_insert(event_id, etype, payload)
+    if ins.get("__spine__") == "not_provisioned":
+        return JSONResponse({"registry": "not_provisioned"}, status_code=503)
+    if ins.get("duplicate"):
+        return {"duplicate": True}
+
+    await spine_marker_set("last_event")
+    if etype == EVENT_TYPES["HEARTBEAT"]:
+        await spine_marker_set("heartbeat")
+        await spine_inbox_mark(event_id, "processed")
+        return {"ok": True, "heartbeat": True}
+
+    await timeline_add(reg_site, reg_deliverable, etype, payload, source="spine")
+    enqueued = False
+    if etype == EVENT_TYPES["READY_FOR_QA"] and os.getenv("SPINE_CONSUME") == "1" and reg_deliverable:
+        from jobs import enqueue as _enqueue
+        await _enqueue("qa_battery", {"deliverable_id": reg_deliverable, "url": payload.get("url")},
+                       idempotency_key=event_id)
+        enqueued = True
+    await spine_inbox_mark(event_id, "processed")
+    return {"ok": True, "enqueued": enqueued}
+
+
+@app.get("/api/qa-bridge/prefills")
+async def qa_bridge_prefills(deliverable_id: str = Query(...),
+                             authorization: str = Header(default=None),
+                             x_api_key: str = Header(default=None)):
+    """Latest machine pre-fills for a deliverable (one row per check_key). Service-
+    key auth (same as the qa-bridge status endpoint)."""
+    key = await _qa_authenticate(authorization, x_api_key)
+    if not key:
+        return JSONResponse({"error": "A valid service key is required."}, status_code=401)
+    from database import prefills_latest
+    rows = await prefills_latest(deliverable_id)
+    run_at = rows[0]["battery_run_at"] if rows else None
+    return {"deliverable_id": deliverable_id, "battery_run_at": run_at,
+            "checks": [{"check_key": r["check_key"], "verdict": r["verdict"],
+                        "detail_plain": r.get("detail_plain"), "evidence_ref": r.get("evidence_ref")}
+                       for r in rows]}
+
+
+_prefill_refresh_at = {}
+
+
+@app.post("/api/qa-bridge/prefills/refresh")
+async def qa_bridge_prefills_refresh(deliverable_id: str = Query(...),
+                                     authorization: str = Header(default=None),
+                                     x_api_key: str = Header(default=None)):
+    """Re-run the battery for a deliverable (rate-limited 1/10min). Enqueues a
+    qa_battery job with a fresh idempotency key."""
+    key = await _qa_authenticate(authorization, x_api_key)
+    if not key:
+        return JSONResponse({"error": "A valid service key is required."}, status_code=401)
+    now = time.time()
+    last = _prefill_refresh_at.get(deliverable_id, 0)
+    if now - last < 600:
+        return JSONResponse({"error": "Refreshed too recently — try again shortly.",
+                             "retry_after_s": int(600 - (now - last))}, status_code=429)
+    _prefill_refresh_at[deliverable_id] = now
+    from jobs import enqueue as _enqueue
+    await _enqueue("qa_battery", {"deliverable_id": deliverable_id},
+                   idempotency_key=f"refresh:{deliverable_id}:{int(now // 600)}")
+    return {"queued": True}
+
+
+@app.get("/api/admin/spine/stats")
+async def spine_admin_stats(_acc: dict = Depends(require_role("member"))):
+    from database import spine_stats
+    import jobs as _jobs
+    return {"consume": os.getenv("SPINE_CONSUME") == "1",
+            "secret_configured": bool(os.getenv("SPINE_SECRET")),
+            "worker_kinds": _jobs.registered_kinds(), **(await spine_stats())}
 
 
 # ─── Inbound-404 triage ──────────────────────────────────────────────────────

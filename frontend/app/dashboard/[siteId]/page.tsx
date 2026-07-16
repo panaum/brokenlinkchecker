@@ -7,6 +7,7 @@ import { ArrowLeft, ExternalLink } from "lucide-react";
 import { DashboardSite, DashboardScan } from "@/types";
 import NavBar from "@/components/NavBar";
 import MonitoringPanel from "@/components/MonitoringPanel";
+import DeliveryPanel from "@/components/DeliveryPanel";
 import ActiveTestingPanel from "@/components/ActiveTestingPanel";
 import BadgeEmbed from "@/components/BadgeEmbed";
 import TimeMachine from "@/components/TimeMachine";
@@ -151,6 +152,10 @@ export default function SiteDetailPage() {
 
             {tab === "overview" ? (
               <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-5)" }}>
+                {/* Delivery — the federation's first cross-app surface: the QA
+                    app's pages for this site (renders its own card). */}
+                <DeliveryPanel variant="dark" siteId={site.id} />
+
                 {/* Verified lead delivery — the record of green (primary surface) */}
                 <div className="ds-card ds-card-pad">
                   <LeadTracer variant="dark" siteId={site.id} canManage />

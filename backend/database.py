@@ -2944,3 +2944,177 @@ def _registry_get_deliverable_sync(external_ref) -> Optional[dict]:
 async def registry_get_deliverable(external_ref) -> Optional[dict]:
     import asyncio
     return await asyncio.to_thread(_registry_get_deliverable_sync, external_ref)
+
+
+def _registry_deliverable_by_id_sync(deliverable_id) -> Optional[dict]:
+    client = _get_client()
+    try:
+        rows = client.table("deliverables").select("*").eq("id", deliverable_id).limit(1).execute().data or []
+        return rows[0] if rows else None
+    except Exception as e:
+        if _tables_missing(e):
+            return None
+        raise
+
+
+async def registry_deliverable_by_id(deliverable_id) -> Optional[dict]:
+    import asyncio
+    return await asyncio.to_thread(_registry_deliverable_by_id_sync, deliverable_id)
+
+
+# ─── Spine (Phase 2C) — inbox, timeline, markers, pre-fills ───────────────────
+SPINE_NOT_PROVISIONED = {"__spine__": "not_provisioned"}
+
+
+def _spine_inbox_insert_sync(event_id, type_, payload) -> dict:
+    """Insert by event id; a duplicate (pk clash) → {'duplicate': True} (no
+    reprocess). Table absent → not_provisioned sentinel."""
+    client = _get_client()
+    try:
+        client.table("spine_inbox").insert(
+            {"id": event_id, "type": type_, "payload": payload or {}, "status": "received"}).execute()
+        return {"duplicate": False}
+    except Exception as e:
+        if _tables_missing(e):
+            return dict(SPINE_NOT_PROVISIONED)
+        if _is_unique_violation(e):
+            return {"duplicate": True}
+        raise
+
+
+async def spine_inbox_insert(event_id, type_, payload) -> dict:
+    import asyncio
+    return await asyncio.to_thread(_spine_inbox_insert_sync, event_id, type_, payload)
+
+
+def _spine_inbox_mark_sync(event_id, status, error=None) -> None:
+    from datetime import datetime, timezone
+    client = _get_client()
+    patch = {"status": status, "last_error": error}
+    if status in ("processed", "failed"):
+        patch["processed_at"] = datetime.now(timezone.utc).isoformat()
+    try:
+        client.table("spine_inbox").update(patch).eq("id", event_id).execute()
+    except Exception as e:
+        if not _tables_missing(e):
+            raise
+
+
+async def spine_inbox_mark(event_id, status, error=None) -> None:
+    import asyncio
+    await asyncio.to_thread(_spine_inbox_mark_sync, event_id, status, error)
+
+
+def _timeline_add_sync(reg_site, reg_deliverable, type_, payload, source) -> None:
+    client = _get_client()
+    try:
+        client.table("client_timeline").insert(
+            {"registry_site_id": reg_site, "registry_deliverable_id": reg_deliverable,
+             "type": type_, "payload": payload or {}, "source": source}).execute()
+    except Exception as e:
+        if not _tables_missing(e):
+            raise
+
+
+async def timeline_add(reg_site, reg_deliverable, type_, payload, source="spine") -> None:
+    import asyncio
+    await asyncio.to_thread(_timeline_add_sync, reg_site, reg_deliverable, type_, payload, source)
+
+
+def _spine_marker_set_sync(key) -> None:
+    from datetime import datetime, timezone
+    client = _get_client()
+    try:
+        client.table("spine_markers").upsert(
+            {"key": key, "at": datetime.now(timezone.utc).isoformat()}, on_conflict="key").execute()
+    except Exception as e:
+        if not _tables_missing(e):
+            raise
+
+
+async def spine_marker_set(key) -> None:
+    import asyncio
+    await asyncio.to_thread(_spine_marker_set_sync, key)
+
+
+def _spine_marker_get_sync(key) -> Optional[str]:
+    client = _get_client()
+    try:
+        rows = client.table("spine_markers").select("at").eq("key", key).limit(1).execute().data or []
+        return rows[0]["at"] if rows else None
+    except Exception as e:
+        if _tables_missing(e):
+            return None
+        raise
+
+
+async def spine_marker_get(key) -> Optional[str]:
+    import asyncio
+    return await asyncio.to_thread(_spine_marker_get_sync, key)
+
+
+def _prefills_write_sync(deliverable_id, checks, battery_run_at) -> int:
+    client = _get_client()
+    rows = [{"deliverable_id": deliverable_id, "check_key": c["key"], "verdict": c["verdict"],
+             "detail_plain": c.get("detail_plain"), "evidence_ref": c.get("evidence_ref"),
+             "battery_run_at": battery_run_at} for c in (checks or [])]
+    if not rows:
+        return 0
+    try:
+        client.table("qa_prefills").insert(rows).execute()
+        return len(rows)
+    except Exception as e:
+        if _tables_missing(e):
+            return 0
+        raise
+
+
+async def prefills_write(deliverable_id, checks, battery_run_at) -> int:
+    import asyncio
+    return await asyncio.to_thread(_prefills_write_sync, deliverable_id, checks, battery_run_at)
+
+
+def _prefills_latest_sync(deliverable_id) -> list:
+    client = _get_client()
+    try:
+        rows = client.table("qa_prefills").select("*").eq("deliverable_id", deliverable_id)\
+            .order("battery_run_at", desc=True).limit(200).execute().data or []
+        if not rows:
+            return []
+        latest = rows[0]["battery_run_at"]
+        return [r for r in rows if r["battery_run_at"] == latest]
+    except Exception as e:
+        if _tables_missing(e):
+            return []
+        raise
+
+
+async def prefills_latest(deliverable_id) -> list:
+    import asyncio
+    return await asyncio.to_thread(_prefills_latest_sync, deliverable_id)
+
+
+def _spine_stats_sync() -> dict:
+    client = _get_client()
+    try:
+        def cnt(status):
+            return client.table("spine_inbox").select("id", count="exact").eq("status", status).execute().count or 0
+        last_evt = client.table("spine_inbox").select("received_at").order("received_at", desc=True)\
+            .limit(1).execute().data or []
+        hb = _spine_marker_get_sync("heartbeat")
+        runs = client.table("qa_prefills").select("battery_run_at").order("battery_run_at", desc=True)\
+            .limit(1000).execute().data or []
+        distinct_runs = len({r["battery_run_at"] for r in runs})
+        return {"inbox_received": cnt("received"), "inbox_processed": cnt("processed"),
+                "inbox_failed": cnt("failed"),
+                "last_event_received_at": (last_evt[0]["received_at"] if last_evt else None),
+                "last_heartbeat_at": hb, "prefill_runs": distinct_runs}
+    except Exception as e:
+        if _tables_missing(e):
+            return {"unavailable": True, "reason": "spine not provisioned (apply migration 023)"}
+        raise
+
+
+async def spine_stats() -> dict:
+    import asyncio
+    return await asyncio.to_thread(_spine_stats_sync)

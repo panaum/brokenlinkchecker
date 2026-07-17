@@ -82,6 +82,51 @@ async def qa_battery(payload):
     )
 
 
+# ── flywheel: drain the LinkSpy outbox to the Dashboard inbox (Part A3) ──
+@handler("spine_outbox_drain")
+async def spine_outbox_drain(payload=None):
+    """Deliver undelivered LinkSpy outbox rows (checklist.candidate_created) to the
+    Dashboard inbox with HMAC + contract-v2 envelope. Retry via the jobs table's
+    own semantics; a row that keeps failing stays undelivered (attempts++/last_error
+    for reconciliation visibility) — never silently dropped."""
+    import json
+    import time as _time
+    from database import (spine_outbox_undelivered, spine_outbox_mark_delivered,
+                          spine_outbox_mark_failed, candidate_set_status)
+    from spine_contract import sign, SPINE_SIG_HEADER, SPINE_SENT_AT_HEADER, SPINE_SCHEMA_VERSION
+    qa_url = os.getenv("QA_APP_URL")
+    secret = os.getenv("SPINE_SECRET")
+    if not (qa_url and secret):
+        return {"skipped": "not configured"}
+    rows = await spine_outbox_undelivered(20)
+    delivered = failed = 0
+    for r in rows:
+        envelope = {"id": r["id"], "type": r["type"], "schema_version": SPINE_SCHEMA_VERSION,
+                    "occurred_at": r.get("created_at"), "producer": "linkspy",
+                    "registry_deliverable_id": None, "registry_site_id": None,
+                    "payload": r.get("payload") or {}}
+        raw = json.dumps(envelope)
+        try:
+            async with httpx.AsyncClient() as h:
+                resp = await h.post(f"{qa_url.rstrip('/')}/api/spine/inbox", content=raw,
+                                    headers={SPINE_SIG_HEADER: sign(raw, secret),
+                                             SPINE_SENT_AT_HEADER: str(int(_time.time())),
+                                             "Content-Type": "application/json"}, timeout=10.0)
+            if 200 <= resp.status_code < 300:
+                await spine_outbox_mark_delivered(r["id"])
+                cid = (r.get("payload") or {}).get("candidate_id")
+                if cid:
+                    await candidate_set_status(cid, "sent", "sent_at")
+                delivered += 1
+            else:
+                await spine_outbox_mark_failed(r["id"], f"http {resp.status_code}")
+                failed += 1
+        except Exception as e:
+            await spine_outbox_mark_failed(r["id"], repr(e))
+            failed += 1
+    return {"delivered": delivered, "failed": failed}
+
+
 # ── heartbeat watch: alert once per silence if no heartbeat in >2h ──
 @handler("heartbeat_watch")
 async def heartbeat_watch(payload=None):

@@ -78,6 +78,54 @@ def classify_gap(incident_class, covered_passed_at_delivery=None):
     return {"verdict": verdict, "map_version": FLYWHEEL_MAP_VERSION, "covered_by": keys}
 
 
+async def on_incident_resolved(incident_ref, incident_class, deliverable_id=None, site_id=None):
+    """FLYWHEEL-gated hook (default OFF → pure no-op, resolution path byte-identical).
+    Classify a resolved incident: uncovered → draft a candidate + emit
+    checklist.candidate_created to the outbox; covered → a flywheel.gap_* timeline
+    note (drift if the covering check passed at delivery, else process). Best-effort;
+    the caller wraps it, but this also never raises."""
+    import os
+    if os.getenv("FLYWHEEL") != "1":
+        return {"skipped": True}
+    try:
+        from database import candidate_create, spine_outbox_add, timeline_add, prefills_latest
+        from spine_contract import EVENT_TYPES
+
+        # For covered classes, did the covering key pass at delivery? (holding = passed)
+        covered_passed = None
+        keys = COVERAGE.get(incident_class)
+        if deliverable_id and keys:
+            by_key = {p.get("check_key"): p.get("verdict") for p in (await prefills_latest(deliverable_id) or [])}
+            if any(k in by_key for k in keys):
+                covered_passed = any(by_key.get(k) == "holding" for k in keys)
+
+        res = classify_gap(incident_class, covered_passed)
+        verdict = res["verdict"]
+
+        if verdict == "uncovered":
+            cand = res.get("candidate") or {}
+            row = await candidate_create(
+                incident_ref, incident_class, cand.get("check_key"), cand.get("wording", ""),
+                {"incident_ref": incident_ref, "incident_class": incident_class},
+                cand.get("machine_verifiable", False))
+            if row:
+                await spine_outbox_add(EVENT_TYPES["CANDIDATE_CREATED"], {
+                    "candidate_id": row["id"], "incident_class": incident_class,
+                    "proposed_check_key": cand.get("check_key"),
+                    "proposed_wording": cand.get("wording"),
+                    "evidence_summary": f"resolved {incident_class} incident {incident_ref}",
+                    "machine_verifiable": cand.get("machine_verifiable", False)})
+            return {"verdict": verdict, "candidate_drafted": bool(row)}
+
+        if verdict in ("drift", "process"):
+            await timeline_add(site_id, deliverable_id, "flywheel.gap_" + verdict,
+                               {"incident_class": incident_class, "covered_by": list(res.get("covered_by", ()))},
+                               source="flywheel")
+        return {"verdict": verdict}
+    except Exception as e:
+        return {"error": repr(e)}
+
+
 def absorption_outcome(check_key, machine_verifiable):
     """On checklist.item_promoted: decide how LinkSpy absorbs it.
       - not machine_verifiable → 'manual' (no catalog change)

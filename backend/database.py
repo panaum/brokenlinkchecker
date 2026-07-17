@@ -3118,3 +3118,143 @@ def _spine_stats_sync() -> dict:
 async def spine_stats() -> dict:
     import asyncio
     return await asyncio.to_thread(_spine_stats_sync)
+
+
+# ─── Flywheel (Phase 5) — candidates, outbox mirror, catalog versions ─────────
+# Thin DB glue; all business logic lives in flywheel.py / spine.py. Every read/
+# write is best-effort: pre-024 → _tables_missing → a neutral value, never a crash.
+def _candidate_create_sync(incident_ref, incident_class, check_key, wording, evidence, machine_verifiable) -> Optional[dict]:
+    client = _get_client()
+    row = {"incident_ref": incident_ref, "incident_class": incident_class,
+           "proposed_check_key": check_key, "proposed_wording": wording,
+           "evidence": evidence or {}, "machine_verifiable": bool(machine_verifiable),
+           "status": "draft"}
+    try:
+        r = client.table("checklist_candidates").insert(row).execute()
+        return r.data[0] if r.data else None
+    except Exception as e:
+        if _tables_missing(e):
+            return None
+        raise
+
+
+async def candidate_create(incident_ref, incident_class, check_key, wording, evidence=None, machine_verifiable=False) -> Optional[dict]:
+    import asyncio
+    return await asyncio.to_thread(_candidate_create_sync, incident_ref, incident_class,
+                                   check_key, wording, evidence, machine_verifiable)
+
+
+def _candidate_set_status_sync(candidate_id, status, at_col) -> None:
+    client = _get_client()
+    patch = {"status": status}
+    if at_col:
+        patch[at_col] = datetime.now(timezone.utc).isoformat()
+    try:
+        client.table("checklist_candidates").update(patch).eq("id", candidate_id).execute()
+    except Exception as e:
+        if not _tables_missing(e):
+            raise
+
+
+async def candidate_set_status(candidate_id, status, at_col=None) -> None:
+    import asyncio
+    await asyncio.to_thread(_candidate_set_status_sync, candidate_id, status, at_col)
+
+
+def _spine_outbox_add_sync(type_, payload) -> Optional[dict]:
+    client = _get_client()
+    try:
+        r = client.table("spine_outbox").insert({"type": type_, "payload": payload or {}}).execute()
+        return r.data[0] if r.data else None
+    except Exception as e:
+        if _tables_missing(e):
+            return None
+        raise
+
+
+async def spine_outbox_add(type_, payload) -> Optional[dict]:
+    import asyncio
+    return await asyncio.to_thread(_spine_outbox_add_sync, type_, payload)
+
+
+def _spine_outbox_undelivered_sync(limit) -> list:
+    client = _get_client()
+    try:
+        return client.table("spine_outbox").select("*").is_("delivered_at", "null")\
+            .order("created_at").limit(limit).execute().data or []
+    except Exception as e:
+        if _tables_missing(e):
+            return []
+        raise
+
+
+async def spine_outbox_undelivered(limit=20) -> list:
+    import asyncio
+    return await asyncio.to_thread(_spine_outbox_undelivered_sync, limit)
+
+
+def _spine_outbox_mark_sync(row_id, delivered, err) -> None:
+    client = _get_client()
+    try:
+        if delivered:
+            client.table("spine_outbox").update({"delivered_at": datetime.now(timezone.utc).isoformat()})\
+                .eq("id", row_id).execute()
+        else:
+            cur = client.table("spine_outbox").select("attempts").eq("id", row_id).limit(1).execute().data or []
+            attempts = (cur[0].get("attempts", 0) if cur else 0) + 1
+            client.table("spine_outbox").update({"attempts": attempts, "last_error": str(err)[:2000]})\
+                .eq("id", row_id).execute()
+    except Exception as e:
+        if not _tables_missing(e):
+            raise
+
+
+async def spine_outbox_mark_delivered(row_id) -> None:
+    import asyncio
+    await asyncio.to_thread(_spine_outbox_mark_sync, row_id, True, None)
+
+
+async def spine_outbox_mark_failed(row_id, err) -> None:
+    import asyncio
+    await asyncio.to_thread(_spine_outbox_mark_sync, row_id, False, err)
+
+
+def _catalog_version_add_sync(check_key, added_via, source_candidate_ref, active, note) -> Optional[dict]:
+    client = _get_client()
+    row = {"check_key": check_key, "added_via": added_via,
+           "source_candidate_ref": source_candidate_ref, "active": bool(active), "note": note}
+    try:
+        r = client.table("catalog_versions").insert(row).execute()
+        return r.data[0] if r.data else None
+    except Exception as e:
+        if _tables_missing(e):
+            return None
+        raise
+
+
+async def catalog_version_add(check_key, added_via="flywheel", source_candidate_ref=None, active=True, note=None) -> Optional[dict]:
+    import asyncio
+    return await asyncio.to_thread(_catalog_version_add_sync, check_key, added_via, source_candidate_ref, active, note)
+
+
+def _flywheel_counts_sync() -> dict:
+    client = _get_client()
+    try:
+        def c(table, col, val):
+            return client.table(table).select("id", count="exact").eq(col, val).execute().count or 0
+        drafted = c("checklist_candidates", "status", "draft")
+        sent = c("checklist_candidates", "status", "sent")
+        promoted = c("checklist_candidates", "status", "promoted")
+        from_flywheel = c("catalog_versions", "added_via", "flywheel")
+        return {"candidates_drafted": drafted, "candidates_sent": sent,
+                "candidates_promoted": promoted, "catalog_items_from_flywheel": from_flywheel}
+    except Exception as e:
+        if _tables_missing(e):
+            return {"candidates_drafted": 0, "candidates_sent": 0,
+                    "candidates_promoted": 0, "catalog_items_from_flywheel": 0}
+        raise
+
+
+async def flywheel_counts() -> dict:
+    import asyncio
+    return await asyncio.to_thread(_flywheel_counts_sync)

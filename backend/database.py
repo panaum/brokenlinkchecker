@@ -3145,6 +3145,7 @@ async def candidate_create(incident_ref, incident_class, check_key, wording, evi
 
 
 def _candidate_set_status_sync(candidate_id, status, at_col) -> None:
+    from datetime import datetime, timezone
     client = _get_client()
     patch = {"status": status}
     if at_col:
@@ -3194,6 +3195,7 @@ async def spine_outbox_undelivered(limit=20) -> list:
 
 
 def _spine_outbox_mark_sync(row_id, delivered, err) -> None:
+    from datetime import datetime, timezone
     client = _get_client()
     try:
         if delivered:

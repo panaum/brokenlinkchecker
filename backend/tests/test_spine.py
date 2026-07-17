@@ -47,7 +47,7 @@ READY = {"id": "e1", "type": EVENT_TYPES["READY_FOR_QA"], "schema_version": 1,
 
 # ── pure HMAC parity/rejects (python side) ──
 def test_contract_checksum_and_hmac():
-    assert CONTRACT_CHECKSUM.startswith("175499b1")
+    assert CONTRACT_CHECKSUM.startswith("36924adb")   # v2: + flywheel events
     now = 1_000_000
     assert verify("body", SECRET, sign("body", SECRET), str(now), now)[0] is True
     assert verify("body", SECRET, sign("body", "other"), str(now), now)[0] is False

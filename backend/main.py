@@ -287,11 +287,17 @@ async def lifespan(app: FastAPI):
                     async def _enq_rec():
                         await _spine_enq("reconcile", {},
                                          idempotency_key="rec:" + _dt.now(_tz.utc).strftime("%Y%m%d"))
+                    async def _enq_drain():
+                        # ~5-min cadence; drain is idempotent (only undelivered rows).
+                        await _spine_enq("spine_outbox_drain", {},
+                                         idempotency_key="drain:" + _dt.now(_tz.utc).strftime("%Y%m%d%H%M")[:-1])
                     aps.add_job(_enq_hbw, "interval", hours=1, id="spine_heartbeat_watch",
                                 replace_existing=True, misfire_grace_time=600)
                     aps.add_job(_enq_rec, "cron", hour=2, minute=0, id="spine_reconcile",
                                 replace_existing=True, misfire_grace_time=3600)
-                    print("[spine] routines scheduled (heartbeat_watch hourly, reconcile nightly)")
+                    aps.add_job(_enq_drain, "interval", minutes=5, id="spine_outbox_drain_enqueue",
+                                replace_existing=True, misfire_grace_time=300)
+                    print("[spine] routines scheduled (heartbeat_watch hourly, reconcile nightly, outbox drain 5-min)")
         except Exception as e:
             print(f"[spine] routines not scheduled: {e}")
     except Exception as e:
@@ -1449,6 +1455,14 @@ async def verify_fix(finding_id: str, site_id: str = Query(default=""),
         try:
             await mark_finding_verified(finding["id"], resolved_at)
             outcome["resolved_at"] = resolved_at
+            # Flywheel gap analysis (FLYWHEEL-gated; no-op when off → byte-identical).
+            try:
+                from flywheel import on_incident_resolved
+                await on_incident_resolved(finding["id"],
+                                           "finding_" + (finding.get("bucket") or "broken"),
+                                           deliverable_id=None, site_id=site_id or finding.get("site_id"))
+            except Exception:
+                pass
         except Exception as e:
             # The check passed but the write did not. Do not claim it is saved.
             outcome["verified"] = False
@@ -3431,6 +3445,27 @@ async def spine_inbox_endpoint(request: Request):
             await maybe_auto_enroll(reg_site, reg_deliverable)
         except Exception as e:
             print(f"[auto_enroll] skipped: {e}")
+    # Part A (flywheel): checklist.item_promoted → catalog absorption. Idempotent
+    # (the inbox already deduped this event by id above). Best-effort.
+    if etype == EVENT_TYPES["ITEM_PROMOTED"]:
+        try:
+            from flywheel import absorption_outcome
+            from database import catalog_version_add
+            ck = payload.get("check_key")
+            mv = bool(payload.get("machine_verifiable"))
+            cref = payload.get("candidate_ref") or payload.get("candidate_id")
+            outcome = absorption_outcome(ck, mv)
+            if outcome == "activated":
+                await catalog_version_add(ck, "flywheel", cref, active=True, note="promoted from flywheel")
+            elif outcome == "promoted_unimplemented":
+                await catalog_version_add(ck, "flywheel", cref, active=False,
+                                          note="needs a new battery probe (manual follow-up)")
+                from spine import _slack as _fw_slack
+                await _fw_slack(f":wrench: promoted check '{payload.get('wording') or ck}' needs a new "
+                                "battery probe — manual follow-up (not auto-built).")
+            # 'manual' → recorded via the timeline_add above; no catalog change.
+        except Exception as e:
+            print(f"[flywheel] absorption skipped: {e}")
     await spine_inbox_mark(event_id, "processed")
     return {"ok": True, "enqueued": enqueued}
 
@@ -3479,11 +3514,32 @@ async def qa_bridge_prefills_refresh(deliverable_id: str = Query(...),
 
 @app.get("/api/admin/spine/stats")
 async def spine_admin_stats(_acc: dict = Depends(require_role("member"))):
-    from database import spine_stats
+    from database import spine_stats, flywheel_counts
     import jobs as _jobs
     return {"consume": os.getenv("SPINE_CONSUME") == "1",
+            "flywheel": os.getenv("FLYWHEEL") == "1",
             "secret_configured": bool(os.getenv("SPINE_SECRET")),
-            "worker_kinds": _jobs.registered_kinds(), **(await spine_stats())}
+            "worker_kinds": _jobs.registered_kinds(),
+            **(await spine_stats()), **(await flywheel_counts())}
+
+
+@app.post("/api/admin/flywheel/simulate")
+async def flywheel_simulate(request: Request, _acc: dict = Depends(require_role("member"))):
+    """FLYWHEEL-gated test trigger — run gap analysis for a given incident_class so
+    the loop can be exercised end-to-end. No effect unless FLYWHEEL=1. (The two
+    live-wired hooks are covered classes → notes; uncovered classes that draft real
+    candidates are driven here until their own resolution hooks land.)"""
+    if os.getenv("FLYWHEEL") != "1":
+        return {"skipped": "FLYWHEEL not enabled"}
+    body = await request.json()
+    incident_class = (body.get("incident_class") or "").strip()
+    if not incident_class:
+        return JSONResponse({"error": "incident_class required"}, status_code=400)
+    from flywheel import on_incident_resolved
+    res = await on_incident_resolved(body.get("incident_ref") or f"sim:{incident_class}",
+                                     incident_class, deliverable_id=body.get("deliverable_id"),
+                                     site_id=body.get("site_id"))
+    return {"ok": True, "result": res}
 
 
 # ─── Inbound-404 triage ──────────────────────────────────────────────────────

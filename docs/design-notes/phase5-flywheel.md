@@ -103,3 +103,88 @@ developer (rule 10).
   template item + `checklist.item_promoted` via the existing outbox; DISMISS.
 - **Part C:** flywheel counters on `/api/admin/spine/stats`; a provenance line on
   flywheel-origin template items.
+
+---
+
+# CONTINUATION — remaining work in build order (zero-archaeology pickup)
+
+**Already shipped** (branch `feat/flywheel-gap`, DRAFT PR, base `main`): the pure
+classifier `backend/flywheel.py`, migration `backend/migrations/024_flywheel.sql`
+(NOT applied — inert until the wiring lands), contract v2
+`backend/spine_contract.py` (checksum `36924adb`), tests `tests/test_flywheel.py`.
+Everything below is NOT built yet.
+
+## A-wiring (LinkSpy, `feat/flywheel-gap` — code only, no live DB action)
+
+1. **DB helpers → `backend/database.py`** (async + `_get_client`, `_tables_missing`
+   guard returning a NOT_PROVISIONED-style sentinel so pre-024 = no crash):
+   - `candidate_create(incident_ref, incident_class, check_key, wording, evidence, machine_verifiable)` → insert `checklist_candidates` (status `draft`), return row.
+   - `candidate_by_ref(id)`, `candidate_set_status(id, status, at_col)`.
+   - `spine_outbox_add(type, payload)` → insert `spine_outbox`.
+   - `spine_outbox_undelivered(limit=20)`, `spine_outbox_mark_delivered(id)`, `spine_outbox_mark_failed(id, err)`.
+   - `catalog_version_add(check_key, added_via, source_candidate_ref, active, note)`, `catalog_versions_flywheel()` (for Part C counts).
+   - *Test:* none (thin DB glue) — covered via the handler tests with monkeypatch.
+
+2. **Resolution hook → `backend/flywheel.py`** add
+   `async def on_incident_resolved(incident_ref, incident_class, deliverable_id=None)`:
+   - Guard `os.getenv("FLYWHEEL") != "1"` → return (no-op). **Snapshot-test byte-identical when off.**
+   - Resolve delivery state: if `deliverable_id`, read `qa_prefills` for the covering key(s) → `covered_passed = any(verdict=="holding")`; else `None`.
+   - `classify_gap(incident_class, covered_passed)`:
+     - `uncovered` → `candidate_create(...)` from `res["candidate"]`; then `spine_outbox_add(EVENT_TYPES["CANDIDATE_CREATED"], {candidate_id, incident_class, proposed_check_key, proposed_wording, evidence_summary, machine_verifiable})`; `candidate_set_status(id,"sent","sent_at")` happens on drain, not here.
+     - `drift`/`process` → `timeline_add(site, deliverable, "flywheel.gap_"+verdict, {...}, source="flywheel")` — NO candidate.
+   - **Call site:** hook `verify_finding` success path (`main.py:~1448`, after `mark_finding_verified`) with `incident_class="finding_"+bucket`; and the sentinel restore path (`sentinel_incidents.restored_at`) with `incident_class="sentinel_uptime"`. Wrap in try/except; best-effort.
+   - *Tests* `tests/test_flywheel_wiring.py`: uncovered→candidate row + outbox row (monkeypatch db); covered-passed→timeline note only; `FLYWHEEL` off→no db calls.
+
+3. **Outbox drain job → `backend/spine.py`** `@handler("spine_outbox_drain")`:
+   - Fetch `spine_outbox_undelivered(20)`; for each, build the envelope, `sign(raw, SPINE_SECRET)`, POST to `{QA_APP_URL}/api/spine/inbox`; 2xx→`mark_delivered` (+ `candidate_set_status "sent"`); else `mark_failed`. Enqueue on a schedule in `main.py` lifespan (interval like the other routines), gated by `SPINE_SECRET` presence.
+   - *Test:* drain marks delivered on 2xx / failed on non-2xx (monkeypatch httpx + db).
+
+4. **Absorption → `backend/main.py` spine inbox endpoint**: add an
+   `EVENT_TYPES["ITEM_PROMOTED"]` branch: `absorption_outcome(check_key, machine_verifiable)`
+   → `activated` = `catalog_version_add(key,"flywheel",candidate_ref,active=True)`;
+   `promoted_unimplemented` = `catalog_version_add(..., active=False, note=...)` + Slack
+   ("promoted check {wording} needs a new battery probe — manual follow-up");
+   `manual` = timeline note only. Idempotent (inbox already dedupes by event id).
+   - *Tests:* each branch; idempotent event → single catalog row.
+
+## Part B (Dashboard, new branch `feat/flywheel-queue`)
+
+1. **Dump (T3) → drift (T2) → prisma migration** (`db:deploy`): model
+   `ChecklistCandidate(id, linkspyCandidateRef @unique, incidentClass,
+   proposedWording, evidence Json, machineVerifiable Bool, status
+   draft|promoted|dismissed @default(draft), rationale?, decidedBy?, decidedAt?,
+   createdAt)`. Additive, footered.
+2. **Inbox → `src/app/api/spine/inbox/route.ts`** (or extend the existing one):
+   handle `checklist.candidate_created` — HMAC verify (contract v2), idempotent by
+   `linkspyCandidateRef` → upsert `ChecklistCandidate`. Mirror `spine-contract.ts`
+   to v2 (add the two event types; checksum `36924adb`).
+3. **Queue UI** `src/app/dashboard/checklists/candidates/page.tsx` (nav near
+   Checklists): verdict-first header ("N candidates awaiting review" / empty state
+   "No candidates — production hasn't taught us anything new lately"); per-candidate
+   card = editable wording, incident-class chip, evidence + **signed handoff link**
+   to the LinkSpy incident, machine-verifiable badge, PROMOTE (mandatory rationale)
+   / DISMISS (optional reason). No emoji client-side; mono numerals.
+4. **Promote action** `.../candidates/actions.ts` (`"use server"`, the ONLY
+   template write, T4): insert a `ChecklistTemplateItem` (category from the
+   candidate or a "Flywheel" category + the wording as `name`) into the default
+   template; set `status=promoted, rationale, decidedBy=session, decidedAt`; emit
+   `checklist.item_promoted` via the existing Dashboard outbox (`spine-emit`).
+   DISMISS = status+reason only, no emit.
+   - *Tests* (`node:test`): inbox idempotency; promote rejects empty rationale;
+     template gains item + existing `QACheckItem` untouched (snapshot); dismiss
+     emits nothing; source-scan: candidate writes never touch `QACheckItem`.
+
+## Part C (both repos, small)
+
+1. **LinkSpy** `main.py` `/api/admin/spine/stats`: add `candidates_drafted`
+   (count status in draft/sent), `candidates_promoted`, `catalog_items_from_flywheel`
+   (`catalog_versions where added_via='flywheel'`). *Test:* counters shape.
+2. **Dashboard** Checklists template view: a quiet line on flywheel-origin items
+   ("added from production incident · {date}"). Needs a provenance marker on the
+   template item — since `ChecklistTemplateItem` has no origin column, add a
+   NULLABLE `origin?` + `originAt?` in the Part B migration (additive) and set it
+   on promote. *Test:* line renders only when `origin='flywheel'`.
+
+## Order to build: A-wiring (1→4) → Part B (1→4) → Part C. Then force one full
+loop end-to-end (resolve test incident → candidate → drain → queue → promote →
+drain → catalog absorption → counters).

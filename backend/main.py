@@ -3228,7 +3228,7 @@ async def qa_bridge_status(qa_page_ref: str = Query(...),
     """Read-only live status for a mapped QA deliverable. Auth: dedicated
     service API key (Bearer or X-Api-Key). Unmapped ref → {mapped:false}, 200.
     Verdicts are computed from the LATEST STORED results — no scan is triggered."""
-    from database import qa_get_map, qa_snapshot
+    from database import qa_resolve_map, qa_snapshot
     from qa_catalog import derive_checks, summarize, CATALOG_VERSION
     key = await _qa_authenticate(authorization, x_api_key)
     if not key:
@@ -3236,7 +3236,9 @@ async def qa_bridge_status(qa_page_ref: str = Query(...),
     if not _qa_rl.allow(key["id"], time.time()):
         return JSONResponse({"error": "Rate limit exceeded. Try again shortly."}, status_code=429)
 
-    mapping = await qa_get_map(qa_page_ref)
+    # Legacy qa_bridge_map first; registry `deliverables` as a fallback when
+    # QA_BRIDGE_CONSOLIDATION=1. Flag off ⇒ identical to qa_get_map (Fix 4).
+    mapping = await qa_resolve_map(qa_page_ref)
     if not mapping:
         return {"mapped": False}
     snap = await qa_snapshot(mapping["linkspy_site_id"], mapping.get("page_url"),

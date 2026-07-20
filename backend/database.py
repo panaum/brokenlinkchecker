@@ -2637,6 +2637,55 @@ async def qa_get_map(qa_page_ref) -> Optional[dict]:
     return await asyncio.to_thread(_qa_get_map_sync, qa_page_ref)
 
 
+# ─── Bridge consolidation (Fix 4) ────────────────────────────────────────────
+# DEPRECATED AS THE SOLE IDENTITY SOURCE: qa_bridge_map predates the registry
+# (Phase 0). It is still written by the agency-internal admin UI
+# (POST /api/sites/{site_id}/qa-bridge/maps) and is NOT going away — but it is
+# no longer the only place a QA page ref can be resolved from. The registry's
+# `deliverables` table carries the same identity: external_ref IS the QA app's
+# Page.id, exactly like qa_page_ref. A page linked through the registry
+# therefore already has everything qa_snapshot() needs (site_id, url,
+# created_at) without a duplicate manual mapping.
+#
+# Gated by QA_BRIDGE_CONSOLIDATION=1 (strict "1", matching the JOBS_SHADOW /
+# FLYWHEEL / SPINE_CONSUME idiom — "true"/"on" will NOT work).
+#   OFF → qa_resolve_map is exactly qa_get_map, byte for byte.
+#   ON  → the legacy map still wins; the registry is consulted ONLY when the
+#         legacy lookup misses, so no ref that resolves today can change.
+# See docs/design-notes/fix4-bridge-consolidation.md.
+def qa_bridge_consolidation_enabled() -> bool:
+    return os.getenv("QA_BRIDGE_CONSOLIDATION") == "1"
+
+
+def deliverable_as_map(d: Optional[dict]) -> Optional[dict]:
+    """Adapt a registry `deliverables` row to the qa_bridge_map shape consumed
+    by qa_snapshot(). Returns None for a falsy row, for the not-provisioned /
+    conflict sentinels, or when site_id is absent (nothing to snapshot)."""
+    if not d or d.get("__registry__"):
+        return None
+    site_id = d.get("site_id")
+    if not site_id:
+        return None
+    return {
+        "qa_page_ref": d.get("external_ref"),
+        "linkspy_site_id": site_id,
+        "page_url": d.get("url"),
+        "created_at": d.get("created_at"),
+        "created_by": None,
+        "__source__": "registry",  # provenance only; not part of any response
+    }
+
+
+async def qa_resolve_map(qa_page_ref) -> Optional[dict]:
+    """Resolve a QA page ref to a snapshot target. Legacy map first (always
+    authoritative — an explicit manual mapping is a deliberate operator
+    override), then the registry when the flag is on."""
+    row = await qa_get_map(qa_page_ref)
+    if row or not qa_bridge_consolidation_enabled():
+        return row
+    return deliverable_as_map(await registry_get_deliverable(qa_page_ref))
+
+
 def _qa_unlink_sync(map_id, site_id) -> bool:
     client = _get_client()
     try:

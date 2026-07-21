@@ -374,6 +374,11 @@ export default function HomePage() {
     <main className="min-h-screen relative overflow-hidden">
       <NavBar />
 
+      {/* Soft indigo aura behind the scanner — gives the frosted input/progress
+          panels something to actually frost. Decorative only. */}
+      <div className="scanner-aura" aria-hidden />
+
+
       {/* Self-heal entry — right side, opens the dedicated page. */}
       <Link
         href="/self-heal"

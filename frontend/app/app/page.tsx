@@ -217,8 +217,11 @@ export default function HomePage() {
 
   return (
     <main className="min-h-screen relative overflow-hidden">
+      {/* Soft indigo aura behind the scanner (frosts the glass panels). */}
+      <div className="scanner-aura" aria-hidden />
+
       {/* ── HERO SECTION ── */}
-      <section className="relative pt-20 pb-8 noise-overlay overflow-hidden">
+      <section className="relative pt-20 pb-8 overflow-hidden">
         {/* Particle dot background */}
         <div
           style={{

@@ -99,8 +99,8 @@ export default function UrlInput({
   const displayError = inlineError || error;
 
   return (
-    <div className="w-full max-w-3xl mx-auto mt-10">
-      <div className="glass-card focus-glow p-6">
+    <div className="w-full max-w-3xl mx-auto mt-10 relative z-10">
+      <div className="glass-panel focus-glow p-6">
         {/* Scan Mode Tabs */}
         {onScanModeChange && (
           <div className="flex justify-start gap-2 mb-4">

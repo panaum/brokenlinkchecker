@@ -50,9 +50,9 @@ export default function ScanProgress({
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -12 }}
-      className="w-full max-w-3xl mx-auto mt-4"
+      className="w-full max-w-3xl mx-auto mt-4 relative z-10"
     >
-      <div className="glass-card p-6 flex flex-col gap-5">
+      <div className="glass-panel p-6 flex flex-col gap-5">
         {/* Stepper */}
         <div className="flex items-center justify-between gap-2">
           {STEPS.map((step, i) => {

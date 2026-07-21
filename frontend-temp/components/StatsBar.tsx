@@ -60,22 +60,22 @@ export default function StatsBar({ results }: StatsBarProps) {
     {
       label: "Total Links",
       rawValue: totalLinks,
-      color: "#ffffff",
-      bg: "rgba(255,255,255,0.08)",
+      color: "#1c1c2e",
+      bg: "#ffffff",
       delay: 0,
     },
     {
       label: "Working",
       rawValue: working,
-      color: "#4ade80",
-      bg: "rgba(74,222,128,0.10)",
+      color: "#4caf7d",
+      bg: "rgba(76,175,125,0.08)",
       delay: 100,
     },
     {
       label: "Broken",
       rawValue: broken,
-      color: "#f87171",
-      bg: "rgba(248,113,113,0.10)",
+      color: "#e05c5c",
+      bg: "rgba(224,92,92,0.08)",
       delay: 200,
     },
     ...(deadCta > 0
@@ -83,8 +83,8 @@ export default function StatsBar({ results }: StatsBarProps) {
           {
             label: "Dead Buttons",
             rawValue: deadCta,
-            color: "#fbbf24",
-            bg: "rgba(251,191,36,0.10)",
+            color: "#f5a623",
+            bg: "rgba(245,166,35,0.08)",
             delay: 300,
           },
         ]
@@ -92,8 +92,8 @@ export default function StatsBar({ results }: StatsBarProps) {
     {
       label: "Redirects",
       rawValue: redirects,
-      color: "#fb923c",
-      bg: "rgba(251,146,60,0.10)",
+      color: "#f5a623",
+      bg: "rgba(245,166,35,0.08)",
       delay: 400,
     },
     ...(cantVerify > 0
@@ -101,8 +101,8 @@ export default function StatsBar({ results }: StatsBarProps) {
           {
             label: "Can't Verify",
             rawValue: cantVerify,
-            color: "#e879f9",
-            bg: "rgba(232,121,249,0.10)",
+            color: "#4f46e5",
+            bg: "rgba(79,70,229,0.07)",
             delay: 500,
           },
         ]
@@ -112,8 +112,8 @@ export default function StatsBar({ results }: StatsBarProps) {
           {
             label: "Timeouts",
             rawValue: timeouts,
-            color: "#94a3b8",
-            bg: "rgba(148,163,184,0.10)",
+            color: "#66667a",
+            bg: "rgba(102,102,122,0.07)",
             delay: 600,
           },
         ]
@@ -148,22 +148,14 @@ function StatCardItem({ stat }: { stat: StatCard }) {
       style={{ background: stat.bg }}
     >
       <div
-        className="text-[11px] uppercase tracking-widest mb-2"
-        style={{
-          fontFamily: "var(--font-poppins), Poppins, sans-serif",
-          fontWeight: 300,
-          color: "rgba(255,255,255,0.5)",
-        }}
+        className="text-[11px] uppercase tracking-widest mb-2 text-text-muted"
+        style={{ fontWeight: 500 }}
       >
         {stat.label}
       </div>
       <div
         className="text-4xl tabular-nums"
-        style={{
-          fontFamily: "var(--font-poppins), Poppins, sans-serif",
-          fontWeight: 700,
-          color: stat.color,
-        }}
+        style={{ fontWeight: 700, color: stat.color }}
       >
         {animValue}
       </div>

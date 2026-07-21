@@ -77,8 +77,8 @@ export default function UrlInput({
   const displayError = inlineError || error;
 
   return (
-    <div className="w-full max-w-3xl mx-auto mt-10">
-      <div className="animated-border glass-card p-6">
+    <div className="w-full max-w-3xl mx-auto mt-10 px-4">
+      <div className="glass-card p-6">
         <div className="flex flex-col sm:flex-row gap-3">
           <input
             id="url-input"
@@ -90,20 +90,15 @@ export default function UrlInput({
             }}
             onKeyDown={handleKeyDown}
             placeholder="https://your-website.com"
-            className="flex-1 bg-black/30 text-white placeholder-white/30 rounded-xl px-5 py-4 border border-white/10 focus:border-purple-500 focus:ring-2 focus:ring-purple-500/30 outline-none transition-all"
-            style={{ fontFamily: "var(--font-poppins), Poppins, sans-serif" }}
+            className="flex-1 bg-card-soft text-text-primary placeholder-text-muted rounded-xl px-5 py-4 border border-border-soft focus:border-accent focus:ring-2 focus:ring-accent/25 outline-none transition-all"
             disabled={scanning}
           />
           <button
             id="scan-button"
             onClick={handleScan}
             disabled={scanning}
-            className="bg-gradient-1 text-white font-semibold rounded-xl px-8 py-4 hover:opacity-90 disabled:opacity-60 transition-all flex items-center justify-center gap-2 cursor-pointer whitespace-nowrap"
-            style={{
-              fontFamily: "var(--font-poppins), Poppins, sans-serif",
-              fontWeight: 600,
-              minWidth: "140px",
-            }}
+            className="bg-accent text-text-on-dark font-semibold rounded-xl px-8 py-4 hover:bg-accent-bright disabled:opacity-60 transition-colors flex items-center justify-center gap-2 cursor-pointer whitespace-nowrap"
+            style={{ minWidth: "140px", boxShadow: "var(--shadow-brand)" }}
           >
             {scanning ? (
               <span>Scanning{dots}</span>
@@ -118,18 +113,11 @@ export default function UrlInput({
 
         {/* Suggestion */}
         {suggestion && !scanning && (
-          <div
-            className="mt-3 text-sm flex items-center gap-2"
-            style={{
-              fontFamily: "var(--font-poppins), Poppins, sans-serif",
-              color: "rgba(255,255,255,0.5)",
-            }}
-          >
+          <div className="mt-3 text-sm flex items-center gap-2 text-text-secondary">
             Did you mean&nbsp;
             <button
               onClick={() => { onUrlChange(suggestion); setInlineError(null); }}
-              className="underline cursor-pointer transition-colors hover:text-white"
-              style={{ color: "#a78bfa" }}
+              className="underline text-accent cursor-pointer transition-colors hover:text-accent-bright"
             >
               {suggestion}
             </button>
@@ -139,13 +127,7 @@ export default function UrlInput({
 
         {/* Inline error */}
         {displayError && (
-          <div
-            className="mt-3 text-sm flex items-start gap-2"
-            style={{
-              fontFamily: "var(--font-poppins), Poppins, sans-serif",
-              color: "#f87171",
-            }}
-          >
+          <div className="mt-3 text-sm flex items-start gap-2 text-error">
             <span>⚠</span>
             <span>{displayError}</span>
           </div>

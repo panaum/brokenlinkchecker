@@ -51,14 +51,14 @@ interface StatusFilterItem {
 }
 
 const STATUS_ITEMS: StatusFilterItem[] = [
-  { label: "All", value: "all", color: "#fff", bg: "rgba(255,255,255,0.08)" },
-  { label: "Working", value: "ok", color: "#4ade80", bg: "rgba(74,222,128,0.12)" },
-  { label: "Broken", value: "broken", color: "#f87171", bg: "rgba(248,113,113,0.12)" },
-  { label: "Dead Button", value: "dead_cta", color: "#fbbf24", bg: "rgba(251,191,36,0.12)" },
-  { label: "Redirected", value: "redirect", color: "#fb923c", bg: "rgba(251,146,60,0.12)" },
-  { label: "Can't Verify", value: "blocked", color: "#e879f9", bg: "rgba(232,121,249,0.12)" },
-  { label: "Not Responding", value: "timeout", color: "#94a3b8", bg: "rgba(148,163,184,0.12)" },
-  { label: "Conn. Failed", value: "error", color: "#f87171", bg: "rgba(248,113,113,0.12)" },
+  { label: "All", value: "all", color: "#1c1c2e", bg: "var(--color-card-soft)" },
+  { label: "Working", value: "ok", color: "#4caf7d", bg: "rgba(76,175,125,0.10)" },
+  { label: "Broken", value: "broken", color: "#e05c5c", bg: "rgba(224,92,92,0.10)" },
+  { label: "Dead Button", value: "dead_cta", color: "#f5a623", bg: "rgba(245,166,35,0.10)" },
+  { label: "Redirected", value: "redirect", color: "#f5a623", bg: "rgba(245,166,35,0.10)" },
+  { label: "Can't Verify", value: "blocked", color: "#4f46e5", bg: "rgba(79,70,229,0.08)" },
+  { label: "Not Responding", value: "timeout", color: "#66667a", bg: "rgba(102,102,122,0.08)" },
+  { label: "Conn. Failed", value: "error", color: "#e05c5c", bg: "rgba(224,92,92,0.10)" },
 ];
 
 export default function FilterBar({
@@ -102,16 +102,11 @@ export default function FilterBar({
                 onClick={() => onFilterChange(item.value)}
                 className="flex items-center gap-2 px-3 py-2 rounded-xl transition-all cursor-pointer"
                 style={{
-                  background: isActive
-                    ? "linear-gradient(132deg,rgb(65,0,153),rgb(138,26,155))"
-                    : item.bg,
+                  background: isActive ? "var(--color-accent)" : item.bg,
                   border: isActive
-                    ? "1px solid rgba(138,26,155,0.6)"
+                    ? "1px solid var(--color-accent)"
                     : `1px solid ${item.color}22`,
-                  boxShadow: isActive
-                    ? "0 0 12px rgba(138,26,155,0.3)"
-                    : "none",
-                  fontFamily: "var(--font-poppins), Poppins, sans-serif",
+                  boxShadow: isActive ? "var(--shadow-brand)" : "none",
                   fontWeight: isActive ? 600 : 400,
                   fontSize: "13px",
                   color: isActive ? "#fff" : item.color,
@@ -126,9 +121,9 @@ export default function FilterBar({
                   className="rounded-full px-1.5 py-0.5 text-xs tabular-nums"
                   style={{
                     background: isActive
-                      ? "rgba(255,255,255,0.2)"
-                      : "rgba(255,255,255,0.08)",
-                    color: isActive ? "#fff" : "rgba(255,255,255,0.6)",
+                      ? "rgba(255,255,255,0.25)"
+                      : "rgba(28,28,46,0.06)",
+                    color: isActive ? "#fff" : "var(--color-text-secondary)",
                     fontWeight: 600,
                   }}
                 >
@@ -147,12 +142,11 @@ export default function FilterBar({
               onClick={() => { setZoneOpen((p) => !p); setSortOpen(false); }}
               className="flex items-center gap-2 px-3 py-2 rounded-xl transition-all cursor-pointer"
               style={{
-                background: "rgba(255,255,255,0.05)",
-                border: "1px solid rgba(255,255,255,0.1)",
-                fontFamily: "var(--font-poppins), Poppins, sans-serif",
+                background: "var(--color-card)",
+                border: "1px solid var(--color-border-soft)",
                 fontSize: "13px",
                 fontWeight: 500,
-                color: zoneFilter !== "All zones" ? "#e879f9" : "rgba(255,255,255,0.6)",
+                color: zoneFilter !== "All zones" ? "var(--color-accent)" : "var(--color-text-secondary)",
               }}
             >
               {zoneFilter}
@@ -162,11 +156,10 @@ export default function FilterBar({
               <div
                 className="absolute top-full mt-2 left-0 z-50 rounded-xl overflow-hidden"
                 style={{
-                  background: "rgba(15,8,30,0.97)",
-                  backdropFilter: "blur(16px)",
-                  border: "1px solid rgba(255,255,255,0.12)",
+                  background: "var(--color-card)",
+                  border: "1px solid var(--color-border-soft)",
                   minWidth: "160px",
-                  boxShadow: "0 8px 32px rgba(0,0,0,0.5)",
+                  boxShadow: "var(--shadow-lg)",
                 }}
               >
                 {ZONES.map((zone) => (
@@ -175,14 +168,13 @@ export default function FilterBar({
                     onClick={() => { onZoneFilterChange(zone); setZoneOpen(false); }}
                     className="w-full text-left px-4 py-2.5 transition-colors cursor-pointer"
                     style={{
-                      fontFamily: "var(--font-poppins), Poppins, sans-serif",
                       fontSize: "13px",
                       fontWeight: zoneFilter === zone ? 600 : 400,
-                      color: zoneFilter === zone ? "#e879f9" : "rgba(255,255,255,0.65)",
-                      background: zoneFilter === zone ? "rgba(232,121,249,0.08)" : "transparent",
+                      color: zoneFilter === zone ? "var(--color-accent)" : "var(--color-text-secondary)",
+                      background: zoneFilter === zone ? "rgba(79,70,229,0.08)" : "transparent",
                     }}
                     onMouseEnter={(e) => {
-                      if (zoneFilter !== zone) (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.04)";
+                      if (zoneFilter !== zone) (e.currentTarget as HTMLButtonElement).style.background = "var(--color-card-soft)";
                     }}
                     onMouseLeave={(e) => {
                       if (zoneFilter !== zone) (e.currentTarget as HTMLButtonElement).style.background = "transparent";
@@ -199,28 +191,23 @@ export default function FilterBar({
           <div
             className="flex items-center gap-2 flex-1 px-3 py-2 rounded-xl"
             style={{
-              background: "rgba(255,255,255,0.05)",
-              border: "1px solid rgba(255,255,255,0.1)",
+              background: "var(--color-card)",
+              border: "1px solid var(--color-border-soft)",
               minWidth: "180px",
             }}
           >
-            <Search size={14} style={{ color: "rgba(255,255,255,0.3)", flexShrink: 0 }} />
+            <Search size={14} style={{ color: "var(--color-text-muted)", flexShrink: 0 }} />
             <input
               type="text"
               value={search}
               onChange={(e) => onSearchChange(e.target.value)}
               placeholder="Search URLs or link text…"
-              className="flex-1 bg-transparent outline-none"
-              style={{
-                fontFamily: "var(--font-poppins), Poppins, sans-serif",
-                fontSize: "13px",
-                color: "#fff",
-                caretColor: "#a855f7",
-              }}
+              className="flex-1 bg-transparent outline-none text-text-primary placeholder-text-muted"
+              style={{ fontSize: "13px", caretColor: "var(--color-accent)" }}
             />
             {search && (
               <button onClick={() => onSearchChange("")} className="cursor-pointer">
-                <X size={13} style={{ color: "rgba(255,255,255,0.3)" }} />
+                <X size={13} style={{ color: "var(--color-text-muted)" }} />
               </button>
             )}
           </div>
@@ -231,12 +218,11 @@ export default function FilterBar({
               onClick={() => { setSortOpen((p) => !p); setZoneOpen(false); }}
               className="flex items-center gap-2 px-3 py-2 rounded-xl transition-all cursor-pointer"
               style={{
-                background: "rgba(255,255,255,0.05)",
-                border: "1px solid rgba(255,255,255,0.1)",
-                fontFamily: "var(--font-poppins), Poppins, sans-serif",
+                background: "var(--color-card)",
+                border: "1px solid var(--color-border-soft)",
                 fontSize: "13px",
                 fontWeight: 500,
-                color: "rgba(255,255,255,0.6)",
+                color: "var(--color-text-secondary)",
                 whiteSpace: "nowrap",
               }}
             >
@@ -247,11 +233,10 @@ export default function FilterBar({
               <div
                 className="absolute top-full mt-2 right-0 z-50 rounded-xl overflow-hidden"
                 style={{
-                  background: "rgba(15,8,30,0.97)",
-                  backdropFilter: "blur(16px)",
-                  border: "1px solid rgba(255,255,255,0.12)",
+                  background: "var(--color-card)",
+                  border: "1px solid var(--color-border-soft)",
                   minWidth: "160px",
-                  boxShadow: "0 8px 32px rgba(0,0,0,0.5)",
+                  boxShadow: "var(--shadow-lg)",
                 }}
               >
                 {SORT_OPTIONS.map((opt) => (
@@ -260,22 +245,21 @@ export default function FilterBar({
                     onClick={() => { onSortChange(opt.value); setSortOpen(false); }}
                     className="w-full text-left px-4 py-2.5 transition-colors cursor-pointer"
                     style={{
-                      fontFamily: "var(--font-poppins), Poppins, sans-serif",
                       fontSize: "13px",
                       fontWeight: sortOption === opt.value ? 600 : 400,
                       color:
                         sortOption === opt.value
-                          ? "#e879f9"
-                          : "rgba(255,255,255,0.65)",
+                          ? "var(--color-accent)"
+                          : "var(--color-text-secondary)",
                       background:
                         sortOption === opt.value
-                          ? "rgba(232,121,249,0.08)"
+                          ? "rgba(79,70,229,0.08)"
                           : "transparent",
                     }}
                     onMouseEnter={(e) => {
                       if (sortOption !== opt.value)
                         (e.currentTarget as HTMLButtonElement).style.background =
-                          "rgba(255,255,255,0.04)";
+                          "var(--color-card-soft)";
                     }}
                     onMouseLeave={(e) => {
                       if (sortOption !== opt.value)
@@ -292,13 +276,8 @@ export default function FilterBar({
 
           {/* Result count */}
           <span
-            style={{
-              fontFamily: "var(--font-poppins), Poppins, sans-serif",
-              fontSize: "12px",
-              fontWeight: 400,
-              color: "rgba(255,255,255,0.35)",
-              whiteSpace: "nowrap",
-            }}
+            className="text-text-muted"
+            style={{ fontSize: "12px", whiteSpace: "nowrap" }}
           >
             {filteredCount} link{filteredCount !== 1 ? "s" : ""}
           </span>

@@ -1,139 +1,138 @@
 @import "tailwindcss";
 
+/*
+  LinkSpy design system — mirrored from the Deliverables Dashboard so the two
+  apps read as one product. Light / indigo / clean: flat surfaces, a single
+  confident accent, soft layered shadows. No gradients, no glass, no noise.
+*/
+
 @theme {
-  --font-sans: "Poppins", sans-serif;
-  --color-brand-purple-dark: #410099;
-  --color-brand-purple-mid: #8a1a9b;
-  --color-brand-purple-deep: #231e46;
-  --color-brand-purple-dark2: #560060;
+  /* Accent — single confident colour for interactive states (indigo) */
+  --color-accent: #4f46e5;
+  --color-accent-bright: #6366f1;
+
+  /* Surfaces */
+  --color-page: #f6f6f9;
+  --color-card: #ffffff;
+  --color-card-soft: #f1f1f6;
+
+  /* Text */
+  --color-text-primary: #1c1c2e;
+  --color-text-secondary: #66667a;
+  --color-text-muted: #7a7a8c;
+  --color-text-on-dark: #ffffff;
+
+  /* Semantic */
+  --color-success: #4caf7d;
+  --color-warning: #f5a623;
+  --color-error: #e05c5c;
+  --color-info: #5b8def;
+
+  /* Borders */
+  --color-border-soft: #e8e8f0;
+
+  /* Radius */
+  --radius-xs: 4px;
+  --radius-sm: 8px;
+  --radius-md: 12px;
+  --radius-lg: 16px;
+  --radius-xl: 24px;
+
+  /* Shadows — soft, layered, low-contrast (premium depth) */
+  --shadow-xs: 0 1px 2px rgba(20, 20, 43, 0.04), 0 1px 1px rgba(20, 20, 43, 0.03);
+  --shadow-sm: 0 1px 2px rgba(20, 20, 43, 0.04), 0 2px 6px rgba(20, 20, 43, 0.05);
+  --shadow-md: 0 4px 12px rgba(20, 20, 43, 0.06), 0 8px 24px rgba(20, 20, 43, 0.07);
+  --shadow-lg: 0 12px 40px rgba(20, 20, 43, 0.1);
+  --shadow-brand: 0 6px 20px rgba(79, 70, 229, 0.25);
+
+  /* Font (Geist is loaded via next/font in layout.tsx) */
+  --font-sans: var(--font-geist-sans), system-ui, sans-serif;
 }
 
 @layer base {
   * {
     box-sizing: border-box;
   }
+  html,
   body {
-    background: #0a0612;
-    color: #ffffff;
-    font-family: "Poppins", sans-serif;
+    height: 100%;
+  }
+  body {
+    /* Calm neutral canvas — surfaces and data carry the colour, not the page. */
+    background: var(--color-page);
+    color: var(--color-text-primary);
+    font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
   }
   ::-webkit-scrollbar {
-    width: 6px;
+    width: 8px;
+    height: 8px;
   }
   ::-webkit-scrollbar-track {
     background: transparent;
   }
   ::-webkit-scrollbar-thumb {
-    background: rgba(255, 255, 255, 0.15);
-    border-radius: 3px;
+    background: rgba(28, 28, 46, 0.12);
+    border-radius: 4px;
+  }
+  ::-webkit-scrollbar-thumb:hover {
+    background: rgba(28, 28, 46, 0.2);
+  }
+  /* Visible focus ring per accessibility baseline */
+  :focus-visible {
+    outline: 2px solid var(--color-accent);
+    outline-offset: 2px;
   }
 }
 
-/* Gradient utility classes */
-.bg-gradient-1 {
-  background: linear-gradient(
-    132deg,
-    rgb(65, 0, 153) 0%,
-    rgb(138, 26, 155) 100%
-  );
-}
-.bg-gradient-2 {
-  background: linear-gradient(
-    132deg,
-    rgb(65, 0, 153) 0%,
-    rgb(86, 16, 96) 100%
-  );
-}
-.bg-gradient-3 {
-  background: linear-gradient(
-    132deg,
-    rgb(138, 26, 155) 0%,
-    rgb(35, 30, 70) 100%
-  );
-}
-
-/* Glass card */
+/* Solid card — replaces the old translucent "glass" card. Every existing
+   .glass-card className now renders as a clean white surface. */
 .glass-card {
-  background: rgba(255, 255, 255, 0.05);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 16px;
+  background: var(--color-card);
+  border: 1px solid var(--color-border-soft);
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-sm);
 }
 
-/* Gradient text */
-.gradient-text {
-  background: linear-gradient(
-    132deg,
-    rgb(138, 26, 155) 0%,
-    rgb(200, 100, 255) 100%
-  );
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
-}
-
-/* Animated gradient border */
-@keyframes gradient-rotate {
-  0% {
-    background-position: 0% 50%;
+/* Entrance animation for server/streamed lists (Dashboard vocabulary). */
+@keyframes fade-in-up {
+  from {
+    opacity: 0;
+    transform: translateY(12px);
   }
-  50% {
-    background-position: 100% 50%;
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.animate-in {
+  animation: fade-in-up 0.4s ease-out both;
+}
+
+/* Loading placeholder with a left-to-right shimmer sweep. */
+@keyframes shimmer {
+  0% {
+    background-position: 200% 0;
   }
   100% {
-    background-position: 0% 50%;
+    background-position: -200% 0;
   }
 }
-
-.animated-border {
-  position: relative;
-  z-index: 0;
-}
-
-.animated-border::before {
-  content: "";
-  position: absolute;
-  z-index: -1;
-  inset: -2px;
-  border-radius: 18px;
-  background: linear-gradient(
-    132deg,
-    rgb(65, 0, 153),
-    rgb(138, 26, 155),
-    rgb(86, 16, 96),
-    rgb(65, 0, 153)
+.skeleton {
+  background-color: #e6e6ee;
+  background-image: linear-gradient(
+    90deg,
+    transparent 0%,
+    rgba(255, 255, 255, 0.55) 50%,
+    transparent 100%
   );
-  background-size: 300% 300%;
-  animation: gradient-rotate 4s ease infinite;
-  opacity: 0.6;
+  background-size: 200% 100%;
+  background-repeat: no-repeat;
+  animation: shimmer 1.4s ease-in-out infinite;
 }
 
-.animated-border::after {
-  content: "";
-  position: absolute;
-  z-index: -1;
-  inset: 0;
-  border-radius: 16px;
-  background: rgba(10, 6, 18, 0.95);
-}
-
-/* Noise texture overlay */
-.noise-overlay::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  opacity: 0.03;
-  pointer-events: none;
-  z-index: 1;
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
-  background-repeat: repeat;
-  background-size: 256px 256px;
-}
-
-/* Pulse animation for green dot */
+/* Pulse animation for the live status dot. */
 @keyframes pulse-dot {
   0%,
   100% {
@@ -163,5 +162,14 @@
   to {
     opacity: 1;
     transform: translateY(0);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    transition-duration: 0.01ms !important;
+    animation-duration: 0.01ms !important;
   }
 }

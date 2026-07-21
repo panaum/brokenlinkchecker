@@ -24,9 +24,9 @@ function calcScore(results: LinkResult[]): number {
 }
 
 function scoreColor(score: number): string {
-  if (score >= 90) return "#4ade80";
-  if (score >= 70) return "#fb923c";
-  return "#f87171";
+  if (score >= 90) return "#4caf7d";
+  if (score >= 70) return "#f5a623";
+  return "#e05c5c";
 }
 
 function scoreHeadline(score: number): string {
@@ -93,19 +93,13 @@ export default function HealthScore({ results }: HealthScoreProps) {
         {/* Left — circular ring */}
         <div className="flex flex-col items-center shrink-0" style={{ width: "40%" }}>
           <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`}>
-            <defs>
-              <linearGradient id="ringGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stopColor="rgb(65,0,153)" />
-                <stop offset="100%" stopColor="rgb(138,26,155)" />
-              </linearGradient>
-            </defs>
             {/* Track */}
             <circle
               cx={size / 2}
               cy={size / 2}
               r={radius}
               fill="none"
-              stroke="rgba(255,255,255,0.08)"
+              stroke="var(--color-border-soft)"
               strokeWidth={strokeWidth}
             />
             {/* Progress */}
@@ -114,7 +108,7 @@ export default function HealthScore({ results }: HealthScoreProps) {
               cy={size / 2}
               r={radius}
               fill="none"
-              stroke="url(#ringGradient)"
+              stroke={color}
               strokeWidth={strokeWidth}
               strokeDasharray={circumference}
               strokeDashoffset={dashOffset}
@@ -131,7 +125,7 @@ export default function HealthScore({ results }: HealthScoreProps) {
               fill={color}
               fontSize="28"
               fontWeight="700"
-              fontFamily="Poppins, sans-serif"
+              fontFamily="var(--font-sans)"
             >
               {animScore}
             </text>
@@ -141,10 +135,10 @@ export default function HealthScore({ results }: HealthScoreProps) {
               y={size / 2 + 20}
               textAnchor="middle"
               dominantBaseline="middle"
-              fill="rgba(255,255,255,0.5)"
+              fill="var(--color-text-muted)"
               fontSize="11"
               fontWeight="400"
-              fontFamily="Poppins, sans-serif"
+              fontFamily="var(--font-sans)"
             >
               Site Health
             </text>
@@ -154,50 +148,33 @@ export default function HealthScore({ results }: HealthScoreProps) {
         {/* Right — summary */}
         <div className="flex flex-col gap-3" style={{ width: "60%" }}>
           <h2
-            style={{
-              fontFamily: "var(--font-poppins), Poppins, sans-serif",
-              fontWeight: 700,
-              fontSize: "22px",
-              color: "#fff",
-              lineHeight: 1.2,
-            }}
+            className="text-text-primary"
+            style={{ fontWeight: 700, fontSize: "22px", lineHeight: 1.2 }}
           >
             {headline}
           </h2>
           <p
-            style={{
-              fontFamily: "var(--font-poppins), Poppins, sans-serif",
-              fontWeight: 400,
-              fontSize: "14px",
-              color: "rgba(255,255,255,0.55)",
-            }}
+            className="text-text-secondary"
+            style={{ fontSize: "14px" }}
           >
             We checked{" "}
-            <span style={{ color: "#fff", fontWeight: 600 }}>{total}</span>{" "}
+            <span className="text-text-primary" style={{ fontWeight: 600 }}>{total}</span>{" "}
             links across your page. Here&apos;s what we found:
           </p>
           <ul className="flex flex-col gap-1.5">
             {breakdownItems.map((item) => (
               <li
                 key={item.label}
-                className="flex items-center gap-2"
-                style={{
-                  fontFamily: "var(--font-poppins), Poppins, sans-serif",
-                  fontSize: "13px",
-                  color: "rgba(255,255,255,0.7)",
-                }}
+                className="flex items-center gap-2 text-text-secondary"
+                style={{ fontSize: "13px" }}
               >
                 <span
-                  style={{
-                    width: 20,
-                    textAlign: "center",
-                    color: "rgba(255,255,255,0.4)",
-                    fontWeight: 600,
-                  }}
+                  className="text-text-muted"
+                  style={{ width: 20, textAlign: "center", fontWeight: 600 }}
                 >
                   {item.icon}
                 </span>
-                <span style={{ fontWeight: 600, color: "#fff" }}>
+                <span className="text-text-primary" style={{ fontWeight: 600 }}>
                   {item.count}
                 </span>
                 &nbsp;{item.label}

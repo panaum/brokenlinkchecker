@@ -80,7 +80,7 @@ async function exportPDF(
   let y = margin;
 
   // Header
-  doc.setFillColor(65, 0, 153);
+  doc.setFillColor(79, 70, 229);
   doc.rect(0, 0, pageW, 28, "F");
   doc.setTextColor(255, 255, 255);
   doc.setFontSize(18);
@@ -103,9 +103,9 @@ async function exportPDF(
   y += 10;
 
   // Health score box
-  doc.setFillColor(245, 240, 255);
+  doc.setFillColor(238, 237, 252);
   doc.roundedRect(margin, y, contentW, 22, 3, 3, "F");
-  doc.setTextColor(65, 0, 153);
+  doc.setTextColor(79, 70, 229);
   doc.setFontSize(22);
   doc.setFont("helvetica", "bold");
   doc.text(`${healthScore}/100`, margin + 6, y + 14);
@@ -137,7 +137,7 @@ async function exportPDF(
     doc.setFont("helvetica", "bold");
     doc.text("✓ No issues found — all links are working!", margin, y + 8);
   } else {
-    doc.setFillColor(65, 0, 153);
+    doc.setFillColor(79, 70, 229);
     doc.rect(margin, y, contentW, 7, "F");
     doc.setTextColor(255, 255, 255);
     doc.setFontSize(8);
@@ -264,26 +264,21 @@ export default function ExportButton({
   };
 
   const menuItemStyle = {
-    fontFamily: "var(--font-poppins), Poppins, sans-serif",
     fontSize: "13px",
     fontWeight: 400,
-    color: "rgba(255,255,255,0.75)",
+    color: "var(--color-text-secondary)",
   };
 
   return (
     <div ref={ref} className="relative">
       <button
         onClick={() => setOpen((p) => !p)}
-        className="glass-card inline-flex items-center gap-2 px-4 py-2 text-white/60 hover:text-white transition-colors cursor-pointer"
-        style={{
-          fontFamily: "var(--font-poppins), Poppins, sans-serif",
-          fontWeight: 500,
-          fontSize: "13px",
-        }}
+        className="glass-card inline-flex items-center gap-2 px-4 py-2 text-text-secondary hover:text-text-primary transition-colors cursor-pointer"
+        style={{ fontWeight: 500, fontSize: "13px" }}
         disabled={exporting}
       >
         {exporting ? (
-          <span style={{ color: "rgba(255,255,255,0.5)" }}>Generating PDF…</span>
+          <span className="text-text-muted">Generating PDF…</span>
         ) : (
           <>
             <Download size={14} />
@@ -303,11 +298,10 @@ export default function ExportButton({
         <div
           className="absolute right-0 top-full mt-2 z-50 rounded-xl overflow-hidden flex flex-col"
           style={{
-            background: "rgba(15,8,30,0.97)",
-            backdropFilter: "blur(16px)",
-            border: "1px solid rgba(255,255,255,0.12)",
+            background: "var(--color-card)",
+            border: "1px solid var(--color-border-soft)",
             minWidth: "210px",
-            boxShadow: "0 8px 32px rgba(0,0,0,0.5)",
+            boxShadow: "var(--shadow-lg)",
           }}
         >
           {/* CSV */}
@@ -316,22 +310,22 @@ export default function ExportButton({
             className="flex items-center gap-3 px-4 py-3 transition-colors cursor-pointer text-left w-full"
             style={menuItemStyle}
             onMouseEnter={(e) => {
-              (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.04)";
+              (e.currentTarget as HTMLButtonElement).style.background = "var(--color-card-soft)";
             }}
             onMouseLeave={(e) => {
               (e.currentTarget as HTMLButtonElement).style.background = "transparent";
             }}
           >
-            <Download size={15} style={{ color: "#4ade80" }} />
+            <Download size={15} style={{ color: "var(--color-success)" }} />
             <div>
-              <div style={{ fontWeight: 500, color: "#fff" }}>Export as CSV</div>
-              <div style={{ fontSize: "11px", color: "rgba(255,255,255,0.35)" }}>
+              <div style={{ fontWeight: 500, color: "var(--color-text-primary)" }}>Export as CSV</div>
+              <div style={{ fontSize: "11px", color: "var(--color-text-muted)" }}>
                 All links with plain-English notes
               </div>
             </div>
           </button>
 
-          <div style={{ height: "1px", background: "rgba(255,255,255,0.06)" }} />
+          <div style={{ height: "1px", background: "var(--color-border-soft)" }} />
 
           {/* PDF */}
           <button
@@ -339,22 +333,22 @@ export default function ExportButton({
             className="flex items-center gap-3 px-4 py-3 transition-colors cursor-pointer text-left w-full"
             style={menuItemStyle}
             onMouseEnter={(e) => {
-              (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.04)";
+              (e.currentTarget as HTMLButtonElement).style.background = "var(--color-card-soft)";
             }}
             onMouseLeave={(e) => {
               (e.currentTarget as HTMLButtonElement).style.background = "transparent";
             }}
           >
-            <FileText size={15} style={{ color: "#fb923c" }} />
+            <FileText size={15} style={{ color: "var(--color-warning)" }} />
             <div>
-              <div style={{ fontWeight: 500, color: "#fff" }}>Export as PDF Report</div>
-              <div style={{ fontSize: "11px", color: "rgba(255,255,255,0.35)" }}>
+              <div style={{ fontWeight: 500, color: "var(--color-text-primary)" }}>Export as PDF Report</div>
+              <div style={{ fontSize: "11px", color: "var(--color-text-muted)" }}>
                 Professional report — broken links only
               </div>
             </div>
           </button>
 
-          <div style={{ height: "1px", background: "rgba(255,255,255,0.06)" }} />
+          <div style={{ height: "1px", background: "var(--color-border-soft)" }} />
 
           {/* Copy */}
           <button
@@ -362,22 +356,22 @@ export default function ExportButton({
             className="flex items-center gap-3 px-4 py-3 transition-colors cursor-pointer text-left w-full"
             style={menuItemStyle}
             onMouseEnter={(e) => {
-              (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.04)";
+              (e.currentTarget as HTMLButtonElement).style.background = "var(--color-card-soft)";
             }}
             onMouseLeave={(e) => {
               (e.currentTarget as HTMLButtonElement).style.background = "transparent";
             }}
           >
             {copied ? (
-              <Check size={15} style={{ color: "#4ade80" }} />
+              <Check size={15} style={{ color: "var(--color-success)" }} />
             ) : (
-              <Clipboard size={15} style={{ color: "#e879f9" }} />
+              <Clipboard size={15} style={{ color: "var(--color-accent)" }} />
             )}
             <div>
-              <div style={{ fontWeight: 500, color: copied ? "#4ade80" : "#fff" }}>
+              <div style={{ fontWeight: 500, color: copied ? "var(--color-success)" : "var(--color-text-primary)" }}>
                 {copied ? "Copied!" : "Copy summary to clipboard"}
               </div>
-              <div style={{ fontSize: "11px", color: "rgba(255,255,255,0.35)" }}>
+              <div style={{ fontSize: "11px", color: "var(--color-text-muted)" }}>
                 Plain-text audit summary
               </div>
             </div>

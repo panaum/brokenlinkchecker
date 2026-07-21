@@ -27,38 +27,6 @@ function calcScore(results: LinkResult[]): number {
   return Math.max(0, Math.min(100, score));
 }
 
-// ─── Particle dot background ─────────────────────────────────────────────────
-function ParticleBg() {
-  return (
-    <svg
-      aria-hidden="true"
-      style={{
-        position: "absolute",
-        inset: 0,
-        width: "100%",
-        height: "100%",
-        pointerEvents: "none",
-        zIndex: 0,
-        opacity: 0.35,
-      }}
-    >
-      <defs>
-        <pattern
-          id="dots"
-          x="0"
-          y="0"
-          width="40"
-          height="40"
-          patternUnits="userSpaceOnUse"
-        >
-          <circle cx="1.5" cy="1.5" r="1.5" fill="rgba(138,26,155,0.5)" />
-        </pattern>
-      </defs>
-      <rect width="100%" height="100%" fill="url(#dots)" />
-    </svg>
-  );
-}
-
 export default function HomePage() {
   const [url, setUrl] = useState("");
   const [scanning, setScanning] = useState(false);
@@ -216,69 +184,24 @@ export default function HomePage() {
   }, [scanMeta, startScan]);
 
   return (
-    <main className="min-h-screen relative overflow-hidden">
+    <div className="relative">
       {/* ── HERO SECTION ── */}
-      <section className="relative pt-20 pb-8 noise-overlay overflow-hidden">
-        {/* Particle dot background */}
-        <div
-          style={{
-            position: "absolute",
-            inset: 0,
-            zIndex: 0,
-            overflow: "hidden",
-          }}
-        >
-          <ParticleBg />
-        </div>
-
-        {/* Decorative gradient orbs */}
-        <div
-          className="absolute top-[-200px] left-[-200px] w-[600px] h-[600px] rounded-full bg-gradient-1 opacity-30 pointer-events-none"
-          style={{ filter: "blur(120px)", zIndex: 1 }}
-        />
-        <div
-          className="absolute top-[-100px] right-[-150px] w-[400px] h-[400px] rounded-full bg-gradient-3 opacity-20 pointer-events-none"
-          style={{ filter: "blur(120px)", zIndex: 1 }}
-        />
-
+      <section className="relative pt-16 pb-8">
         {/* Hero content */}
         <div className="relative z-10 text-center px-4">
           {/* Badge pill */}
-          <div className="inline-flex items-center gap-2 bg-gradient-2 px-4 py-2 rounded-full mb-6">
-            <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse-dot" />
-            <span
-              className="text-white/90 text-sm"
-              style={{
-                fontFamily: "var(--font-poppins), Poppins, sans-serif",
-                fontWeight: 500,
-              }}
-            >
-              Link Auditor
-            </span>
+          <div className="inline-flex items-center gap-2 bg-accent/10 ring-1 ring-inset ring-accent/15 px-4 py-2 rounded-full mb-6">
+            <span className="w-2 h-2 rounded-full bg-success animate-pulse-dot" />
+            <span className="text-accent text-sm font-medium">Link Auditor</span>
           </div>
 
           {/* H1 */}
-          <h1
-            className="text-4xl sm:text-5xl lg:text-[56px] leading-tight mb-4"
-            style={{
-              fontFamily: "var(--font-poppins), Poppins, sans-serif",
-              fontWeight: 700,
-            }}
-          >
-            Find Every{" "}
-            <span className="gradient-text">Broken Link</span>
+          <h1 className="text-4xl sm:text-5xl lg:text-[56px] font-semibold tracking-tight leading-tight mb-4 text-text-primary">
+            Find Every <span className="text-accent">Broken Link</span>
           </h1>
 
           {/* Subtitle */}
-          <p
-            className="max-w-2xl mx-auto text-lg"
-            style={{
-              fontFamily: "var(--font-poppins), Poppins, sans-serif",
-              fontWeight: 400,
-              color: "rgba(255,255,255,0.60)",
-              fontSize: "18px",
-            }}
-          >
+          <p className="max-w-2xl mx-auto text-lg text-text-secondary">
             Paste any URL below — we crawl every nav link, footer, CTA, header
             and body text link and report what&apos;s broken.
           </p>
@@ -367,32 +290,17 @@ export default function HomePage() {
         <section className="relative z-10 px-4 mt-10">
           <div className="w-full max-w-3xl mx-auto glass-card p-10 text-center flex flex-col items-center gap-5">
             <svg width="72" height="72" viewBox="0 0 72 72" fill="none">
-              <circle cx="36" cy="36" r="32" stroke="rgba(255,255,255,0.08)" strokeWidth="2" />
-              <path d="M24 36h24M36 24v24" stroke="rgba(255,255,255,0.15)" strokeWidth="2" strokeLinecap="round" />
-              <circle cx="36" cy="36" r="8" stroke="rgba(255,255,255,0.1)" strokeWidth="2" />
+              <circle cx="36" cy="36" r="32" stroke="var(--color-border-soft)" strokeWidth="2" />
+              <path d="M24 36h24M36 24v24" stroke="var(--color-text-muted)" strokeWidth="2" strokeLinecap="round" />
+              <circle cx="36" cy="36" r="8" stroke="var(--color-border-soft)" strokeWidth="2" />
             </svg>
             <div>
-              <p
-                style={{
-                  fontFamily: "var(--font-poppins), Poppins, sans-serif",
-                  fontWeight: 600,
-                  fontSize: "18px",
-                  color: "rgba(255,255,255,0.7)",
-                  marginBottom: 8,
-                }}
-              >
+              <p className="text-lg font-semibold text-text-primary mb-2">
                 We couldn&apos;t find any links on this page
               </p>
               <ul
-                style={{
-                  fontFamily: "var(--font-poppins), Poppins, sans-serif",
-                  fontWeight: 400,
-                  fontSize: "14px",
-                  color: "rgba(255,255,255,0.4)",
-                  lineHeight: 2,
-                  listStyle: "none",
-                  padding: 0,
-                }}
+                className="text-sm text-text-secondary"
+                style={{ lineHeight: 2, listStyle: "none", padding: 0 }}
               >
                 <li>• The page may require login</li>
                 <li>• JavaScript may have failed to load</li>
@@ -401,18 +309,14 @@ export default function HomePage() {
             </div>
             <button
               onClick={() => startScan()}
-              className="bg-gradient-1 text-white rounded-xl px-6 py-3 cursor-pointer hover:opacity-90 transition-opacity"
-              style={{
-                fontFamily: "var(--font-poppins), Poppins, sans-serif",
-                fontWeight: 600,
-                fontSize: "14px",
-              }}
+              className="bg-accent text-text-on-dark rounded-lg px-6 py-3 text-sm font-semibold cursor-pointer transition-colors hover:bg-accent-bright"
+              style={{ boxShadow: "var(--shadow-brand)" }}
             >
               Try Again
             </button>
           </div>
         </section>
       )}
-    </main>
+    </div>
   );
 }

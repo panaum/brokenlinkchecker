@@ -47,16 +47,15 @@ export default function Tooltip({ content, children }: TooltipProps) {
           >
             <div
               style={{
-                background: "rgba(20,10,40,0.95)",
-                backdropFilter: "blur(12px)",
-                border: "1px solid rgba(255,255,255,0.12)",
+                background: "var(--color-text-primary)",
+                border: "1px solid rgba(255,255,255,0.08)",
                 borderRadius: "10px",
                 padding: "8px 12px",
                 fontSize: "12px",
                 lineHeight: "1.5",
-                color: "rgba(255,255,255,0.85)",
-                fontFamily: "var(--font-poppins), Poppins, sans-serif",
+                color: "rgba(255,255,255,0.92)",
                 fontWeight: 400,
+                boxShadow: "var(--shadow-lg)",
               }}
             >
               {content}
@@ -75,8 +74,8 @@ export default function Tooltip({ content, children }: TooltipProps) {
                 borderLeft: "6px solid transparent",
                 borderRight: "6px solid transparent",
                 ...(pos === "top"
-                  ? { borderTop: "6px solid rgba(20,10,40,0.95)" }
-                  : { borderBottom: "6px solid rgba(20,10,40,0.95)" }),
+                  ? { borderTop: "6px solid var(--color-text-primary)" }
+                  : { borderBottom: "6px solid var(--color-text-primary)" }),
               }}
             />
           </motion.div>

@@ -50,13 +50,8 @@ export default function PagePreviewCard({ meta, onRescan }: PagePreviewCardProps
         <div className="glass-card px-5 py-4 flex items-center gap-4">
           {/* Favicon / fallback */}
           <div
-            className="shrink-0 rounded-lg overflow-hidden flex items-center justify-center"
-            style={{
-              width: 36,
-              height: 36,
-              background:
-                "linear-gradient(132deg,rgb(65,0,153),rgb(138,26,155))",
-            }}
+            className="shrink-0 rounded-lg overflow-hidden flex items-center justify-center bg-accent"
+            style={{ width: 36, height: 36 }}
           >
             {faviconUrl && !faviconError ? (
               // eslint-disable-next-line @next/next/no-img-element
@@ -70,12 +65,8 @@ export default function PagePreviewCard({ meta, onRescan }: PagePreviewCardProps
               />
             ) : (
               <span
-                style={{
-                  fontFamily: "var(--font-poppins), Poppins, sans-serif",
-                  fontWeight: 700,
-                  fontSize: "16px",
-                  color: "#fff",
-                }}
+                className="text-text-on-dark"
+                style={{ fontWeight: 700, fontSize: "16px" }}
               >
                 {firstLetter}
               </span>
@@ -85,12 +76,8 @@ export default function PagePreviewCard({ meta, onRescan }: PagePreviewCardProps
           {/* Info */}
           <div className="flex flex-col gap-0.5 flex-1 min-w-0">
             <span
-              style={{
-                fontFamily: "var(--font-poppins), Poppins, sans-serif",
-                fontWeight: 600,
-                fontSize: "14px",
-                color: "#fff",
-              }}
+              className="text-text-primary"
+              style={{ fontWeight: 600, fontSize: "14px" }}
             >
               {meta.pageTitle || domain}
             </span>
@@ -98,12 +85,8 @@ export default function PagePreviewCard({ meta, onRescan }: PagePreviewCardProps
               href={meta.scannedUrl}
               target="_blank"
               rel="noopener noreferrer"
-              className="flex items-center gap-1 transition-opacity hover:opacity-80"
-              style={{
-                fontFamily: "monospace",
-                fontSize: "12px",
-                color: "rgba(255,255,255,0.4)",
-              }}
+              className="flex items-center gap-1 text-text-secondary transition-colors hover:text-accent"
+              style={{ fontFamily: "monospace", fontSize: "12px" }}
             >
               <Globe size={11} />
               {displayUrl}
@@ -113,12 +96,8 @@ export default function PagePreviewCard({ meta, onRescan }: PagePreviewCardProps
 
           {/* Timestamp */}
           <span
-            style={{
-              fontFamily: "var(--font-poppins), Poppins, sans-serif",
-              fontSize: "12px",
-              color: "rgba(255,255,255,0.35)",
-              whiteSpace: "nowrap",
-            }}
+            className="text-text-muted"
+            style={{ fontSize: "12px", whiteSpace: "nowrap" }}
           >
             Scanned {timeLabel}
           </span>
@@ -126,22 +105,12 @@ export default function PagePreviewCard({ meta, onRescan }: PagePreviewCardProps
           {/* Re-scan button */}
           <button
             onClick={onRescan}
-            className="shrink-0 px-3 py-1.5 rounded-lg transition-all cursor-pointer"
+            className="shrink-0 px-3 py-1.5 rounded-lg transition-colors cursor-pointer text-text-secondary hover:bg-card-soft hover:text-text-primary"
             style={{
-              fontFamily: "var(--font-poppins), Poppins, sans-serif",
               fontSize: "12px",
               fontWeight: 500,
-              color: "rgba(255,255,255,0.6)",
-              background: "rgba(255,255,255,0.05)",
-              border: "1px solid rgba(255,255,255,0.12)",
-            }}
-            onMouseEnter={(e) => {
-              (e.currentTarget as HTMLButtonElement).style.background =
-                "rgba(255,255,255,0.1)";
-            }}
-            onMouseLeave={(e) => {
-              (e.currentTarget as HTMLButtonElement).style.background =
-                "rgba(255,255,255,0.05)";
+              background: "var(--color-card)",
+              border: "1px solid var(--color-border-soft)",
             }}
           >
             Re-scan

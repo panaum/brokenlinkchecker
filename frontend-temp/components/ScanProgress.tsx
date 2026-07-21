@@ -48,7 +48,7 @@ export default function ScanProgress({
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -12 }}
-      className="w-full max-w-3xl mx-auto mt-4"
+      className="w-full max-w-3xl mx-auto mt-4 px-4"
     >
       <div className="glass-card p-6 flex flex-col gap-5">
         {/* Stepper */}
@@ -66,17 +66,17 @@ export default function ScanProgress({
                     width: 36,
                     height: 36,
                     background: isDone
-                      ? "rgba(74,222,128,0.15)"
+                      ? "rgba(76,175,125,0.12)"
                       : isCurrent
-                      ? "linear-gradient(132deg,rgb(65,0,153),rgb(138,26,155))"
-                      : "rgba(255,255,255,0.05)",
+                      ? "var(--color-accent)"
+                      : "var(--color-card-soft)",
                     border: isDone
-                      ? "1.5px solid #4ade80"
+                      ? "1.5px solid var(--color-success)"
                       : isCurrent
-                      ? "1.5px solid rgba(138,26,155,0.8)"
-                      : "1.5px solid rgba(255,255,255,0.1)",
+                      ? "1.5px solid var(--color-accent)"
+                      : "1.5px solid var(--color-border-soft)",
                     boxShadow: isCurrent
-                      ? "0 0 12px rgba(138,26,155,0.5)"
+                      ? "0 0 0 4px rgba(79,70,229,0.15)"
                       : "none",
                   }}
                 >
@@ -84,34 +84,30 @@ export default function ScanProgress({
                     <span
                       className="absolute inset-0 rounded-full animate-ping"
                       style={{
-                        background:
-                          "linear-gradient(132deg,rgb(65,0,153),rgb(138,26,155))",
-                        opacity: 0.25,
+                        background: "var(--color-accent)",
+                        opacity: 0.2,
                       }}
                     />
                   )}
                   {isDone ? (
-                    <Check size={16} color="#4ade80" />
+                    <Check size={16} color="var(--color-success)" />
                   ) : (
                     <Icon
                       size={16}
-                      color={
-                        isCurrent ? "#fff" : "rgba(255,255,255,0.3)"
-                      }
+                      color={isCurrent ? "#fff" : "var(--color-text-muted)"}
                     />
                   )}
                 </div>
                 {/* Label */}
                 <span
                   style={{
-                    fontFamily: "var(--font-poppins), Poppins, sans-serif",
                     fontSize: "11px",
                     fontWeight: isCurrent ? 600 : 400,
                     color: isDone
-                      ? "#4ade80"
+                      ? "var(--color-success)"
                       : isCurrent
-                      ? "#fff"
-                      : "rgba(255,255,255,0.3)",
+                      ? "var(--color-text-primary)"
+                      : "var(--color-text-muted)",
                     textDecoration: isDone ? "line-through" : "none",
                     textAlign: "center",
                   }}
@@ -125,9 +121,9 @@ export default function ScanProgress({
 
         {/* Connector line */}
         <div className="relative flex items-center -mt-3 px-5">
-          <div className="h-px flex-1 bg-white/10" />
+          <div className="h-px flex-1 bg-border-soft" />
           <div
-            className="absolute left-5 h-px bg-gradient-to-r from-purple-600 to-fuchsia-600 transition-all duration-700"
+            className="absolute left-5 h-px bg-accent transition-all duration-700"
             style={{ width: `${(currentStep / (STEPS.length - 1)) * 100}%` }}
           />
         </div>
@@ -135,27 +131,15 @@ export default function ScanProgress({
         {/* Message + counter */}
         <div className="flex items-center justify-between gap-4">
           <span
-            style={{
-              fontFamily: "var(--font-poppins), Poppins, sans-serif",
-              fontSize: "13px",
-              fontWeight: 400,
-              color: "rgba(255,255,255,0.65)",
-              flexShrink: 1,
-              minWidth: 0,
-            }}
+            className="text-text-secondary"
+            style={{ fontSize: "13px", flexShrink: 1, minWidth: 0 }}
           >
             {message}
           </span>
           {checkedCount !== undefined && totalCount !== undefined && totalCount > 0 && (
             <span
-              style={{
-                fontFamily: "var(--font-poppins), Poppins, sans-serif",
-                fontSize: "16px",
-                fontWeight: 700,
-                color: "#fff",
-                whiteSpace: "nowrap",
-                tabularNums: true,
-              } as React.CSSProperties}
+              className="text-text-primary tabular-nums"
+              style={{ fontSize: "16px", fontWeight: 700, whiteSpace: "nowrap" }}
             >
               {checkedCount} / {totalCount}
             </span>
@@ -163,22 +147,16 @@ export default function ScanProgress({
         </div>
 
         {/* Progress bar */}
-        <div className="w-full h-2 rounded-full bg-white/10 overflow-hidden">
+        <div className="w-full h-2 rounded-full bg-card-soft overflow-hidden">
           <div
-            className="h-full rounded-full bg-gradient-1 progress-fill"
+            className="h-full rounded-full bg-accent progress-fill"
             style={{ width: `${percent}%` }}
           />
         </div>
 
         {/* ETA + Cancel */}
         <div className="flex items-center justify-between">
-          <span
-            style={{
-              fontFamily: "var(--font-poppins), Poppins, sans-serif",
-              fontSize: "12px",
-              color: "rgba(255,255,255,0.35)",
-            }}
-          >
+          <span className="text-text-muted" style={{ fontSize: "12px" }}>
             {estimatedSecsLeft !== null
               ? `~${estimatedSecsLeft}s remaining`
               : "Calculating…"}
@@ -188,23 +166,22 @@ export default function ScanProgress({
               onClick={onCancel}
               className="flex items-center gap-1 px-3 py-1.5 rounded-lg transition-all cursor-pointer"
               style={{
-                fontFamily: "var(--font-poppins), Poppins, sans-serif",
                 fontSize: "12px",
                 fontWeight: 500,
-                color: "rgba(255,255,255,0.5)",
-                background: "rgba(255,255,255,0.05)",
-                border: "1px solid rgba(255,255,255,0.1)",
+                color: "var(--color-text-secondary)",
+                background: "var(--color-card)",
+                border: "1px solid var(--color-border-soft)",
               }}
               onMouseEnter={(e) => {
-                (e.currentTarget as HTMLButtonElement).style.color = "#f87171";
+                (e.currentTarget as HTMLButtonElement).style.color = "var(--color-error)";
                 (e.currentTarget as HTMLButtonElement).style.borderColor =
-                  "rgba(248,113,113,0.3)";
+                  "rgba(224,92,92,0.4)";
               }}
               onMouseLeave={(e) => {
                 (e.currentTarget as HTMLButtonElement).style.color =
-                  "rgba(255,255,255,0.5)";
+                  "var(--color-text-secondary)";
                 (e.currentTarget as HTMLButtonElement).style.borderColor =
-                  "rgba(255,255,255,0.1)";
+                  "var(--color-border-soft)";
               }}
             >
               <X size={13} />

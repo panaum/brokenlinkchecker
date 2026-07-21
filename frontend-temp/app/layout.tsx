@@ -1,13 +1,7 @@
 import type { Metadata } from "next";
-import { Poppins } from "next/font/google";
+import { GeistSans } from "geist/font/sans";
 import "./globals.css";
-
-const poppins = Poppins({
-  subsets: ["latin"],
-  weight: ["300", "400", "500", "600", "700"],
-  display: "swap",
-  variable: "--font-poppins",
-});
+import Sidebar from "@/components/Sidebar";
 
 export const metadata: Metadata = {
   title: "LinkSpy — Broken Link Checker",
@@ -21,9 +15,16 @@ export default function RootLayout({
   children: React.ReactNode;
 }>) {
   return (
-    <html lang="en" className={poppins.variable} suppressHydrationWarning>
-      <body className={`${poppins.className} bg-[#0a0612] antialiased`} suppressHydrationWarning>
-        {children}
+    <html
+      lang="en"
+      className={`${GeistSans.variable} h-full antialiased`}
+      suppressHydrationWarning
+    >
+      <body className="min-h-full" suppressHydrationWarning>
+        <div className="flex min-h-screen">
+          <Sidebar />
+          <main className="min-w-0 flex-1">{children}</main>
+        </div>
       </body>
     </html>
   );

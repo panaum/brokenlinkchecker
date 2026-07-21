@@ -245,7 +245,7 @@ export default function HomePage() {
         <div className="relative z-10 text-center px-4">
           {/* Badge pill — soft accent tint, not a solid indigo block. */}
           <div
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-full mb-6"
+            className="ds-rise ds-delay-1 inline-flex items-center gap-2 px-4 py-2 rounded-full mb-6"
             style={{
               background: "rgba(79,70,229,0.10)",
               boxShadow: "inset 0 0 0 1px rgba(79,70,229,0.15)",
@@ -266,7 +266,7 @@ export default function HomePage() {
 
           {/* H1 — dark ink, matching the Dashboard's page headings. */}
           <h1
-            className="text-4xl sm:text-5xl lg:text-[56px] leading-tight mb-4"
+            className="ds-rise ds-delay-2 text-4xl sm:text-5xl lg:text-[56px] leading-tight mb-4"
             style={{
               fontFamily: "var(--font-poppins), Poppins, sans-serif",
               fontWeight: 700,

@@ -100,7 +100,7 @@ export default function UrlInput({
 
   return (
     <div className="w-full max-w-3xl mx-auto mt-10">
-      <div className="animated-border glass-card p-6">
+      <div className="glass-card focus-glow p-6">
         {/* Scan Mode Tabs */}
         {onScanModeChange && (
           <div className="flex justify-start gap-2 mb-4">

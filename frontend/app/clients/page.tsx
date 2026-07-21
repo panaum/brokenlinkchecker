@@ -183,7 +183,7 @@ function ClientCard({ client, sites, invites, expanded, onToggle, onChanged }: {
   }, [assigned]);
 
   return (
-    <div className="ds-card ds-card-pad">
+    <div className={`ds-card ds-card-pad ${expanded ? "" : "ds-card-hover"}`}>
       <div style={{ display: "flex", alignItems: "center", gap: 12, cursor: "pointer" }} onClick={onToggle}>
         <div style={{ width: 34, height: 34, borderRadius: 9, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, color: "var(--signal)", background: "rgba(79,70,229,0.14)", fontFamily: "var(--font-stack-display)" }}>
           {client.name.charAt(0).toUpperCase()}

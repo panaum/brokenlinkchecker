@@ -221,6 +221,44 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 @keyframes ds-rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
 .ds-rise { animation: ds-rise 320ms var(--ease-out-quart) both; }
 
+/* ═══ Micro-interactions — calm, consistent feedback everywhere ═══ */
+
+/* Smooth colour/shadow feedback on every interactive control. (Transform is
+   intentionally left out so it never fights framer-motion transforms.) */
+a, button, select, summary, [role="button"], [cmdk-item], label[for] {
+  transition: color var(--motion), background-color var(--motion),
+    border-color var(--motion), box-shadow var(--motion), opacity var(--motion);
+}
+
+/* Staggered entrance — pair .ds-rise with a delay step for a cascade. */
+.ds-delay-1 { animation-delay: 60ms; }
+.ds-delay-2 { animation-delay: 120ms; }
+.ds-delay-3 { animation-delay: 190ms; }
+.ds-delay-4 { animation-delay: 270ms; }
+.ds-delay-5 { animation-delay: 360ms; }
+
+/* Opt-in interactive card — lifts and brightens its hairline on hover. */
+.card-lift { transition: box-shadow var(--motion), border-color var(--motion), transform var(--motion); will-change: transform; }
+.card-lift:hover { box-shadow: var(--elev-2); border-color: var(--border-strong); transform: translateY(-2px); }
+
+/* Focus-glow for the hero input surface (a soft indigo ring on focus-within). */
+.focus-glow { transition: box-shadow var(--motion), border-color var(--motion); }
+.focus-glow:focus-within {
+  border-color: rgba(79,70,229,0.55) !important;
+  box-shadow: 0 0 0 4px rgba(79,70,229,0.12), var(--elev-2);
+}
+
+/* Icon nudge — a small directional shift on hover (arrows, chevrons, links). */
+.nudge-x { transition: transform var(--motion-fast); }
+.group:hover .nudge-x, a:hover > .nudge-x, button:hover > .nudge-x { transform: translateX(2px); }
+
+/* Primary CTA gets a quiet upward lift on top of its existing press physics. */
+.ds-btn-primary { transition: filter var(--motion-fast), transform var(--motion-fast), box-shadow var(--motion); }
+.ds-btn-primary:hover { transform: translateY(-1px); }
+
+/* Count-up numbers and score reveals shouldn't jitter width. */
+.tabular { font-variant-numeric: tabular-nums; }
+
 /* ═══ Signature: the radar scan ═══ */
 @keyframes radar-sweep { to { transform: rotate(360deg); } }
 @keyframes radar-blip {

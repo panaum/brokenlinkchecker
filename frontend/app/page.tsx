@@ -404,7 +404,7 @@ export default function HomePage() {
           {/* Badge pill — soft accent tint (matches the Dashboard's active-nav
               treatment), not a solid indigo block. */}
           <div
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-full mb-6"
+            className="ds-rise ds-delay-1 inline-flex items-center gap-2 px-4 py-2 rounded-full mb-6"
             style={{
               background: "rgba(79,70,229,0.10)",
               boxShadow: "inset 0 0 0 1px rgba(79,70,229,0.15)",
@@ -425,7 +425,7 @@ export default function HomePage() {
 
           {/* H1 — dark ink, matching the Dashboard's page headings (no colored word). */}
           <h1
-            className="text-4xl sm:text-5xl lg:text-[56px] leading-tight mb-4"
+            className="ds-rise ds-delay-2 text-4xl sm:text-5xl lg:text-[56px] leading-tight mb-4"
             style={{
               fontFamily: "var(--font-poppins), Poppins, sans-serif",
               fontWeight: 700,
@@ -438,7 +438,7 @@ export default function HomePage() {
 
           {/* Subtitle */}
           <p
-            className="max-w-2xl mx-auto text-lg"
+            className="ds-rise ds-delay-3 max-w-2xl mx-auto text-lg"
             style={{
               fontFamily: "var(--font-poppins), Poppins, sans-serif",
               fontWeight: 400,
@@ -453,7 +453,7 @@ export default function HomePage() {
       </section>
 
       {/* ── URL INPUT ── */}
-      <section className="relative z-10 px-4">
+      <section className="ds-rise ds-delay-4 relative z-10 px-4">
         <UrlInput
           url={url}
           onUrlChange={setUrl}

@@ -12,6 +12,7 @@ import {
   MoreHorizontal,
   Settings,
   ExternalLink,
+  ChevronRight,
 } from "lucide-react";
 import { DashboardSite, DashboardScan } from "@/types";
 import NavBar from "@/components/NavBar";
@@ -129,7 +130,7 @@ function SiteCard({
 
   return (
     <div
-      className="ds-card ds-card-hover ds-rise"
+      className="group ds-card ds-card-hover ds-rise"
       // While the overflow menu is open, lift the whole card above its grid
       // siblings so the menu isn't painted under the card below it.
       style={{ padding: "var(--space-4) var(--space-5)", display: "flex", flexDirection: "column", gap: "var(--space-3)", minHeight: 168, position: "relative", zIndex: menuOpen ? 40 : undefined }}
@@ -153,6 +154,15 @@ function SiteCard({
         <span className={`ds-status ${status.cls}`} style={{ flexShrink: 0 }}>
           <span className="ds-status-dot" />
         </span>
+        <Link
+          href={`/dashboard/${site.id}`}
+          aria-label={`Open ${displayName(site)}`}
+          title="Open site"
+          className="nudge-x ds-text-muted"
+          style={{ flexShrink: 0, display: "flex", alignItems: "center" }}
+        >
+          <ChevronRight size={16} />
+        </Link>
       </div>
 
       {/* Score + delta + sparkline */}

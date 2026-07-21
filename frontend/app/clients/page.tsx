@@ -3,6 +3,7 @@
 import React, { useEffect, useState, useCallback, useMemo } from "react";
 import NavBar from "@/components/NavBar";
 import { DashboardSite } from "@/types";
+import { Avatar } from "@/components/Avatar";
 import { Plus, Users, Link2, Copy, Check, X, Loader2, Mail } from "lucide-react";
 
 interface Client { id: string; name: string; created_at?: string }
@@ -185,9 +186,7 @@ function ClientCard({ client, sites, invites, expanded, onToggle, onChanged }: {
   return (
     <div className={`ds-card ds-card-pad ${expanded ? "" : "ds-card-hover"}`}>
       <div style={{ display: "flex", alignItems: "center", gap: 12, cursor: "pointer" }} onClick={onToggle}>
-        <div style={{ width: 34, height: 34, borderRadius: 9, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, color: "var(--signal)", background: "rgba(79,70,229,0.14)", fontFamily: "var(--font-stack-display)" }}>
-          {client.name.charAt(0).toUpperCase()}
-        </div>
+        <Avatar name={client.name} />
         <div style={{ flex: 1, minWidth: 0 }}>
           <div className="ds-text-primary" style={{ fontSize: "var(--text-body)", fontWeight: 600 }}>{client.name}</div>
           <div className="ds-text-muted" style={{ fontSize: "var(--text-caption)" }}>

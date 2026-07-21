@@ -15,6 +15,7 @@ import {
 } from "lucide-react";
 import { DashboardSite, DashboardScan } from "@/types";
 import NavBar from "@/components/NavBar";
+import { Avatar } from "@/components/Avatar";
 import WatchdogPanel from "@/components/WatchdogPanel";
 import { cleanStreakDays, fixedThisMonth } from "@/lib/history";
 import { middleTruncateUrl } from "@/lib/format";
@@ -135,15 +136,7 @@ function SiteCard({
     >
       {/* Header: initial + name/domain + status dot */}
       <div style={{ display: "flex", alignItems: "center", gap: 10, minWidth: 0 }}>
-        <div
-          style={{
-            width: 34, height: 34, borderRadius: 9, flexShrink: 0, display: "flex", alignItems: "center",
-            justifyContent: "center", fontWeight: 700, fontSize: 15, color: "var(--signal)",
-            background: "rgba(79,70,229,0.14)", fontFamily: "var(--font-stack-display)",
-          }}
-        >
-          {displayName(site).charAt(0).toUpperCase()}
-        </div>
+        <Avatar name={displayName(site)} />
         <div style={{ minWidth: 0, flex: 1 }}>
           <div className="ds-text-primary" style={{ fontSize: "var(--text-body)", fontWeight: 600, whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
             {displayName(site)}

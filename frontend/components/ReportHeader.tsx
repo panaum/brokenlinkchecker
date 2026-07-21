@@ -66,9 +66,9 @@ export default function ReportHeader({ results, detectedBuilders, diff, siteId }
           <span
             className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium"
             style={{
-              background: "rgba(91,141,239,0.12)",
-              color: "#5b8def",
-              border: "1px solid rgba(91,141,239,0.25)",
+              background: "rgba(122,122,140,0.12)",
+              color: "#7a7a8c",
+              border: "1px solid rgba(122,122,140,0.25)",
             }}
             title={`Detected page builder${detectedBuilders.length > 1 ? "s" : ""}`}
           >

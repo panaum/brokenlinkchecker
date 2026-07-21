@@ -243,30 +243,38 @@ export default function HomePage() {
 
         {/* Hero content */}
         <div className="relative z-10 text-center px-4">
-          {/* Badge pill */}
-          <div className="inline-flex items-center gap-2 bg-gradient-2 px-4 py-2 rounded-full mb-6">
+          {/* Badge pill — soft accent tint, not a solid indigo block. */}
+          <div
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-full mb-6"
+            style={{
+              background: "rgba(79,70,229,0.10)",
+              boxShadow: "inset 0 0 0 1px rgba(79,70,229,0.15)",
+            }}
+          >
             <span className="w-2 h-2 rounded-full bg-[#4caf7d] animate-pulse-dot" />
             <span
-              className="text-white/90 text-sm"
+              className="text-sm"
               style={{
                 fontFamily: "var(--font-poppins), Poppins, sans-serif",
                 fontWeight: 500,
+                color: "#4f46e5",
               }}
             >
               Link Auditor
             </span>
           </div>
 
-          {/* H1 */}
+          {/* H1 — dark ink, matching the Dashboard's page headings. */}
           <h1
             className="text-4xl sm:text-5xl lg:text-[56px] leading-tight mb-4"
             style={{
               fontFamily: "var(--font-poppins), Poppins, sans-serif",
               fontWeight: 700,
+              letterSpacing: "-0.02em",
+              color: "#1c1c2e",
             }}
           >
-            Find Every{" "}
-            <span className="gradient-text">Broken Link</span>
+            Find Every Broken Link
           </h1>
 
           {/* Subtitle */}

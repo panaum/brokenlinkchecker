@@ -401,30 +401,39 @@ export default function HomePage() {
       <section className="relative pt-28 pb-8 overflow-hidden">
         {/* Hero content */}
         <div className="relative z-10 text-center px-4">
-          {/* Badge pill */}
-          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full mb-6" style={{ background: "var(--signal)" }}>
+          {/* Badge pill — soft accent tint (matches the Dashboard's active-nav
+              treatment), not a solid indigo block. */}
+          <div
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-full mb-6"
+            style={{
+              background: "rgba(79,70,229,0.10)",
+              boxShadow: "inset 0 0 0 1px rgba(79,70,229,0.15)",
+            }}
+          >
             <span className="w-2 h-2 rounded-full animate-pulse-dot" style={{ background: "var(--status-healthy)" }} />
             <span
-              className="text-white/90 text-sm"
+              className="text-sm"
               style={{
                 fontFamily: "var(--font-poppins), Poppins, sans-serif",
                 fontWeight: 500,
+                color: "var(--signal)",
               }}
             >
               Link Auditor
             </span>
           </div>
 
-          {/* H1 */}
+          {/* H1 — dark ink, matching the Dashboard's page headings (no colored word). */}
           <h1
             className="text-4xl sm:text-5xl lg:text-[56px] leading-tight mb-4"
             style={{
               fontFamily: "var(--font-poppins), Poppins, sans-serif",
               fontWeight: 700,
+              letterSpacing: "-0.02em",
+              color: "var(--text-primary)",
             }}
           >
-            Find Every{" "}
-            <span style={{ color: "var(--signal)" }}>Broken Link</span>
+            Find Every Broken Link
           </h1>
 
           {/* Subtitle */}

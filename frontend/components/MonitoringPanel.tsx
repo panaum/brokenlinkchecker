@@ -185,8 +185,8 @@ export default function MonitoringPanel({ siteId }: { siteId: string }) {
                 fontSize: 11,
                 textTransform: "capitalize",
                 border: "1px solid var(--border-subtle)",
-                background: status?.freq === c ? "rgba(91,141,239,0.15)" : "transparent",
-                color: status?.freq === c ? "#5b8def" : "var(--text-muted)",
+                background: status?.freq === c ? "rgba(122,122,140,0.15)" : "transparent",
+                color: status?.freq === c ? "#7a7a8c" : "var(--text-muted)",
               }}
             >
               {c}
@@ -265,9 +265,9 @@ export default function MonitoringPanel({ siteId }: { siteId: string }) {
               borderRadius: 8,
               fontSize: 12,
               fontWeight: 500,
-              border: "1px solid rgba(91,141,239,0.3)",
-              background: "rgba(91,141,239,0.1)",
-              color: "#5b8def",
+              border: "1px solid rgba(122,122,140,0.3)",
+              background: "rgba(122,122,140,0.1)",
+              color: "#7a7a8c",
             }}
           >
             {checking ? "Running a check…" : "Run a check now"}

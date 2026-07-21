@@ -69,7 +69,7 @@ function StatusPillMini({ label }: { label: string }) {
 
 function ZoneBadge({ zone }: { zone: string }) {
   const ZONE_DOT_COLORS: Record<string, string> = {
-    Navigation: "#5b8def",
+    Navigation: "#7a7a8c",
     Header: "#4f46e5",
     Footer: "#7a7a8c",
     CTA: "#f5a623",

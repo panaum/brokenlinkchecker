@@ -44,7 +44,7 @@ const ZONE_ORDER = [
 const ZONE_DOT_COLORS: Record<string, string> = {
   // A broken form is the most expensive defect on a lead-gen site.
   Form: "#e05c8a",
-  Navigation: "#5b8def",
+  Navigation: "#7a7a8c",
   Header: "#4f46e5",
   Footer: "#7a7a8c",
   CTA: "#f5a623",
@@ -177,7 +177,7 @@ function ImpactDetailCard({
       {showWhy && (
         <div className="mt-2 flex flex-col gap-1">
           {[
-            { label: `Zone: ${category}`, value: `+${zoneScore}`, color: "#5b8def" },
+            { label: `Zone: ${category}`, value: `+${zoneScore}`, color: "#7a7a8c" },
             { label: `Time broken: ${daysBroken} days`, value: `+${timeScore}`, color: "#f5a623" },
             { label: `Severity: ${severityLabel}`, value: `+${severityScore}`, color: "#e05c5c" },
           ].map((f) => (

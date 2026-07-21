@@ -126,8 +126,8 @@ export default function StatsBar({ results, diff }: StatsBarProps) {
       rawValue: diff?.new_links ?? 0,
       displayValue: hasBaseline && diff?.new_links != null ? undefined : "n/a",
       hint: hasBaseline ? undefined : noBaselineHint,
-      color: "#5b8def",
-      bg: "rgba(91,141,239,0.10)",
+      color: "#7a7a8c",
+      bg: "rgba(122,122,140,0.10)",
       delay: 600,
     },
     {

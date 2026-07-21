@@ -133,15 +133,15 @@ export default function FilterBar({
                   className="flex items-center gap-2 px-3 py-1.5 rounded-xl transition-all cursor-pointer"
                   style={{
                     background: isActive
-                      ? "var(--signal)"
+                      ? "rgba(79,70,229,0.10)"
                       : item.bg,
                     border: isActive
-                      ? "1px solid rgba(79,70,229,0.6)"
+                      ? "1px solid rgba(79,70,229,0.30)"
                       : `1px solid ${item.color}22`,
                     fontFamily: "var(--font-poppins), Poppins, sans-serif",
                     fontWeight: isActive ? 600 : 400,
                     fontSize: "12px",
-                    color: isActive ? "#fff" : item.color,
+                    color: isActive ? "var(--signal)" : item.color,
                   }}
                 >
                   {item.label}
@@ -149,7 +149,7 @@ export default function FilterBar({
                     className="rounded-full px-1.5 py-0.5 text-[11px] tabular-nums"
                     style={{
                       background: isActive
-                        ? "rgba(255,255,255,0.2)"
+                        ? "rgba(79,70,229,0.15)"
                         : "rgba(28,28,46,0.06)",
                     }}
                   >
@@ -174,32 +174,30 @@ export default function FilterBar({
                 className="flex items-center gap-2 px-3 py-2 rounded-xl transition-all cursor-pointer"
                 style={{
                   background: isActive
-                    ? "var(--signal)"
+                    ? "rgba(79,70,229,0.10)"
                     : item.bg,
                   border: isActive
-                    ? "1px solid rgba(79,70,229,0.6)"
+                    ? "1px solid rgba(79,70,229,0.30)"
                     : `1px solid ${item.color}22`,
-                  boxShadow: isActive
-                    ? "0 0 12px rgba(79,70,229,0.3)"
-                    : "none",
+                  boxShadow: "none",
                   fontFamily: "var(--font-poppins), Poppins, sans-serif",
                   fontWeight: isActive ? 600 : 400,
                   fontSize: "13px",
-                  color: isActive ? "#fff" : item.color,
+                  color: isActive ? "var(--signal)" : item.color,
                 }}
               >
                 <span
                   className="w-1.5 h-1.5 rounded-full shrink-0"
-                  style={{ background: isActive ? "#fff" : item.color }}
+                  style={{ background: isActive ? "var(--signal)" : item.color }}
                 />
                 {item.label}
                 <span
                   className="rounded-full px-1.5 py-0.5 text-xs tabular-nums"
                   style={{
                     background: isActive
-                      ? "rgba(255,255,255,0.2)"
+                      ? "rgba(79,70,229,0.15)"
                       : "rgba(28,28,46,0.06)",
-                    color: isActive ? "#fff" : "var(--text-secondary)",
+                    color: isActive ? "var(--signal)" : "var(--text-secondary)",
                     fontWeight: 600,
                   }}
                 >

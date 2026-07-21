@@ -175,7 +175,7 @@ function IssueRow({ result, spec, siteId }: { result: LinkResult; spec: SectionS
             target="_blank"
             rel="noopener noreferrer"
             className="text-xs mt-1 block truncate hover:underline"
-            style={{ color: "#5b8def" }}
+            style={{ color: "#7a7a8c" }}
           >
             {result.url}
           </a>

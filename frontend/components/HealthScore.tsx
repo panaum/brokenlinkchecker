@@ -97,8 +97,8 @@ export default function HealthScore({ results }: HealthScoreProps) {
             <defs>
               {/* Brand purple — the score ring is identity, not a status. */}
               <linearGradient id="ringGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-                <stop offset="0%" stopColor="rgb(65,0,153)" />
-                <stop offset="100%" stopColor="rgb(168,85,247)" />
+                <stop offset="0%" stopColor="#4f46e5" />
+                <stop offset="100%" stopColor="#4f46e5" />
               </linearGradient>
             </defs>
             {/* Track */}
@@ -107,7 +107,7 @@ export default function HealthScore({ results }: HealthScoreProps) {
               cy={size / 2}
               r={radius}
               fill="none"
-              stroke="rgba(255,255,255,0.08)"
+              stroke="#e8e8f0"
               strokeWidth={strokeWidth}
             />
             {/* Progress */}
@@ -130,7 +130,7 @@ export default function HealthScore({ results }: HealthScoreProps) {
               y={size / 2 - 6}
               textAnchor="middle"
               dominantBaseline="middle"
-              fill="#c084fc"
+              fill="#4f46e5"
               fontSize="28"
               fontWeight="700"
               fontFamily="Poppins, sans-serif"
@@ -143,7 +143,7 @@ export default function HealthScore({ results }: HealthScoreProps) {
               y={size / 2 + 20}
               textAnchor="middle"
               dominantBaseline="middle"
-              fill="rgba(255,255,255,0.5)"
+              fill="#7a7a8c"
               fontSize="11"
               fontWeight="400"
               fontFamily="Poppins, sans-serif"
@@ -160,7 +160,7 @@ export default function HealthScore({ results }: HealthScoreProps) {
               fontFamily: "var(--font-poppins), Poppins, sans-serif",
               fontWeight: 700,
               fontSize: "22px",
-              color: "#fff",
+              color: "var(--text-primary)",
               lineHeight: 1.2,
             }}
           >
@@ -171,11 +171,11 @@ export default function HealthScore({ results }: HealthScoreProps) {
               fontFamily: "var(--font-poppins), Poppins, sans-serif",
               fontWeight: 400,
               fontSize: "14px",
-              color: "rgba(255,255,255,0.55)",
+              color: "var(--text-secondary)",
             }}
           >
             We checked{" "}
-            <span style={{ color: "#fff", fontWeight: 600 }}>{total}</span>{" "}
+            <span style={{ color: "var(--text-primary)", fontWeight: 600 }}>{total}</span>{" "}
             links across your page. Here&apos;s what we found:
           </p>
           <ul className="flex flex-col gap-1.5">
@@ -186,20 +186,20 @@ export default function HealthScore({ results }: HealthScoreProps) {
                 style={{
                   fontFamily: "var(--font-poppins), Poppins, sans-serif",
                   fontSize: "13px",
-                  color: "rgba(255,255,255,0.7)",
+                  color: "var(--text-secondary)",
                 }}
               >
                 <span
                   style={{
                     width: 20,
                     textAlign: "center",
-                    color: "rgba(255,255,255,0.4)",
+                    color: "var(--text-muted)",
                     fontWeight: 600,
                   }}
                 >
                   {item.icon}
                 </span>
-                <span style={{ fontWeight: 600, color: "#fff" }}>
+                <span style={{ fontWeight: 600, color: "var(--text-primary)" }}>
                   {item.count}
                 </span>
                 &nbsp;{item.label}

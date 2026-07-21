@@ -29,9 +29,9 @@ const SECTIONS: SectionSpec[] = [
   {
     bucket: "broken",
     title: "Broken Links",
-    color: "#f87171",
-    bg: "rgba(248,113,113,0.08)",
-    border: "rgba(248,113,113,0.28)",
+    color: "#e05c5c",
+    bg: "rgba(224,92,92,0.08)",
+    border: "rgba(224,92,92,0.28)",
     icon: AlertOctagon,
     blurb: "These fail outright. Fix first.",
     showConfidence: false,
@@ -39,9 +39,9 @@ const SECTIONS: SectionSpec[] = [
   {
     bucket: "dead_cta",
     title: "Dead CTAs",
-    color: "#fb923c",
-    bg: "rgba(251,146,60,0.08)",
-    border: "rgba(251,146,60,0.28)",
+    color: "#f5a623",
+    bg: "rgba(245,166,35,0.08)",
+    border: "rgba(245,166,35,0.28)",
     icon: Ghost,
     blurb: "Buttons and links styled as calls-to-action that lead nowhere useful.",
     showConfidence: true,
@@ -49,9 +49,9 @@ const SECTIONS: SectionSpec[] = [
   {
     bucket: "unverifiable",
     title: "Unverifiable",
-    color: "#fbbf24",
-    bg: "rgba(251,191,36,0.06)",
-    border: "rgba(251,191,36,0.20)",
+    color: "#f5a623",
+    bg: "rgba(245,166,35,0.06)",
+    border: "rgba(245,166,35,0.20)",
     icon: HelpCircle,
     blurb: "Couldn't verify automatically — please check manually",
     showConfidence: false,
@@ -93,13 +93,13 @@ function Section({ spec, items, siteId }: { spec: SectionSpec; items: LinkResult
             {spec.title}
             <span className="ml-2 text-sm font-normal opacity-70">({items.length})</span>
           </h3>
-          <p className="text-xs mt-0.5" style={{ color: "rgba(255,255,255,0.55)" }}>
+          <p className="text-xs mt-0.5" style={{ color: "var(--text-muted)" }}>
             {spec.blurb}
           </p>
         </div>
       </header>
 
-      <ul className="divide-y" style={{ borderColor: "rgba(255,255,255,0.06)" }}>
+      <ul className="divide-y" style={{ borderColor: "var(--border-subtle)" }}>
         {items.map((r, i) => (
           <IssueRow key={`${r.url}-${r.anchor_text}-${i}`} result={r} spec={spec} siteId={siteId} />
         ))}
@@ -124,7 +124,7 @@ function IssueRow({ result, spec, siteId }: { result: LinkResult; spec: SectionS
     >
       <div className="flex-1 min-w-0">
         <div className="flex items-center gap-2 flex-wrap">
-          <span className="text-sm font-medium text-white/90 truncate">{label}</span>
+          <span className="text-sm font-medium truncate" style={{ color: "var(--text-primary)" }}>{label}</span>
 
           {spec.showConfidence && result.confidence && result.confidence !== "low" && (
             <ConfidenceChip confidence={result.confidence} />
@@ -133,7 +133,7 @@ function IssueRow({ result, spec, siteId }: { result: LinkResult; spec: SectionS
           {result.status_code != null && (
             <span
               className="text-[11px] tabular-nums rounded px-1.5 py-0.5"
-              style={{ background: "rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.65)" }}
+              style={{ background: "rgba(28,28,46,0.06)", color: "var(--text-secondary)" }}
             >
               {result.status_code}
             </span>
@@ -143,7 +143,7 @@ function IssueRow({ result, spec, siteId }: { result: LinkResult; spec: SectionS
           {(result.occurrences ?? 1) > 1 && (
             <span
               className="text-[11px] tabular-nums rounded px-1.5 py-0.5"
-              style={{ background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.55)" }}
+              style={{ background: "rgba(28,28,46,0.04)", color: "var(--text-muted)" }}
               title={`Linked ${result.occurrences} times on this page`}
             >
               ×{result.occurrences}
@@ -151,7 +151,7 @@ function IssueRow({ result, spec, siteId }: { result: LinkResult; spec: SectionS
           )}
 
           {result.zones && result.zones.length > 0 && (
-            <span className="text-[11px]" style={{ color: "rgba(255,255,255,0.4)" }}>
+            <span className="text-[11px]" style={{ color: "var(--text-muted)" }}>
               {result.zones.join(" · ")}
             </span>
           )}
@@ -159,12 +159,12 @@ function IssueRow({ result, spec, siteId }: { result: LinkResult; spec: SectionS
 
         {/* Every item displays its reason. */}
         {result.reason && (
-          <p className="text-xs mt-1" style={{ color: "rgba(255,255,255,0.55)" }}>
+          <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>
             {result.reason}
           </p>
         )}
         {!result.reason && result.error && (
-          <p className="text-xs mt-1" style={{ color: "rgba(255,255,255,0.55)" }}>
+          <p className="text-xs mt-1" style={{ color: "var(--text-muted)" }}>
             {result.error}
           </p>
         )}
@@ -175,7 +175,7 @@ function IssueRow({ result, spec, siteId }: { result: LinkResult; spec: SectionS
             target="_blank"
             rel="noopener noreferrer"
             className="text-xs mt-1 block truncate hover:underline"
-            style={{ color: "rgba(147,197,253,0.85)" }}
+            style={{ color: "#5b8def" }}
           >
             {result.url}
           </a>
@@ -192,8 +192,8 @@ function IssueRow({ result, spec, siteId }: { result: LinkResult; spec: SectionS
 
 function ConfidenceChip({ confidence }: { confidence: "high" | "medium" }) {
   const styles = {
-    high: { bg: "rgba(248,113,113,0.15)", fg: "#fca5a5" },
-    medium: { bg: "rgba(251,191,36,0.15)", fg: "#fcd34d" },
+    high: { bg: "rgba(224,92,92,0.15)", fg: "#e05c5c" },
+    medium: { bg: "rgba(245,166,35,0.15)", fg: "#f5a623" },
   }[confidence];
 
   return (

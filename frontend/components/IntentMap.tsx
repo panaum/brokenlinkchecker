@@ -17,8 +17,8 @@ interface Map {
 }
 
 const T = {
-  dark: { ink: "var(--text-primary)", sub: "var(--text-secondary)", muted: "var(--text-muted)", card: "var(--surface-card)", raised: "var(--surface-raised)", line: "rgba(255,255,255,0.08)", brand: "#a855f7", good: "#4ade80", bad: "#f87171", badbg: "rgba(248,113,113,0.12)", gray: "#8b93a7" },
-  light: { ink: "#1c1a2e", sub: "#55506b", muted: "#928da6", card: "#ffffff", raised: "#f4f3f9", line: "#e7e4f0", brand: "#7c3aed", good: "#16a34a", bad: "#dc2626", badbg: "#fef2f2", gray: "#8a86a0" },
+  dark: { ink: "var(--text-primary)", sub: "var(--text-secondary)", muted: "var(--text-muted)", card: "var(--surface-card)", raised: "var(--surface-raised)", line: "var(--border-subtle)", brand: "var(--signal)", good: "var(--status-healthy)", bad: "var(--status-broken)", badbg: "rgba(224,92,92,0.12)", gray: "var(--status-neutral)" },
+  light: { ink: "#1c1a2e", sub: "#55506b", muted: "#928da6", card: "#ffffff", raised: "#f4f3f9", line: "#e7e4f0", brand: "var(--signal)", good: "#16a34a", bad: "#dc2626", badbg: "#fef2f2", gray: "#8a86a0" },
 };
 
 // Plain-language definitions, attached at point of contact (title=).

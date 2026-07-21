@@ -120,7 +120,7 @@ export default function CommandPalette() {
       onMouseDown={(e) => { if (e.target === e.currentTarget) setOpen(false); }}
       style={{
         position: "fixed", inset: 0, zIndex: 300,
-        background: "rgba(6,4,12,0.6)", backdropFilter: "blur(4px)",
+        background: "rgba(0,0,0,0.6)", backdropFilter: "blur(4px)",
         display: "flex", alignItems: "flex-start", justifyContent: "center", padding: "14vh 16px 16px",
       }}
     >
@@ -158,7 +158,7 @@ export default function CommandPalette() {
                   padding: "10px 12px", borderRadius: "var(--radius-sm)", cursor: "pointer",
                   border: "none", textAlign: "left", fontSize: "var(--text-body)",
                   color: "var(--text-primary)", fontFamily: "var(--font-stack-body)",
-                  background: i === active ? "rgba(168,85,247,0.16)" : "transparent",
+                  background: i === active ? "rgba(79,70,229,0.16)" : "transparent",
                   boxShadow: i === active ? "inset 2px 0 0 var(--signal)" : "none",
                 }}
               >

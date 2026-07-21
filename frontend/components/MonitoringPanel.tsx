@@ -118,7 +118,7 @@ export default function MonitoringPanel({ siteId }: { siteId: string }) {
 
   if (loading) {
     return (
-      <div className="flex items-center gap-2 text-sm" style={{ color: "rgba(255,255,255,0.4)" }}>
+      <div className="flex items-center gap-2 text-sm" style={{ color: "var(--text-muted)" }}>
         <Loader2 size={14} className="animate-spin" /> Loading monitoring…
       </div>
     );
@@ -130,11 +130,11 @@ export default function MonitoringPanel({ siteId }: { siteId: string }) {
   return (
     <div
       className="rounded-xl p-4"
-      style={{ background: "rgba(255,255,255,0.03)", border: "1px solid rgba(255,255,255,0.08)" }}
+      style={{ background: "var(--surface-card)", border: "1px solid var(--border-subtle)" }}
     >
       <div className="flex items-center justify-between mb-3">
         <div className="flex items-center gap-2">
-          <Activity size={16} style={{ color: enabled ? "#4ade80" : "rgba(255,255,255,0.4)" }} />
+          <Activity size={16} style={{ color: enabled ? "#4caf7d" : "var(--text-muted)" }} />
           <span style={{ fontWeight: 600, fontSize: 14 }}>Monitoring</span>
         </div>
         <button
@@ -147,9 +147,9 @@ export default function MonitoringPanel({ siteId }: { siteId: string }) {
             fontSize: 12,
             fontWeight: 500,
             border: "1px solid",
-            borderColor: enabled ? "rgba(74,222,128,0.4)" : "rgba(255,255,255,0.15)",
-            background: enabled ? "rgba(74,222,128,0.12)" : "transparent",
-            color: enabled ? "#4ade80" : "rgba(255,255,255,0.6)",
+            borderColor: enabled ? "rgba(76,175,125,0.4)" : "var(--border-strong)",
+            background: enabled ? "rgba(76,175,125,0.12)" : "transparent",
+            color: enabled ? "#4caf7d" : "var(--text-secondary)",
           }}
         >
           {saving ? "…" : enabled ? "On" : "Off"}
@@ -160,9 +160,9 @@ export default function MonitoringPanel({ siteId }: { siteId: string }) {
         <div
           className="mb-3 rounded-lg px-3 py-2"
           style={{
-            background: "rgba(248,113,113,0.1)",
-            border: "1px solid rgba(248,113,113,0.3)",
-            color: "#fca5a5",
+            background: "rgba(224,92,92,0.1)",
+            border: "1px solid rgba(224,92,92,0.3)",
+            color: "var(--status-broken)",
             fontSize: 12,
             lineHeight: 1.4,
           }}
@@ -184,9 +184,9 @@ export default function MonitoringPanel({ siteId }: { siteId: string }) {
                 borderRadius: 6,
                 fontSize: 11,
                 textTransform: "capitalize",
-                border: "1px solid rgba(255,255,255,0.1)",
-                background: status?.freq === c ? "rgba(96,165,250,0.15)" : "transparent",
-                color: status?.freq === c ? "#60a5fa" : "rgba(255,255,255,0.5)",
+                border: "1px solid var(--border-subtle)",
+                background: status?.freq === c ? "rgba(91,141,239,0.15)" : "transparent",
+                color: status?.freq === c ? "#5b8def" : "var(--text-muted)",
               }}
             >
               {c}
@@ -199,35 +199,35 @@ export default function MonitoringPanel({ siteId }: { siteId: string }) {
       {typeof streak === "number" && streak > 0 && (
         <div
           className="flex items-center gap-2 mb-2"
-          style={{ color: "#4ade80", fontSize: 13, fontWeight: 500 }}
+          style={{ color: "#4caf7d", fontSize: 13, fontWeight: 500 }}
         >
           <ShieldCheck size={14} />
           Healthy {streak} {streak === 1 ? "day" : "days"}
         </div>
       )}
 
-      <div className="grid grid-cols-2 gap-y-1 text-xs" style={{ color: "rgba(255,255,255,0.55)" }}>
+      <div className="grid grid-cols-2 gap-y-1 text-xs" style={{ color: "var(--text-muted)" }}>
         <span>Last checked</span>
-        <span style={{ textAlign: "right", color: "rgba(255,255,255,0.8)" }}>
+        <span style={{ textAlign: "right", color: "var(--text-primary)" }}>
           {timeAgo(status?.last_checked)}
         </span>
         {enabled && (
           <>
             <span>Next check</span>
-            <span style={{ textAlign: "right", color: "rgba(255,255,255,0.8)" }}>
+            <span style={{ textAlign: "right", color: "var(--text-primary)" }}>
               {nextCheck(status?.last_checked, status?.freq)}
             </span>
           </>
         )}
         <span>Current health</span>
-        <span style={{ textAlign: "right", color: "rgba(255,255,255,0.8)" }}>
+        <span style={{ textAlign: "right", color: "var(--text-primary)" }}>
           {status?.current_health ?? "—"}
           {status?.current_health != null ? "/100" : ""}
         </span>
         {status?.digest && (
           <>
             <span>This week</span>
-            <span style={{ textAlign: "right", color: "rgba(255,255,255,0.8)" }}>
+            <span style={{ textAlign: "right", color: "var(--text-primary)" }}>
               {status.digest.checks} checks · {status.digest.issues_caught} caught ·{" "}
               {status.digest.issues_resolved} resolved
             </span>
@@ -236,16 +236,16 @@ export default function MonitoringPanel({ siteId }: { siteId: string }) {
       </div>
 
       {status?.recent_events && status.recent_events.length > 0 && (
-        <div className="mt-3 pt-3" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
-          <div style={{ fontSize: 11, color: "rgba(255,255,255,0.4)", marginBottom: 6 }}>
+        <div className="mt-3 pt-3" style={{ borderTop: "1px solid var(--border-subtle)" }}>
+          <div style={{ fontSize: 11, color: "var(--text-muted)", marginBottom: 6 }}>
             Recent changes
           </div>
           {status.recent_events.slice(0, 5).map((e, i) => (
             <div key={i} className="flex items-center justify-between" style={{ fontSize: 12, padding: "2px 0" }}>
-              <span style={{ color: "rgba(255,255,255,0.7)" }}>{timeAgo(e.at)}</span>
+              <span style={{ color: "var(--text-secondary)" }}>{timeAgo(e.at)}</span>
               <span>
-                {e.new > 0 && <span style={{ color: "#f87171" }}>+{e.new} broke </span>}
-                {e.fixed > 0 && <span style={{ color: "#4ade80" }}>{e.fixed} fixed</span>}
+                {e.new > 0 && <span style={{ color: "#e05c5c" }}>+{e.new} broke </span>}
+                {e.fixed > 0 && <span style={{ color: "#4caf7d" }}>{e.fixed} fixed</span>}
               </span>
             </div>
           ))}
@@ -255,7 +255,7 @@ export default function MonitoringPanel({ siteId }: { siteId: string }) {
       {/* Verify it works without waiting for the cadence: this runs the exact
           scheduled-check path once and reports what it decided. */}
       {enabled && (
-        <div className="mt-3 pt-3" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
+        <div className="mt-3 pt-3" style={{ borderTop: "1px solid var(--border-subtle)" }}>
           <button
             onClick={runCheckNow}
             disabled={checking}
@@ -265,15 +265,15 @@ export default function MonitoringPanel({ siteId }: { siteId: string }) {
               borderRadius: 8,
               fontSize: 12,
               fontWeight: 500,
-              border: "1px solid rgba(96,165,250,0.3)",
-              background: "rgba(96,165,250,0.1)",
-              color: "#93c5fd",
+              border: "1px solid rgba(91,141,239,0.3)",
+              background: "rgba(91,141,239,0.1)",
+              color: "#5b8def",
             }}
           >
             {checking ? "Running a check…" : "Run a check now"}
           </button>
           {checkResult && (
-            <p style={{ fontSize: 12, color: "rgba(255,255,255,0.6)", marginTop: 8, lineHeight: 1.5 }}>
+            <p style={{ fontSize: 12, color: "var(--text-secondary)", marginTop: 8, lineHeight: 1.5 }}>
               {checkResult}
             </p>
           )}

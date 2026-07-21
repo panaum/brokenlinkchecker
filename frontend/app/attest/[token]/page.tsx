@@ -24,7 +24,7 @@ export default function PublicAttestation({ params }: { params: Promise<{ token:
   if (!row) return <div style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", background: "#f4f3f9" }}><Loader2 size={28} className="animate-spin" /></div>;
   return (
     <div style={{ position: "relative" }}>
-      <button onClick={() => window.print()} className="report-print-btn" style={{ position: "fixed", top: 20, right: 20, zIndex: 20, display: "inline-flex", alignItems: "center", gap: 8, background: "#7c3aed", color: "#fff", border: "none", borderRadius: 10, padding: "10px 16px", fontSize: 14, fontWeight: 600, cursor: "pointer", boxShadow: "0 4px 14px rgba(124,58,237,0.35)" }}>
+      <button onClick={() => window.print()} className="report-print-btn" style={{ position: "fixed", top: 20, right: 20, zIndex: 20, display: "inline-flex", alignItems: "center", gap: 8, background: "#4f46e5", color: "#fff", border: "none", borderRadius: 10, padding: "10px 16px", fontSize: 14, fontWeight: 600, cursor: "pointer", boxShadow: "0 6px 20px rgba(79,70,229,0.25)" }}>
         <Printer size={16} /> Save as PDF
       </button>
       <AttestationDoc doc={row.document} contentHash={row.content_hash} agency={row.agency_name} issuedAt={row.issued_at} />

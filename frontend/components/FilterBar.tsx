@@ -22,10 +22,10 @@ interface FilterBarProps {
 }
 
 const DIFF_ITEMS: { label: string; value: DiffFilter; color: string; bg: string }[] = [
-  { label: "All", value: "all", color: "#fff", bg: "rgba(255,255,255,0.08)" },
-  { label: "New", value: "new", color: "#f87171", bg: "rgba(248,113,113,0.12)" },
-  { label: "Recurring", value: "recurring", color: "#fbbf24", bg: "rgba(251,191,36,0.12)" },
-  { label: "Fixed", value: "fixed", color: "#4ade80", bg: "rgba(74,222,128,0.12)" },
+  { label: "All", value: "all", color: "#1c1c2e", bg: "rgba(28,28,46,0.04)" },
+  { label: "New", value: "new", color: "#e05c5c", bg: "rgba(224,92,92,0.12)" },
+  { label: "Recurring", value: "recurring", color: "#f5a623", bg: "rgba(245,166,35,0.12)" },
+  { label: "Fixed", value: "fixed", color: "#4caf7d", bg: "rgba(76,175,125,0.12)" },
 ];
 
 function diffCount(results: LinkResult[], diff: ScanDiff, value: DiffFilter): number {
@@ -69,14 +69,14 @@ interface StatusFilterItem {
 }
 
 const STATUS_ITEMS: StatusFilterItem[] = [
-  { label: "All", value: "all", color: "#fff", bg: "rgba(255,255,255,0.08)" },
-  { label: "Working", value: "ok", color: "#4ade80", bg: "rgba(74,222,128,0.12)" },
-  { label: "Broken", value: "broken", color: "#f87171", bg: "rgba(248,113,113,0.12)" },
-  { label: "Dead Button", value: "dead_cta", color: "#fbbf24", bg: "rgba(251,191,36,0.12)" },
-  { label: "Redirected", value: "redirect", color: "#fb923c", bg: "rgba(251,146,60,0.12)" },
-  { label: "Can't Verify", value: "blocked", color: "#e879f9", bg: "rgba(232,121,249,0.12)" },
-  { label: "Not Responding", value: "timeout", color: "#94a3b8", bg: "rgba(148,163,184,0.12)" },
-  { label: "Conn. Failed", value: "error", color: "#f87171", bg: "rgba(248,113,113,0.12)" },
+  { label: "All", value: "all", color: "#1c1c2e", bg: "rgba(28,28,46,0.04)" },
+  { label: "Working", value: "ok", color: "#4caf7d", bg: "rgba(76,175,125,0.12)" },
+  { label: "Broken", value: "broken", color: "#e05c5c", bg: "rgba(224,92,92,0.12)" },
+  { label: "Dead Button", value: "dead_cta", color: "#f5a623", bg: "rgba(245,166,35,0.12)" },
+  { label: "Redirected", value: "redirect", color: "#f5a623", bg: "rgba(245,166,35,0.12)" },
+  { label: "Can't Verify", value: "blocked", color: "#4f46e5", bg: "rgba(79,70,229,0.12)" },
+  { label: "Not Responding", value: "timeout", color: "#7a7a8c", bg: "rgba(122,122,140,0.12)" },
+  { label: "Conn. Failed", value: "error", color: "#e05c5c", bg: "rgba(224,92,92,0.12)" },
 ];
 
 export default function FilterBar({
@@ -118,7 +118,7 @@ export default function FilterBar({
           <div className="flex flex-wrap items-center gap-2">
             <span
               className="text-[11px] uppercase tracking-widest mr-1"
-              style={{ color: "rgba(255,255,255,0.4)" }}
+              style={{ color: "var(--text-muted)" }}
             >
               Since last scan
             </span>
@@ -133,10 +133,10 @@ export default function FilterBar({
                   className="flex items-center gap-2 px-3 py-1.5 rounded-xl transition-all cursor-pointer"
                   style={{
                     background: isActive
-                      ? "linear-gradient(132deg,rgb(23,184,148),rgb(52,230,192))"
+                      ? "var(--signal)"
                       : item.bg,
                     border: isActive
-                      ? "1px solid rgba(168,85,247,0.6)"
+                      ? "1px solid rgba(79,70,229,0.6)"
                       : `1px solid ${item.color}22`,
                     fontFamily: "var(--font-poppins), Poppins, sans-serif",
                     fontWeight: isActive ? 600 : 400,
@@ -150,7 +150,7 @@ export default function FilterBar({
                     style={{
                       background: isActive
                         ? "rgba(255,255,255,0.2)"
-                        : "rgba(255,255,255,0.08)",
+                        : "rgba(28,28,46,0.06)",
                     }}
                   >
                     {count}
@@ -174,13 +174,13 @@ export default function FilterBar({
                 className="flex items-center gap-2 px-3 py-2 rounded-xl transition-all cursor-pointer"
                 style={{
                   background: isActive
-                    ? "linear-gradient(132deg,rgb(23,184,148),rgb(52,230,192))"
+                    ? "var(--signal)"
                     : item.bg,
                   border: isActive
-                    ? "1px solid rgba(168,85,247,0.6)"
+                    ? "1px solid rgba(79,70,229,0.6)"
                     : `1px solid ${item.color}22`,
                   boxShadow: isActive
-                    ? "0 0 12px rgba(168,85,247,0.3)"
+                    ? "0 0 12px rgba(79,70,229,0.3)"
                     : "none",
                   fontFamily: "var(--font-poppins), Poppins, sans-serif",
                   fontWeight: isActive ? 600 : 400,
@@ -198,8 +198,8 @@ export default function FilterBar({
                   style={{
                     background: isActive
                       ? "rgba(255,255,255,0.2)"
-                      : "rgba(255,255,255,0.08)",
-                    color: isActive ? "#fff" : "rgba(255,255,255,0.6)",
+                      : "rgba(28,28,46,0.06)",
+                    color: isActive ? "#fff" : "var(--text-secondary)",
                     fontWeight: 600,
                   }}
                 >
@@ -218,12 +218,12 @@ export default function FilterBar({
               onClick={() => { setZoneOpen((p) => !p); setSortOpen(false); }}
               className="flex items-center gap-2 px-3 py-2 rounded-xl transition-all cursor-pointer"
               style={{
-                background: "rgba(255,255,255,0.05)",
-                border: "1px solid rgba(255,255,255,0.1)",
+                background: "rgba(28,28,46,0.04)",
+                border: "1px solid var(--border-subtle)",
                 fontFamily: "var(--font-poppins), Poppins, sans-serif",
                 fontSize: "13px",
                 fontWeight: 500,
-                color: zoneFilter !== "All zones" ? "#e879f9" : "rgba(255,255,255,0.6)",
+                color: zoneFilter !== "All zones" ? "var(--signal)" : "var(--text-secondary)",
               }}
             >
               {zoneFilter}
@@ -233,11 +233,10 @@ export default function FilterBar({
               <div
                 className="absolute top-full mt-2 left-0 z-50 rounded-xl overflow-hidden"
                 style={{
-                  background: "rgba(15,8,30,0.97)",
-                  backdropFilter: "blur(16px)",
-                  border: "1px solid rgba(255,255,255,0.12)",
+                  background: "var(--surface-card)",
+                  border: "1px solid var(--border-subtle)",
                   minWidth: "160px",
-                  boxShadow: "0 8px 32px rgba(0,0,0,0.5)",
+                  boxShadow: "var(--elev-3)",
                 }}
               >
                 {ZONES.map((zone) => (
@@ -249,11 +248,11 @@ export default function FilterBar({
                       fontFamily: "var(--font-poppins), Poppins, sans-serif",
                       fontSize: "13px",
                       fontWeight: zoneFilter === zone ? 600 : 400,
-                      color: zoneFilter === zone ? "#e879f9" : "rgba(255,255,255,0.65)",
-                      background: zoneFilter === zone ? "rgba(232,121,249,0.08)" : "transparent",
+                      color: zoneFilter === zone ? "var(--signal)" : "var(--text-secondary)",
+                      background: zoneFilter === zone ? "rgba(79,70,229,0.08)" : "transparent",
                     }}
                     onMouseEnter={(e) => {
-                      if (zoneFilter !== zone) (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.04)";
+                      if (zoneFilter !== zone) (e.currentTarget as HTMLButtonElement).style.background = "rgba(28,28,46,0.06)";
                     }}
                     onMouseLeave={(e) => {
                       if (zoneFilter !== zone) (e.currentTarget as HTMLButtonElement).style.background = "transparent";
@@ -270,12 +269,12 @@ export default function FilterBar({
           <div
             className="flex items-center gap-2 flex-1 px-3 py-2 rounded-xl"
             style={{
-              background: "rgba(255,255,255,0.05)",
-              border: "1px solid rgba(255,255,255,0.1)",
+              background: "rgba(28,28,46,0.04)",
+              border: "1px solid var(--border-subtle)",
               minWidth: "180px",
             }}
           >
-            <Search size={14} style={{ color: "rgba(255,255,255,0.3)", flexShrink: 0 }} />
+            <Search size={14} style={{ color: "var(--text-muted)", flexShrink: 0 }} />
             <input
               type="text"
               value={search}
@@ -285,13 +284,13 @@ export default function FilterBar({
               style={{
                 fontFamily: "var(--font-poppins), Poppins, sans-serif",
                 fontSize: "13px",
-                color: "#fff",
-                caretColor: "#a855f7",
+                color: "var(--text-primary)",
+                caretColor: "var(--signal)",
               }}
             />
             {search && (
               <button onClick={() => onSearchChange("")} className="cursor-pointer">
-                <X size={13} style={{ color: "rgba(255,255,255,0.3)" }} />
+                <X size={13} style={{ color: "var(--text-muted)" }} />
               </button>
             )}
           </div>
@@ -302,12 +301,12 @@ export default function FilterBar({
               onClick={() => { setSortOpen((p) => !p); setZoneOpen(false); }}
               className="flex items-center gap-2 px-3 py-2 rounded-xl transition-all cursor-pointer"
               style={{
-                background: "rgba(255,255,255,0.05)",
-                border: "1px solid rgba(255,255,255,0.1)",
+                background: "rgba(28,28,46,0.04)",
+                border: "1px solid var(--border-subtle)",
                 fontFamily: "var(--font-poppins), Poppins, sans-serif",
                 fontSize: "13px",
                 fontWeight: 500,
-                color: "rgba(255,255,255,0.6)",
+                color: "var(--text-secondary)",
                 whiteSpace: "nowrap",
               }}
             >
@@ -318,11 +317,10 @@ export default function FilterBar({
               <div
                 className="absolute top-full mt-2 right-0 z-50 rounded-xl overflow-hidden"
                 style={{
-                  background: "rgba(15,8,30,0.97)",
-                  backdropFilter: "blur(16px)",
-                  border: "1px solid rgba(255,255,255,0.12)",
+                  background: "var(--surface-card)",
+                  border: "1px solid var(--border-subtle)",
                   minWidth: "160px",
-                  boxShadow: "0 8px 32px rgba(0,0,0,0.5)",
+                  boxShadow: "var(--elev-3)",
                 }}
               >
                 {SORT_OPTIONS.map((opt) => (
@@ -336,17 +334,17 @@ export default function FilterBar({
                       fontWeight: sortOption === opt.value ? 600 : 400,
                       color:
                         sortOption === opt.value
-                          ? "#e879f9"
-                          : "rgba(255,255,255,0.65)",
+                          ? "var(--signal)"
+                          : "var(--text-secondary)",
                       background:
                         sortOption === opt.value
-                          ? "rgba(232,121,249,0.08)"
+                          ? "rgba(79,70,229,0.08)"
                           : "transparent",
                     }}
                     onMouseEnter={(e) => {
                       if (sortOption !== opt.value)
                         (e.currentTarget as HTMLButtonElement).style.background =
-                          "rgba(255,255,255,0.04)";
+                          "rgba(28,28,46,0.06)";
                     }}
                     onMouseLeave={(e) => {
                       if (sortOption !== opt.value)
@@ -367,7 +365,7 @@ export default function FilterBar({
               fontFamily: "var(--font-poppins), Poppins, sans-serif",
               fontSize: "12px",
               fontWeight: 400,
-              color: "rgba(255,255,255,0.35)",
+              color: "var(--text-muted)",
               whiteSpace: "nowrap",
             }}
           >

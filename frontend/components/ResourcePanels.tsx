@@ -133,7 +133,7 @@ function Panel({
     <section className="glass-card p-5">
       <h3
         className="text-[11px] uppercase tracking-widest mb-3"
-        style={{ color: "rgba(255,255,255,0.5)" }}
+        style={{ color: "var(--text-muted)" }}
       >
         {title}
       </h3>
@@ -143,27 +143,27 @@ function Panel({
             <div className="flex items-center justify-between gap-3">
               <span
                 className={`truncate ${mono ? "font-mono" : ""}`}
-                style={{ color: "rgba(255,255,255,0.75)" }}
+                style={{ color: "var(--text-secondary)" }}
                 title={row.label}
               >
                 {row.label}
               </span>
               <span
                 className="tabular-nums shrink-0"
-                style={{ color: "rgba(255,255,255,0.9)" }}
+                style={{ color: "var(--text-primary)" }}
               >
                 {row.count}
               </span>
             </div>
             <div
               className="mt-1 h-1 rounded-full overflow-hidden"
-              style={{ background: "rgba(255,255,255,0.06)" }}
+              style={{ background: "rgba(28,28,46,0.04)" }}
             >
               <div
                 className="h-full rounded-full"
                 style={{
                   width: `${(row.count / max) * 100}%`,
-                  background: "rgba(147,197,253,0.55)",
+                  background: "rgba(79,70,229,0.55)",
                 }}
               />
             </div>
@@ -171,7 +171,7 @@ function Panel({
         ))}
       </ul>
       {footer && (
-        <p className="text-[11px] mt-3" style={{ color: "rgba(255,255,255,0.4)" }}>
+        <p className="text-[11px] mt-3" style={{ color: "var(--text-muted)" }}>
           {footer}
         </p>
       )}

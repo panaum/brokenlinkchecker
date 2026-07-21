@@ -30,13 +30,13 @@ interface DiffLink {
 
 function StatusPillMini({ label }: { label: string }) {
   const colors: Record<string, { bg: string; text: string }> = {
-    broken: { bg: "rgba(248,113,113,0.15)", text: "#f87171" },
-    dead_cta: { bg: "rgba(251,191,36,0.15)", text: "#fbbf24" },
-    error: { bg: "rgba(248,113,113,0.15)", text: "#f87171" },
-    timeout: { bg: "rgba(251,146,60,0.15)", text: "#fb923c" },
-    blocked: { bg: "rgba(148,163,184,0.15)", text: "#94a3b8" },
+    broken: { bg: "rgba(224,92,92,0.15)", text: "#e05c5c" },
+    dead_cta: { bg: "rgba(245,166,35,0.15)", text: "#f5a623" },
+    error: { bg: "rgba(224,92,92,0.15)", text: "#e05c5c" },
+    timeout: { bg: "rgba(245,166,35,0.15)", text: "#f5a623" },
+    blocked: { bg: "rgba(122,122,140,0.15)", text: "#7a7a8c" },
   };
-  const style = colors[label] ?? { bg: "rgba(255,255,255,0.08)", text: "rgba(255,255,255,0.5)" };
+  const style = colors[label] ?? { bg: "rgba(28,28,46,0.06)", text: "var(--text-muted)" };
 
   const labelMap: Record<string, string> = {
     broken: "Broken",
@@ -69,15 +69,15 @@ function StatusPillMini({ label }: { label: string }) {
 
 function ZoneBadge({ zone }: { zone: string }) {
   const ZONE_DOT_COLORS: Record<string, string> = {
-    Navigation: "#60a5fa",
-    Header: "#a855f7",
-    Footer: "#94a3b8",
-    CTA: "#fbbf24",
-    "Body text": "#e2e8f0",
-    Other: "#64748b",
-    "Dead CTA": "#f87171",
+    Navigation: "#5b8def",
+    Header: "#4f46e5",
+    Footer: "#7a7a8c",
+    CTA: "#f5a623",
+    "Body text": "#1c1c2e",
+    Other: "#7a7a8c",
+    "Dead CTA": "#e05c5c",
   };
-  const dotColor = ZONE_DOT_COLORS[zone] ?? "#64748b";
+  const dotColor = ZONE_DOT_COLORS[zone] ?? "#7a7a8c";
 
   return (
     <span
@@ -90,9 +90,9 @@ function ZoneBadge({ zone }: { zone: string }) {
         fontSize: "10px",
         fontWeight: 500,
         fontFamily: "var(--font-poppins), Poppins, sans-serif",
-        background: "rgba(255,255,255,0.05)",
-        border: "1px solid rgba(255,255,255,0.08)",
-        color: "rgba(255,255,255,0.5)",
+        background: "rgba(28,28,46,0.04)",
+        border: "1px solid var(--border-subtle)",
+        color: "var(--text-muted)",
       }}
     >
       <span
@@ -125,7 +125,7 @@ function TruncatedUrl({ url }: { url: string }) {
       style={{
         fontFamily: "monospace",
         fontSize: "11px",
-        color: "rgba(255,255,255,0.6)",
+        color: "var(--text-secondary)",
         wordBreak: "break-all",
       }}
     >
@@ -242,7 +242,7 @@ export default function WhatChangedCard({
               cursor: "pointer",
               borderBottom: collapsed
                 ? "none"
-                : "1px solid rgba(255,255,255,0.06)",
+                : "1px solid var(--border-subtle)",
             }}
           >
             <div className="flex items-center gap-3">
@@ -253,7 +253,7 @@ export default function WhatChangedCard({
                     fontFamily: "var(--font-poppins), Poppins, sans-serif",
                     fontWeight: 600,
                     fontSize: "14px",
-                    color: "white",
+                    color: "var(--text-primary)",
                     margin: 0,
                     lineHeight: 1.3,
                   }}
@@ -265,7 +265,7 @@ export default function WhatChangedCard({
                     fontFamily: "var(--font-poppins), Poppins, sans-serif",
                     fontWeight: 400,
                     fontSize: "11px",
-                    color: "rgba(255,255,255,0.4)",
+                    color: "var(--text-muted)",
                     margin: 0,
                     lineHeight: 1.4,
                   }}
@@ -277,9 +277,9 @@ export default function WhatChangedCard({
               </div>
             </div>
             {collapsed ? (
-              <ChevronDown size={16} style={{ color: "rgba(255,255,255,0.3)" }} />
+              <ChevronDown size={16} style={{ color: "var(--text-muted)" }} />
             ) : (
-              <ChevronUp size={16} style={{ color: "rgba(255,255,255,0.3)" }} />
+              <ChevronUp size={16} style={{ color: "var(--text-muted)" }} />
             )}
           </button>
 
@@ -299,14 +299,14 @@ export default function WhatChangedCard({
                       className="flex items-center gap-2"
                       style={{ padding: "12px 0" }}
                     >
-                      <Sparkles size={16} style={{ color: "#a855f7" }} />
+                      <Sparkles size={16} style={{ color: "var(--signal)" }} />
                       <span
                         style={{
                           fontFamily:
                             "var(--font-poppins), Poppins, sans-serif",
                           fontSize: "13px",
                           fontWeight: 500,
-                          color: "rgba(255,255,255,0.65)",
+                          color: "var(--text-secondary)",
                         }}
                       >
                         ✨ No changes since last scan
@@ -330,7 +330,7 @@ export default function WhatChangedCard({
                                 "var(--font-poppins), Poppins, sans-serif",
                               fontWeight: 600,
                               fontSize: "12px",
-                              color: "#f87171",
+                              color: "#e05c5c",
                               margin: "0 0 8px 0",
                             }}
                           >
@@ -351,8 +351,8 @@ export default function WhatChangedCard({
                                 style={{
                                   padding: "6px 10px",
                                   borderRadius: 8,
-                                  background: "rgba(248,113,113,0.06)",
-                                  border: "1px solid rgba(248,113,113,0.12)",
+                                  background: "rgba(224,92,92,0.06)",
+                                  border: "1px solid rgba(224,92,92,0.12)",
                                 }}
                               >
                                 <StatusPillMini label={item.label} />
@@ -373,7 +373,7 @@ export default function WhatChangedCard({
                                 "var(--font-poppins), Poppins, sans-serif",
                               fontWeight: 600,
                               fontSize: "12px",
-                              color: "#4ade80",
+                              color: "#4caf7d",
                               margin: "0 0 8px 0",
                             }}
                           >
@@ -394,8 +394,8 @@ export default function WhatChangedCard({
                                 style={{
                                   padding: "6px 10px",
                                   borderRadius: 8,
-                                  background: "rgba(74,222,128,0.06)",
-                                  border: "1px solid rgba(74,222,128,0.12)",
+                                  background: "rgba(76,175,125,0.06)",
+                                  border: "1px solid rgba(76,175,125,0.12)",
                                 }}
                               >
                                 <TruncatedUrl url={item.url} />
@@ -415,7 +415,7 @@ export default function WhatChangedCard({
                                 "var(--font-poppins), Poppins, sans-serif",
                               fontWeight: 600,
                               fontSize: "12px",
-                              color: "#fb923c",
+                              color: "#f5a623",
                               margin: "0 0 8px 0",
                             }}
                           >
@@ -435,8 +435,8 @@ export default function WhatChangedCard({
                                 style={{
                                   padding: "6px 10px",
                                   borderRadius: 8,
-                                  background: "rgba(251,146,60,0.06)",
-                                  border: "1px solid rgba(251,146,60,0.12)",
+                                  background: "rgba(245,166,35,0.06)",
+                                  border: "1px solid rgba(245,166,35,0.12)",
                                 }}
                               >
                                 <StatusPillMini label={item.label} />
@@ -448,7 +448,7 @@ export default function WhatChangedCard({
                                       fontFamily:
                                         "var(--font-poppins), Poppins, sans-serif",
                                       fontSize: "10px",
-                                      color: "rgba(255,255,255,0.35)",
+                                      color: "var(--text-muted)",
                                       fontStyle: "italic",
                                     }}
                                   >

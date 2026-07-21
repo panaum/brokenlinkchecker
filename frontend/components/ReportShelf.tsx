@@ -17,13 +17,13 @@ type Variant = "dark" | "light";
 const T = {
   dark: {
     ink: "var(--text-primary)", sub: "var(--text-secondary)", muted: "var(--text-muted)",
-    card: "var(--surface-card)", raised: "var(--surface-raised)", line: "var(--border-subtle, rgba(255,255,255,0.08))",
-    brand: "#a855f7", green: "#4ade80", spine: "rgba(168,85,247,0.5)",
+    card: "var(--surface-card)", raised: "var(--surface-raised)", line: "var(--border-subtle)",
+    brand: "var(--signal)", green: "var(--status-healthy)", spine: "rgba(79,70,229,0.5)",
   },
   light: {
     ink: "#1c1a2e", sub: "#55506b", muted: "#928da6",
     card: "#ffffff", raised: "#f4f3f9", line: "#e7e4f0",
-    brand: "#7c3aed", green: "#16a34a", spine: "rgba(124,58,237,0.5)",
+    brand: "var(--signal)", green: "#16a34a", spine: "rgba(79,70,229,0.5)",
   },
 };
 

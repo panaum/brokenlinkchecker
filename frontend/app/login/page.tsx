@@ -13,20 +13,20 @@ function LoginContent() {
   return (
     <main
       className="min-h-screen flex items-center justify-center relative overflow-hidden"
-      style={{ background: "#0a0612" }}
+      style={{ background: "var(--surface-page)" }}
     >
       {/* Background glow */}
       <div
         className="absolute top-[-200px] left-[-200px] w-[600px] h-[600px] rounded-full opacity-30 pointer-events-none"
         style={{
-          background: "linear-gradient(135deg, #9333ea, #c084fc)",
+          background: "var(--signal)",
           filter: "blur(120px)",
         }}
       />
       <div
         className="absolute bottom-[-100px] right-[-150px] w-[400px] h-[400px] rounded-full opacity-20 pointer-events-none"
         style={{
-          background: "linear-gradient(135deg, #c084fc, #c084fc)",
+          background: "var(--signal)",
           filter: "blur(120px)",
         }}
       />
@@ -35,10 +35,9 @@ function LoginContent() {
       <div
         className="relative z-10 w-full max-w-md mx-4 p-8 rounded-2xl text-center"
         style={{
-          background: "rgba(255,255,255,0.05)",
-          backdropFilter: "blur(12px)",
-          WebkitBackdropFilter: "blur(12px)",
-          border: "1px solid rgba(255,255,255,0.10)",
+          background: "var(--surface-card)",
+          border: "1px solid var(--border-subtle)",
+          boxShadow: "var(--elev-3)",
         }}
       >
         {/* Logo */}
@@ -55,10 +54,10 @@ function LoginContent() {
               fontFamily: "var(--font-poppins), Poppins, sans-serif",
               fontWeight: 700,
               fontSize: "24px",
-              color: "#fff",
+              color: "var(--text-primary)",
             }}
           >
-            Link<span style={{ color: "rgba(255,255,255,0.5)" }}>Spy</span>
+            Link<span style={{ color: "var(--text-muted)" }}>Spy</span>
           </span>
         </div>
 
@@ -68,7 +67,7 @@ function LoginContent() {
             fontFamily: "var(--font-poppins), Poppins, sans-serif",
             fontWeight: 600,
             fontSize: "20px",
-            color: "#fff",
+            color: "var(--text-primary)",
             marginBottom: 8,
           }}
         >
@@ -79,7 +78,7 @@ function LoginContent() {
             fontFamily: "var(--font-poppins), Poppins, sans-serif",
             fontWeight: 400,
             fontSize: "14px",
-            color: "rgba(255,255,255,0.5)",
+            color: "var(--text-muted)",
             marginBottom: 32,
           }}
         >
@@ -91,8 +90,8 @@ function LoginContent() {
           <div
             className="mb-6 p-4 rounded-xl"
             style={{
-              background: "rgba(248,113,113,0.1)",
-              border: "1px solid rgba(248,113,113,0.3)",
+              background: "rgba(224,92,92,0.1)",
+              border: "1px solid rgba(224,92,92,0.3)",
             }}
           >
             <p
@@ -100,7 +99,7 @@ function LoginContent() {
                 fontFamily: "var(--font-poppins), Poppins, sans-serif",
                 fontWeight: 600,
                 fontSize: "13px",
-                color: "#f87171",
+                color: "var(--status-broken)",
                 marginBottom: 4,
               }}
             >
@@ -111,7 +110,7 @@ function LoginContent() {
                 fontFamily: "var(--font-poppins), Poppins, sans-serif",
                 fontWeight: 400,
                 fontSize: "12px",
-                color: "rgba(248,113,113,0.7)",
+                color: "rgba(224,92,92,0.7)",
               }}
             >
               {email ? (
@@ -132,8 +131,8 @@ function LoginContent() {
           onClick={() => signIn("google", { callbackUrl: "/" })}
           className="w-full flex items-center justify-center gap-3 px-6 py-3.5 rounded-xl transition-transform hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
           style={{
-            background: "linear-gradient(135deg, #9333ea, #c084fc)",
-            boxShadow: "0 4px 20px rgba(168,85,247,0.35)",
+            background: "var(--signal)",
+            boxShadow: "var(--shadow-brand)",
             border: "1px solid rgba(255,255,255,0.1)",
             fontFamily: "var(--font-poppins), Poppins, sans-serif",
             fontSize: "15px",
@@ -174,7 +173,7 @@ function LoginContent() {
             fontFamily: "var(--font-poppins), Poppins, sans-serif",
             fontWeight: 400,
             fontSize: "11px",
-            color: "rgba(255,255,255,0.25)",
+            color: "var(--text-muted)",
             marginTop: 24,
           }}
         >
@@ -191,12 +190,12 @@ export default function LoginPage() {
       fallback={
         <main
           className="min-h-screen flex items-center justify-center"
-          style={{ background: "#0a0612" }}
+          style={{ background: "var(--surface-page)" }}
         >
           <div
             style={{
               fontFamily: "var(--font-poppins), Poppins, sans-serif",
-              color: "rgba(255,255,255,0.5)",
+              color: "var(--text-muted)",
             }}
           >
             Loading...

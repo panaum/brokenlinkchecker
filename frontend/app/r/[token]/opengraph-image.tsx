@@ -18,7 +18,7 @@ function domainOf(url: string): string {
 }
 // The score ring/numeral is BRAND purple (identity), not a status color.
 function scoreColor(s: number | null): string {
-  return s == null ? "#9aa0b4" : "#a855f7";
+  return s == null ? "#9aa0b4" : "#4f46e5";
 }
 
 export default async function OgImage({ params }: { params: Promise<{ token: string }> }) {
@@ -59,7 +59,7 @@ export default async function OgImage({ params }: { params: Promise<{ token: str
         }}
       >
         <div style={{ display: "flex", alignItems: "center", color: "#e9f4f1", fontSize: 34, fontWeight: 800 }}>
-          Link<span style={{ color: "#a855f7" }}>Spy</span>
+          Link<span style={{ color: "#4f46e5" }}>Spy</span>
         </div>
 
         <div style={{ display: "flex", alignItems: "center", gap: 56 }}>

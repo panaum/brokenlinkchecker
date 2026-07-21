@@ -51,7 +51,7 @@ function ParticleBg() {
           height="40"
           patternUnits="userSpaceOnUse"
         >
-          <circle cx="1.5" cy="1.5" r="1.5" fill="rgba(138,26,155,0.5)" />
+          <circle cx="1.5" cy="1.5" r="1.5" fill="rgba(79,70,229,0.25)" />
         </pattern>
       </defs>
       <rect width="100%" height="100%" fill="url(#dots)" />
@@ -245,7 +245,7 @@ export default function HomePage() {
         <div className="relative z-10 text-center px-4">
           {/* Badge pill */}
           <div className="inline-flex items-center gap-2 bg-gradient-2 px-4 py-2 rounded-full mb-6">
-            <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse-dot" />
+            <span className="w-2 h-2 rounded-full bg-[#4caf7d] animate-pulse-dot" />
             <span
               className="text-white/90 text-sm"
               style={{
@@ -275,7 +275,7 @@ export default function HomePage() {
             style={{
               fontFamily: "var(--font-poppins), Poppins, sans-serif",
               fontWeight: 400,
-              color: "rgba(255,255,255,0.60)",
+              color: "#66667a",
               fontSize: "18px",
             }}
           >
@@ -367,9 +367,9 @@ export default function HomePage() {
         <section className="relative z-10 px-4 mt-10">
           <div className="w-full max-w-3xl mx-auto glass-card p-10 text-center flex flex-col items-center gap-5">
             <svg width="72" height="72" viewBox="0 0 72 72" fill="none">
-              <circle cx="36" cy="36" r="32" stroke="rgba(255,255,255,0.08)" strokeWidth="2" />
-              <path d="M24 36h24M36 24v24" stroke="rgba(255,255,255,0.15)" strokeWidth="2" strokeLinecap="round" />
-              <circle cx="36" cy="36" r="8" stroke="rgba(255,255,255,0.1)" strokeWidth="2" />
+              <circle cx="36" cy="36" r="32" stroke="#e8e8f0" strokeWidth="2" />
+              <path d="M24 36h24M36 24v24" stroke="#d7d7e2" strokeWidth="2" strokeLinecap="round" />
+              <circle cx="36" cy="36" r="8" stroke="#e8e8f0" strokeWidth="2" />
             </svg>
             <div>
               <p
@@ -377,7 +377,7 @@ export default function HomePage() {
                   fontFamily: "var(--font-poppins), Poppins, sans-serif",
                   fontWeight: 600,
                   fontSize: "18px",
-                  color: "rgba(255,255,255,0.7)",
+                  color: "#1c1c2e",
                   marginBottom: 8,
                 }}
               >
@@ -388,7 +388,7 @@ export default function HomePage() {
                   fontFamily: "var(--font-poppins), Poppins, sans-serif",
                   fontWeight: 400,
                   fontSize: "14px",
-                  color: "rgba(255,255,255,0.4)",
+                  color: "#7a7a8c",
                   lineHeight: 2,
                   listStyle: "none",
                   padding: 0,

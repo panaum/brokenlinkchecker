@@ -32,11 +32,11 @@ function PreviewTooltip({ url }: { url: string }) {
     <div
       style={{
         width: 280,
-        background: "rgba(15,8,30,0.97)",
-        border: "1px solid rgba(255,255,255,0.15)",
+        background: "var(--surface-card)",
+        border: "1px solid var(--border-subtle)",
         borderRadius: 12,
         overflow: "hidden",
-        boxShadow: "0 12px 40px rgba(0,0,0,0.6)",
+        boxShadow: "var(--elev-3)",
         animation: "fadeIn 0.2s ease",
       }}
     >
@@ -44,21 +44,21 @@ function PreviewTooltip({ url }: { url: string }) {
         style={{
           padding: "6px 10px",
           fontSize: "10px",
-          color: "rgba(255,255,255,0.4)",
+          color: "var(--text-muted)",
           fontFamily: "var(--font-poppins), Poppins, sans-serif",
           fontWeight: 500,
-          borderBottom: "1px solid rgba(255,255,255,0.08)",
+          borderBottom: "1px solid var(--border-subtle)",
         }}
       >
         Preview
       </div>
       {loading && (
-        <div style={{ padding: 20, textAlign: "center", color: "rgba(255,255,255,0.3)", fontSize: 12 }}>
+        <div style={{ padding: 20, textAlign: "center", color: "var(--text-muted)", fontSize: 12 }}>
           Loading preview…
         </div>
       )}
       {error && (
-        <div style={{ padding: 20, textAlign: "center", color: "rgba(255,255,255,0.3)", fontSize: 12 }}>
+        <div style={{ padding: 20, textAlign: "center", color: "var(--text-muted)", fontSize: 12 }}>
           Preview unavailable
         </div>
       )}
@@ -90,17 +90,17 @@ export default function SuggestionCard({ suggestion }: SuggestionCardProps) {
       <div
         className="flex items-start gap-2 mt-2 rounded-lg px-3 py-3"
         style={{
-          background: "rgba(248,113,113,0.06)",
-          border: "1px solid rgba(248,113,113,0.25)",
+          background: "rgba(224,92,92,0.06)",
+          border: "1px solid rgba(224,92,92,0.25)",
         }}
       >
-        <AlertTriangle size={14} style={{ color: "#f87171", marginTop: 2, flexShrink: 0 }} />
+        <AlertTriangle size={14} style={{ color: "#e05c5c", marginTop: 2, flexShrink: 0 }} />
         <div>
-          <span style={{ fontSize: "12px", color: "#f87171", fontFamily: "var(--font-poppins), Poppins, sans-serif", fontWeight: 600 }}>
+          <span style={{ fontSize: "12px", color: "#e05c5c", fontFamily: "var(--font-poppins), Poppins, sans-serif", fontWeight: 600 }}>
             ⚠️ This page appears to have been deliberately removed. Do not replace.
           </span>
           {suggestion.wayback_last_seen && (
-            <div style={{ fontSize: "11px", color: "rgba(255,255,255,0.35)", marginTop: 4, fontFamily: "var(--font-poppins), Poppins, sans-serif" }}>
+            <div style={{ fontSize: "11px", color: "var(--text-muted)", marginTop: 4, fontFamily: "var(--font-poppins), Poppins, sans-serif" }}>
               Last seen in Wayback Machine: {suggestion.wayback_last_seen}
             </div>
           )}
@@ -115,12 +115,12 @@ export default function SuggestionCard({ suggestion }: SuggestionCardProps) {
       <div
         className="flex items-start gap-2 mt-2 rounded-lg px-3 py-3"
         style={{
-          background: "rgba(251,191,36,0.06)",
-          border: "1px solid rgba(251,191,36,0.2)",
+          background: "rgba(245,166,35,0.06)",
+          border: "1px solid rgba(245,166,35,0.2)",
         }}
       >
-        <HelpCircle size={14} style={{ color: "#fbbf24", marginTop: 2, flexShrink: 0 }} />
-        <span style={{ fontSize: "12px", color: "rgba(255,255,255,0.6)", fontFamily: "var(--font-poppins), Poppins, sans-serif" }}>
+        <HelpCircle size={14} style={{ color: "#f5a623", marginTop: 2, flexShrink: 0 }} />
+        <span style={{ fontSize: "12px", color: "var(--text-secondary)", fontFamily: "var(--font-poppins), Poppins, sans-serif" }}>
           This URL never existed — likely a typo when the link was created.
         </span>
       </div>
@@ -133,13 +133,13 @@ export default function SuggestionCard({ suggestion }: SuggestionCardProps) {
   }
 
   // Confidence-based border color
-  let borderColor = "#fbbf24"; // 60-69 yellow
+  let borderColor = "#f5a623"; // 60-69 yellow
   let borderLabel = "Use with caution";
   if (suggestion.confidence >= 90) {
-    borderColor = "#4ade80"; // green
+    borderColor = "#4caf7d"; // green
     borderLabel = "Auto-fix ready";
   } else if (suggestion.confidence >= 70) {
-    borderColor = "#fb923c"; // orange
+    borderColor = "#f5a623"; // orange
     borderLabel = "Review recommended";
   }
 
@@ -147,7 +147,7 @@ export default function SuggestionCard({ suggestion }: SuggestionCardProps) {
     <div
       className="mt-2 rounded-lg px-4 py-3"
       style={{
-        background: "rgba(255,255,255,0.03)",
+        background: "var(--surface-card)",
         border: `1px solid ${borderColor}40`,
         borderLeft: `3px solid ${borderColor}`,
       }}
@@ -158,7 +158,7 @@ export default function SuggestionCard({ suggestion }: SuggestionCardProps) {
         <span style={{ fontSize: "12px", fontWeight: 600, color: borderColor, fontFamily: "var(--font-poppins), Poppins, sans-serif" }}>
           Suggested Replacement
         </span>
-        <span style={{ fontSize: "10px", color: "rgba(255,255,255,0.3)", fontFamily: "var(--font-poppins), Poppins, sans-serif", marginLeft: "auto" }}>
+        <span style={{ fontSize: "10px", color: "var(--text-muted)", fontFamily: "var(--font-poppins), Poppins, sans-serif", marginLeft: "auto" }}>
           {borderLabel}
         </span>
       </div>
@@ -192,11 +192,11 @@ export default function SuggestionCard({ suggestion }: SuggestionCardProps) {
 
       {/* Confidence + reasoning */}
       <div className="flex items-center gap-3 mt-2">
-        <span style={{ fontSize: "11px", color: "rgba(255,255,255,0.5)", fontFamily: "var(--font-poppins), Poppins, sans-serif" }}>
+        <span style={{ fontSize: "11px", color: "var(--text-muted)", fontFamily: "var(--font-poppins), Poppins, sans-serif" }}>
           Confidence: <strong style={{ color: borderColor }}>{suggestion.confidence}%</strong>
         </span>
       </div>
-      <div style={{ fontSize: "11px", color: "rgba(255,255,255,0.4)", fontFamily: "var(--font-poppins), Poppins, sans-serif", marginTop: 4 }}>
+      <div style={{ fontSize: "11px", color: "var(--text-muted)", fontFamily: "var(--font-poppins), Poppins, sans-serif", marginTop: 4 }}>
         {suggestion.reasoning}
       </div>
 
@@ -206,15 +206,15 @@ export default function SuggestionCard({ suggestion }: SuggestionCardProps) {
           onClick={(e) => { e.stopPropagation(); doCopy(suggestion.suggested_url!); }}
           className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg cursor-pointer transition-colors"
           style={{
-            background: "rgba(255,255,255,0.06)",
-            border: "1px solid rgba(255,255,255,0.1)",
+            background: "rgba(28,28,46,0.04)",
+            border: "1px solid var(--border-subtle)",
             fontSize: "11px",
-            color: "rgba(255,255,255,0.6)",
+            color: "var(--text-secondary)",
             fontFamily: "var(--font-poppins), Poppins, sans-serif",
             fontWeight: 500,
           }}
         >
-          {copied ? <Check size={12} style={{ color: "#4ade80" }} /> : <Copy size={12} />}
+          {copied ? <Check size={12} style={{ color: "#4caf7d" }} /> : <Copy size={12} />}
           {copied ? "Copied!" : "Copy URL"}
         </button>
         <a
@@ -224,10 +224,10 @@ export default function SuggestionCard({ suggestion }: SuggestionCardProps) {
           onClick={(e) => e.stopPropagation()}
           className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg transition-colors"
           style={{
-            background: "rgba(255,255,255,0.06)",
-            border: "1px solid rgba(255,255,255,0.1)",
+            background: "rgba(28,28,46,0.04)",
+            border: "1px solid var(--border-subtle)",
             fontSize: "11px",
-            color: "rgba(255,255,255,0.6)",
+            color: "var(--text-secondary)",
             fontFamily: "var(--font-poppins), Poppins, sans-serif",
             fontWeight: 500,
             textDecoration: "none",
@@ -241,10 +241,10 @@ export default function SuggestionCard({ suggestion }: SuggestionCardProps) {
             onClick={(e) => { e.stopPropagation(); doCopy(suggestion.suggested_url!); }}
             className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg cursor-pointer transition-colors"
             style={{
-              background: "rgba(74,222,128,0.12)",
-              border: "1px solid rgba(74,222,128,0.25)",
+              background: "rgba(76,175,125,0.12)",
+              border: "1px solid rgba(76,175,125,0.25)",
               fontSize: "11px",
-              color: "#4ade80",
+              color: "#4caf7d",
               fontFamily: "var(--font-poppins), Poppins, sans-serif",
               fontWeight: 600,
             }}

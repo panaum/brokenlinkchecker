@@ -1,13 +1,14 @@
 @import "tailwindcss";
 
 @theme {
-  --font-sans: var(--font-body), system-ui, sans-serif;
+  --font-sans: var(--font-geist-sans), system-ui, sans-serif;
 }
 
 /* ═══════════════════════════════════════════════════════════════════════════
-   DESIGN TOKENS. Accent = the original LinkSpy purple (brand, actions,
-   interactive). Health has its OWN language (green healthy · amber attention ·
-   red broken · gray neutral) — the accent is never a status. Dark theme only.
+   DESIGN TOKENS — light / indigo, mirrored from the Deliverables Dashboard so
+   the two apps read as one product. Accent = a single flat indigo (brand,
+   actions, interactive). Health keeps its OWN language (green healthy · amber
+   attention · red broken · gray neutral) — the accent is never a status.
    ═══════════════════════════════════════════════════════════════════════════ */
 :root {
   /* Spacing — 8px scale */
@@ -21,48 +22,53 @@
   --text-caption: 13px;
   --leading-tight: 1.2; --leading-normal: 1.55;
 
-  /* Font families (self-hosted via next/font) */
-  --font-stack-display: var(--font-display), "Bricolage Grotesque", sans-serif;
-  --font-stack-body: var(--font-body), system-ui, sans-serif;
-  --font-stack-mono: var(--font-mono), "JetBrains Mono", ui-monospace, monospace;
+  /* Font families — Geist (Dashboard-matched), loaded via next/font in layout. */
+  --font-body: var(--font-geist-sans);
+  --font-display: var(--font-geist-sans);
+  --font-mono: var(--font-geist-mono);
+  --font-stack-display: var(--font-geist-sans), system-ui, sans-serif;
+  --font-stack-body: var(--font-geist-sans), system-ui, sans-serif;
+  --font-stack-mono: var(--font-geist-mono), ui-monospace, "JetBrains Mono", monospace;
 
   /* Radius — one family */
   --radius-sm: 8px; --radius-md: 12px; --radius-lg: 16px; --radius-pill: 999px;
 
-  /* Surfaces — dark with a purple cast, NOT pure black. Cards lift a clearly
-     visible step above the page (the contrast fix stays). */
-  --surface-page: #0b0712;
-  --surface-card: #171122;
-  --surface-raised: #21182f;
-  --border-subtle: rgba(255, 255, 255, 0.10);
-  --border-strong: rgba(255, 255, 255, 0.18);
+  /* Surfaces — calm neutral canvas; white cards lift a soft step above it. */
+  --surface-page: #f6f6f9;
+  --surface-card: #ffffff;
+  --surface-raised: #ffffff;
+  --border-subtle: #e8e8f0;
+  --border-strong: #d7d7e2;
 
   /* Text — 3 tiers, all AA on --surface-card */
-  --text-primary: rgba(245, 243, 250, 0.94);
-  --text-secondary: rgba(232, 228, 242, 0.66);
-  --text-muted: rgba(218, 214, 230, 0.46);
+  --text-primary: #1c1c2e;
+  --text-secondary: #66667a;
+  --text-muted: #7a7a8c;
 
-  /* Elevation ramp */
-  --elev-1: 0 1px 2px rgba(0,0,0,0.40);
-  --elev-2: 0 8px 24px rgba(0,0,0,0.45);
-  --elev-3: 0 18px 50px rgba(0,0,0,0.55);
+  /* Elevation ramp — soft, layered, low-contrast (premium depth) */
+  --elev-1: 0 1px 2px rgba(20,20,43,0.04), 0 2px 6px rgba(20,20,43,0.05);
+  --elev-2: 0 4px 12px rgba(20,20,43,0.06), 0 8px 24px rgba(20,20,43,0.07);
+  --elev-3: 0 12px 40px rgba(20,20,43,0.10);
 
-  /* THE accent — the original LinkSpy purple. Brand, primary action, links,
-     focus, interactive highlight. Never a status. */
-  --signal: #a855f7;
-  --signal-bright: #c084fc;
-  --signal-dim: #2a1a3f;         /* atmospheric only (glows) */
+  /* THE accent — a single flat indigo. Brand, primary action, links, focus,
+     interactive highlight. Never a status. */
+  --signal: #4f46e5;
+  --signal-bright: #6366f1;
+  --signal-dim: #eceafd;         /* atmospheric only (glows) */
   --signal-ink: #ffffff;         /* text that sits on an accent fill */
-  --signal-gradient: linear-gradient(132deg, rgb(65,0,153) 0%, rgb(138,26,155) 100%);
+  --signal-gradient: #4f46e5;    /* flat — no gradients in this system */
 
   /* Health language — its own colors, independent of the accent.
      healthy = green · broken = red · attention = amber · neutral = gray. */
-  --status-healthy: #4ade80;   --status-healthy-bg: rgba(74,222,128,0.14);
-  --status-broken: #f87171;    --status-broken-bg: rgba(248,113,113,0.13);
-  --status-attention: #fbbf24; --status-attention-bg: rgba(251,191,36,0.13);
-  --status-neutral: #9aa0b4;   --status-neutral-bg: rgba(154,160,180,0.13);
+  --status-healthy: #4caf7d;   --status-healthy-bg: rgba(76,175,125,0.12);
+  --status-broken: #e05c5c;    --status-broken-bg: rgba(224,92,92,0.12);
+  --status-attention: #f5a623; --status-attention-bg: rgba(245,166,35,0.12);
+  --status-neutral: #7a7a8c;   --status-neutral-bg: rgba(122,122,140,0.12);
 
   --accent-solid: var(--signal);
+
+  /* Brand shadow for primary actions (Dashboard parity). */
+  --shadow-brand: 0 6px 20px rgba(79, 70, 229, 0.25);
 
   /* Legacy alias: many components still set font-family: var(--font-poppins). */
   --font-poppins: var(--font-stack-body);
@@ -89,15 +95,14 @@
     transition: background var(--motion), color var(--motion);
   }
 
-  /* ── ATMOSPHERE ── a single soft purple glow up top. Calm, not busy. */
+  /* ── ATMOSPHERE ── retired: the Dashboard canvas is flat and clean. */
   body::before {
     content: "";
     position: fixed;
     inset: 0;
     z-index: 0;
     pointer-events: none;
-    background:
-      radial-gradient(900px 420px at 50% -5%, rgba(168,85,247,0.12), transparent 70%);
+    background: none;
   }
   /* Keep app content above the atmosphere layer. */
   body > * { position: relative; z-index: 1; }
@@ -112,7 +117,7 @@
 
   ::-webkit-scrollbar { width: 8px; height: 8px; }
   ::-webkit-scrollbar-track { background: transparent; }
-  ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.16); border-radius: 4px; }
+  ::-webkit-scrollbar-thumb { background: rgba(28,28,46,0.14); border-radius: 4px; }
 }
 
 /* ═══ Typography utilities ═══ */
@@ -155,15 +160,15 @@
   font-weight: 700;
   cursor: pointer;
   transition: filter var(--motion-fast), transform var(--motion-fast), box-shadow var(--motion);
-  box-shadow: 0 0 0 rgba(168,85,247,0);
+  box-shadow: 0 0 0 rgba(79,70,229,0);
 }
-.ds-btn-primary:hover { filter: brightness(1.08); box-shadow: 0 6px 22px rgba(168,85,247,0.22); }
+.ds-btn-primary:hover { filter: brightness(1.05); box-shadow: var(--shadow-brand); }
 .ds-btn-primary:active { transform: translateY(1px); filter: brightness(0.96); }
 .ds-btn-primary:disabled { opacity: 0.45; cursor: not-allowed; filter: none; box-shadow: none; }
 
 /* Ghost action — no fill, quiet. Same press physics. */
 .ds-btn-ghost {
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--surface-card);
   color: var(--text-primary);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-md);
@@ -173,7 +178,7 @@
   cursor: pointer;
   transition: background var(--motion), border-color var(--motion), transform var(--motion-fast);
 }
-.ds-btn-ghost:hover { background: rgba(255, 255, 255, 0.10); border-color: var(--border-strong); }
+.ds-btn-ghost:hover { background: rgba(79, 70, 229, 0.06); border-color: rgba(79,70,229,0.35); }
 .ds-btn-ghost:active { transform: translateY(1px); }
 .ds-btn-ghost:disabled { opacity: 0.45; cursor: not-allowed; }
 
@@ -190,14 +195,14 @@
 .ds-status-neutral   .ds-status-dot { background: var(--status-neutral); }
 
 @keyframes ds-breathe {
-  0%, 100% { box-shadow: 0 0 0 0 rgba(74,222,128,0.45); opacity: 1; }
-  50%      { box-shadow: 0 0 0 4px rgba(74,222,128,0);   opacity: 0.7; }
+  0%, 100% { box-shadow: 0 0 0 0 rgba(76,175,125,0.40); opacity: 1; }
+  50%      { box-shadow: 0 0 0 4px rgba(76,175,125,0);   opacity: 0.7; }
 }
 
 /* Skeleton — matches final layout, no jump. */
 @keyframes ds-shimmer { 0% { background-position: -200% 0; } 100% { background-position: 200% 0; } }
 .ds-skeleton {
-  background: linear-gradient(90deg, rgba(255,255,255,0.04) 25%, rgba(255,255,255,0.10) 50%, rgba(255,255,255,0.04) 75%);
+  background: linear-gradient(90deg, rgba(28,28,46,0.05) 25%, rgba(28,28,46,0.10) 50%, rgba(28,28,46,0.05) 75%);
   background-size: 200% 100%;
   animation: ds-shimmer 1.4s ease-in-out infinite;
   border-radius: var(--radius-sm);
@@ -224,39 +229,33 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 }
 .radar-sweep {
   position: absolute; inset: 0; border-radius: 50%;
-  background: conic-gradient(from 0deg, transparent 0deg, transparent 300deg, rgba(168,85,247,0.05) 330deg, rgba(168,85,247,0.55) 360deg);
+  background: conic-gradient(from 0deg, transparent 0deg, transparent 300deg, rgba(79,70,229,0.05) 330deg, rgba(79,70,229,0.55) 360deg);
   animation: radar-sweep 2.4s linear infinite;
 }
 .radar-sweep-locking { animation: radar-sweep 2.4s var(--ease-out-quart) forwards; }
 
-/* ═══ Legacy utility classes — the original LinkSpy purple gradients ═══ */
-.bg-gradient-1 { background: linear-gradient(132deg, rgb(65,0,153) 0%, rgb(138,26,155) 100%); }
-.bg-gradient-2 { background: linear-gradient(132deg, rgb(65,0,153) 0%, rgb(86,16,96) 100%); }
-.bg-gradient-3 { background: linear-gradient(132deg, rgb(138,26,155) 0%, rgb(35,30,70) 100%); }
+/* ═══ Legacy utility classes — gradients retired to a single flat indigo ═══ */
+.bg-gradient-1 { background: var(--signal); }
+.bg-gradient-2 { background: var(--signal); }
+.bg-gradient-3 { background: var(--signal); }
 
+/* Solid white card (blur/translucency retired). */
 .glass-card {
-  background: rgba(255, 255, 255, 0.035);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
+  background: var(--surface-card);
   border: 1px solid var(--border-subtle);
   border-radius: 16px;
+  box-shadow: var(--elev-1);
 }
 
 .gradient-text {
-  background: var(--signal-gradient);
-  -webkit-background-clip: text;
-  -webkit-text-fill-color: transparent;
-  background-clip: text;
+  color: var(--signal);
 }
 
-/* Animated signal border (URL input). Purple retired -> radar teal. */
+/* Signal border retired to a static soft hairline (no rotating gradient). */
 .animated-border { position: relative; z-index: 0; }
 .animated-border::before {
   content: ""; position: absolute; z-index: -1; inset: -1px; border-radius: 18px;
-  background: linear-gradient(135deg, #9333ea, #c084fc, #0f766e, #9333ea);
-  background-size: 300% 300%;
-  animation: gradient-rotate 5s ease infinite;
-  opacity: 0.5;
+  background: var(--border-subtle);
 }
 .animated-border::after {
   content: ""; position: absolute; z-index: -1; inset: 0; border-radius: 16px;
@@ -268,11 +267,9 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   100% { background-position: 0% 50%; }
 }
 
+/* Noise overlay retired — the Dashboard surface is clean. */
 .noise-overlay::before {
-  content: "";
-  position: absolute; inset: 0; opacity: 0.02; pointer-events: none; z-index: 1;
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='noise'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23noise)'/%3E%3C/svg%3E");
-  background-repeat: repeat; background-size: 256px 256px;
+  content: none;
 }
 
 @keyframes pulse-dot {
@@ -291,7 +288,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 /* ═══ Command palette (cmdk) ═══ */
 [cmdk-overlay] {
   position: fixed; inset: 0; z-index: 200;
-  background: rgba(3, 8, 9, 0.66);
+  background: rgba(20, 20, 43, 0.35);
   backdrop-filter: blur(4px);
   animation: fadeIn 120ms var(--ease-out-quart);
 }
@@ -300,9 +297,9 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   top: 18vh; left: 50%; transform: translateX(-50%);
   width: min(92vw, 580px);
   background: var(--surface-raised);
-  border: 1px solid var(--border-strong);
+  border: 1px solid var(--border-subtle);
   border-radius: var(--radius-lg);
-  box-shadow: var(--elev-3), 0 0 0 1px rgba(168,85,247,0.06);
+  box-shadow: var(--elev-3);
   overflow: hidden;
   animation: ds-rise 180ms var(--ease-out-quart) both;
 }
@@ -334,7 +331,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   transition: background var(--motion-fast);
 }
 .cmdk-item[data-selected="true"] {
-  background: rgba(168,85,247,0.12);
+  background: rgba(79,70,229,0.10);
   box-shadow: inset 2px 0 0 var(--signal);
 }
 .cmdk-dim { color: var(--text-muted); }
@@ -347,7 +344,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
   /* Drop the ops-room atmosphere and app chrome. */
   body::before, body::after { display: none !important; }
   nav, .no-print, [cmdk-overlay], .cmdk-root { display: none !important; }
-  body { background: #0b0712 !important; }
+  body { background: #ffffff !important; }
 
   .print-only { display: flex !important; }
   /* Running header on every printed page: domain · date · score. */
@@ -368,7 +365,7 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 /* ═══ Keyboard-triage active row ═══ */
 [data-triage-active] {
   box-shadow: inset 3px 0 0 var(--signal);
-  background: rgba(34, 211, 170, 0.06) !important;
+  background: rgba(79, 70, 229, 0.06) !important;
   transition: background var(--motion), box-shadow var(--motion);
 }
 

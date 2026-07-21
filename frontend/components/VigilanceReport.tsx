@@ -11,7 +11,7 @@ const MUTED = "#928da6";
 const PAPER = "#ffffff";
 const PAGE = "#f4f3f9";
 const LINE = "#e7e4f0";
-const BRAND = "#7c3aed";
+const BRAND = "#4f46e5";
 const GREEN = "#16a34a";
 const RED = "#dc2626";
 const AMBER = "#d97706";
@@ -122,7 +122,7 @@ export default function VigilanceReport({ data, siteName }: { data: ReportData; 
         </section>
 
         {/* ── Vigilance strip (the hero when nothing broke) ── */}
-        <section className="report-block" style={{ padding: "36px 48px", background: data.all_clear ? "#f8f6ff" : PAPER, borderBottom: `1px solid ${LINE}` }}>
+        <section className="report-block" style={{ padding: "36px 48px", background: data.all_clear ? "#f4f4fd" : PAPER, borderBottom: `1px solid ${LINE}` }}>
           {data.all_clear && (
             <div style={{ display: "flex", alignItems: "center", gap: 10, justifyContent: "center", marginBottom: 24, color: GREEN }}>
               <ShieldCheck size={18} /> <span style={{ fontWeight: 600, fontSize: 15 }}>Nothing broke on your watch this period.</span>

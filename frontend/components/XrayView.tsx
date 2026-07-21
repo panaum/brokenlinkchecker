@@ -132,7 +132,7 @@ export default function XrayView({
   return (
     <div className="ds-card ds-card-pad" style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) 300px", gap: "var(--space-4)" }}>
       {/* Screenshot + markers */}
-      <div ref={scrollRef} style={{ maxHeight: 560, overflowY: "auto", borderRadius: "var(--radius-md)", border: "1px solid var(--border-subtle)", background: "#000" }}>
+      <div ref={scrollRef} style={{ maxHeight: 560, overflowY: "auto", borderRadius: "var(--radius-md)", border: "1px solid var(--border-subtle)", background: "var(--surface-page)" }}>
         <div ref={imgWrapRef} style={{ position: "relative", width: "100%" }}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
@@ -182,7 +182,7 @@ export default function XrayView({
             style={{
               display: "flex", alignItems: "flex-start", gap: 8, padding: "8px 10px", borderRadius: "var(--radius-sm)",
               cursor: "pointer",
-              background: active === m.fp ? "rgba(168,85,247,0.08)" : "transparent",
+              background: active === m.fp ? "rgba(79,70,229,0.08)" : "transparent",
               border: `1px solid ${active === m.fp ? "var(--border-strong)" : "transparent"}`,
             }}
           >

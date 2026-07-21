@@ -111,13 +111,13 @@ export default function UrlInput({
               className={`px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition-all cursor-pointer ${
                 scanMode === "single"
                   ? "border"
-                  : "text-white/60 hover:text-white/80 hover:bg-white/5 border border-transparent"
+                  : "hover:bg-[rgba(79,70,229,0.06)] border border-transparent"
               }`}
               style={{
                 fontFamily: "var(--font-poppins), Poppins, sans-serif",
                 ...(scanMode === "single"
-                  ? { background: "rgba(168,85,247,0.14)", color: "var(--signal)", borderColor: "rgba(168,85,247,0.4)" }
-                  : {}),
+                  ? { background: "rgba(79,70,229,0.14)", color: "var(--signal)", borderColor: "rgba(79,70,229,0.4)" }
+                  : { color: "var(--text-secondary)" }),
               }}
             >
               Single Page
@@ -129,13 +129,13 @@ export default function UrlInput({
               className={`px-4 py-2 rounded-lg text-xs sm:text-sm font-medium transition-all cursor-pointer ${
                 scanMode === "site"
                   ? "border"
-                  : "text-white/60 hover:text-white/80 hover:bg-white/5 border border-transparent"
+                  : "hover:bg-[rgba(79,70,229,0.06)] border border-transparent"
               }`}
               style={{
                 fontFamily: "var(--font-poppins), Poppins, sans-serif",
                 ...(scanMode === "site"
-                  ? { background: "rgba(168,85,247,0.14)", color: "var(--signal)", borderColor: "rgba(168,85,247,0.4)" }
-                  : {}),
+                  ? { background: "rgba(79,70,229,0.14)", color: "var(--signal)", borderColor: "rgba(79,70,229,0.4)" }
+                  : { color: "var(--text-secondary)" }),
               }}
             >
               Full Website (Sitemap/Crawl)
@@ -159,11 +159,11 @@ export default function UrlInput({
             style={{
               fontFamily: "var(--font-stack-mono)",
               fontSize: 14,
-              background: "rgba(3,8,9,0.5)",
+              background: "var(--surface-page)",
               color: "var(--text-primary)",
               border: "1px solid var(--border-subtle)",
             }}
-            onFocus={(e) => { e.currentTarget.style.borderColor = "var(--signal)"; e.currentTarget.style.boxShadow = "0 0 0 3px rgba(168,85,247,0.18)"; }}
+            onFocus={(e) => { e.currentTarget.style.borderColor = "var(--signal)"; e.currentTarget.style.boxShadow = "0 0 0 3px rgba(79,70,229,0.18)"; }}
             onBlur={(e) => { e.currentTarget.style.borderColor = "var(--border-subtle)"; e.currentTarget.style.boxShadow = "none"; }}
             disabled={scanning}
           />
@@ -194,7 +194,7 @@ export default function UrlInput({
             className="mt-3 text-sm flex items-center gap-2"
             style={{
               fontFamily: "var(--font-poppins), Poppins, sans-serif",
-              color: "rgba(255,255,255,0.5)",
+              color: "var(--text-muted)",
             }}
           >
             Did you mean&nbsp;
@@ -215,7 +215,7 @@ export default function UrlInput({
             className="mt-3 text-sm flex items-start gap-2"
             style={{
               fontFamily: "var(--font-poppins), Poppins, sans-serif",
-              color: "#f87171",
+              color: "var(--status-broken)",
             }}
           >
             <span>⚠</span>

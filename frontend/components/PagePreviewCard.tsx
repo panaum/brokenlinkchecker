@@ -54,8 +54,7 @@ export default function PagePreviewCard({ meta, onRescan }: PagePreviewCardProps
             style={{
               width: 36,
               height: 36,
-              background:
-                "linear-gradient(132deg,rgb(23,184,148),rgb(52,230,192))",
+              background: "var(--signal)",
             }}
           >
             {faviconUrl && !faviconError ? (
@@ -74,7 +73,7 @@ export default function PagePreviewCard({ meta, onRescan }: PagePreviewCardProps
                   fontFamily: "var(--font-poppins), Poppins, sans-serif",
                   fontWeight: 700,
                   fontSize: "16px",
-                  color: "#fff",
+                  color: "#fff", // white on filled indigo badge
                 }}
               >
                 {firstLetter}
@@ -89,7 +88,7 @@ export default function PagePreviewCard({ meta, onRescan }: PagePreviewCardProps
                 fontFamily: "var(--font-poppins), Poppins, sans-serif",
                 fontWeight: 600,
                 fontSize: "14px",
-                color: "#fff",
+                color: "var(--text-primary)",
               }}
             >
               {meta.pageTitle || domain}
@@ -102,7 +101,7 @@ export default function PagePreviewCard({ meta, onRescan }: PagePreviewCardProps
               style={{
                 fontFamily: "monospace",
                 fontSize: "12px",
-                color: "rgba(255,255,255,0.4)",
+                color: "var(--text-muted)",
               }}
             >
               <Globe size={11} />
@@ -116,7 +115,7 @@ export default function PagePreviewCard({ meta, onRescan }: PagePreviewCardProps
             style={{
               fontFamily: "var(--font-poppins), Poppins, sans-serif",
               fontSize: "12px",
-              color: "rgba(255,255,255,0.35)",
+              color: "var(--text-muted)",
               whiteSpace: "nowrap",
             }}
           >
@@ -131,17 +130,17 @@ export default function PagePreviewCard({ meta, onRescan }: PagePreviewCardProps
               fontFamily: "var(--font-poppins), Poppins, sans-serif",
               fontSize: "12px",
               fontWeight: 500,
-              color: "rgba(255,255,255,0.6)",
-              background: "rgba(255,255,255,0.05)",
-              border: "1px solid rgba(255,255,255,0.12)",
+              color: "var(--text-secondary)",
+              background: "rgba(28,28,46,0.04)",
+              border: "1px solid var(--border-subtle)",
             }}
             onMouseEnter={(e) => {
               (e.currentTarget as HTMLButtonElement).style.background =
-                "rgba(255,255,255,0.1)";
+                "rgba(28,28,46,0.06)";
             }}
             onMouseLeave={(e) => {
               (e.currentTarget as HTMLButtonElement).style.background =
-                "rgba(255,255,255,0.05)";
+                "rgba(28,28,46,0.04)";
             }}
           >
             Re-scan

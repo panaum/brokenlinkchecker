@@ -68,17 +68,17 @@ export default function ScanProgress({
                     width: 36,
                     height: 36,
                     background: isDone
-                      ? "rgba(74,222,128,0.15)"
+                      ? "rgba(76,175,125,0.15)"
                       : isCurrent
-                      ? "linear-gradient(132deg,rgb(65,0,153),rgb(138,26,155))"
-                      : "rgba(255,255,255,0.05)",
+                      ? "var(--signal)"
+                      : "rgba(28,28,46,0.04)",
                     border: isDone
-                      ? "1.5px solid #4ade80"
+                      ? "1.5px solid var(--status-healthy)"
                       : isCurrent
-                      ? "1.5px solid rgba(138,26,155,0.8)"
-                      : "1.5px solid rgba(255,255,255,0.1)",
+                      ? "1.5px solid rgba(79,70,229,0.8)"
+                      : "1.5px solid var(--border-subtle)",
                     boxShadow: isCurrent
-                      ? "0 0 12px rgba(138,26,155,0.5)"
+                      ? "0 0 12px rgba(79,70,229,0.4)"
                       : "none",
                   }}
                 >
@@ -87,18 +87,18 @@ export default function ScanProgress({
                       className="absolute inset-0 rounded-full animate-ping"
                       style={{
                         background:
-                          "linear-gradient(132deg,rgb(65,0,153),rgb(138,26,155))",
+                          "var(--signal)",
                         opacity: 0.25,
                       }}
                     />
                   )}
                   {isDone ? (
-                    <Check size={16} color="#4ade80" />
+                    <Check size={16} color="var(--status-healthy)" />
                   ) : (
                     <Icon
                       size={16}
                       color={
-                        isCurrent ? "#fff" : "rgba(255,255,255,0.3)"
+                        isCurrent ? "#fff" : "var(--text-muted)"
                       }
                     />
                   )}
@@ -110,10 +110,10 @@ export default function ScanProgress({
                     fontSize: "11px",
                     fontWeight: isCurrent ? 600 : 400,
                     color: isDone
-                      ? "#4ade80"
+                      ? "var(--status-healthy)"
                       : isCurrent
-                      ? "#fff"
-                      : "rgba(255,255,255,0.3)",
+                      ? "var(--text-primary)"
+                      : "var(--text-muted)",
                     textDecoration: isDone ? "line-through" : "none",
                     textAlign: "center",
                   }}
@@ -127,9 +127,9 @@ export default function ScanProgress({
 
         {/* Connector line */}
         <div className="relative flex items-center -mt-3 px-5">
-          <div className="h-px flex-1 bg-white/10" />
+          <div className="h-px flex-1 bg-[var(--border-subtle)]" />
           <div
-            className="absolute left-5 h-px bg-gradient-to-r from-purple-600 to-fuchsia-600 transition-all duration-700"
+            className="absolute left-5 h-px bg-[var(--signal)] transition-all duration-700"
             style={{ width: `${(currentStep / (STEPS.length - 1)) * 100}%` }}
           />
         </div>
@@ -141,7 +141,7 @@ export default function ScanProgress({
               fontFamily: "var(--font-poppins), Poppins, sans-serif",
               fontSize: "13px",
               fontWeight: 400,
-              color: "rgba(255,255,255,0.65)",
+              color: "var(--text-secondary)",
               flexShrink: 1,
               minWidth: 0,
             }}
@@ -154,7 +154,7 @@ export default function ScanProgress({
                 fontFamily: "var(--font-poppins), Poppins, sans-serif",
                 fontSize: "16px",
                 fontWeight: 700,
-                color: "#fff",
+                color: "var(--text-primary)",
                 whiteSpace: "nowrap",
                 tabularNums: true,
               } as React.CSSProperties}
@@ -165,9 +165,9 @@ export default function ScanProgress({
         </div>
 
         {/* Progress bar */}
-        <div className="w-full h-2 rounded-full bg-white/10 overflow-hidden">
+        <div className="w-full h-2 rounded-full bg-[var(--border-subtle)] overflow-hidden">
           <div
-            className="h-full rounded-full bg-gradient-1 progress-fill"
+            className="h-full rounded-full bg-[var(--signal)] progress-fill"
             style={{ width: `${percent}%` }}
           />
         </div>
@@ -178,7 +178,7 @@ export default function ScanProgress({
             style={{
               fontFamily: "var(--font-poppins), Poppins, sans-serif",
               fontSize: "12px",
-              color: "rgba(255,255,255,0.35)",
+              color: "var(--text-muted)",
             }}
           >
             {estimatedSecsLeft !== null
@@ -193,20 +193,20 @@ export default function ScanProgress({
                 fontFamily: "var(--font-poppins), Poppins, sans-serif",
                 fontSize: "12px",
                 fontWeight: 500,
-                color: "rgba(255,255,255,0.5)",
-                background: "rgba(255,255,255,0.05)",
-                border: "1px solid rgba(255,255,255,0.1)",
+                color: "var(--text-muted)",
+                background: "rgba(28,28,46,0.04)",
+                border: "1px solid var(--border-subtle)",
               }}
               onMouseEnter={(e) => {
-                (e.currentTarget as HTMLButtonElement).style.color = "#f87171";
+                (e.currentTarget as HTMLButtonElement).style.color = "var(--status-broken)";
                 (e.currentTarget as HTMLButtonElement).style.borderColor =
-                  "rgba(248,113,113,0.3)";
+                  "rgba(224,92,92,0.3)";
               }}
               onMouseLeave={(e) => {
                 (e.currentTarget as HTMLButtonElement).style.color =
-                  "rgba(255,255,255,0.5)";
+                  "var(--text-muted)";
                 (e.currentTarget as HTMLButtonElement).style.borderColor =
-                  "rgba(255,255,255,0.1)";
+                  "var(--border-subtle)";
               }}
             >
               <X size={13} />

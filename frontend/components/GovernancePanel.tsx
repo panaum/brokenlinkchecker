@@ -16,8 +16,8 @@ interface Regime { header: string; all_clear: boolean; open_checks: Check[]; lim
 interface Gov { scope_statement: string; regimes: Record<string, Regime>; }
 
 const T = {
-  dark: { ink: "var(--text-primary)", sub: "var(--text-secondary)", muted: "var(--text-muted)", card: "var(--surface-card)", raised: "var(--surface-raised)", line: "rgba(255,255,255,0.08)", brand: "#a855f7", good: "#4ade80", bad: "#f87171", high: "#fb923c", info: "#8b93a7", badbg: "rgba(248,113,113,0.12)" },
-  light: { ink: "#1c1a2e", sub: "#55506b", muted: "#928da6", card: "#ffffff", raised: "#f4f3f9", line: "#e7e4f0", brand: "#7c3aed", good: "#16a34a", bad: "#dc2626", high: "#ea580c", info: "#8a86a0", badbg: "#fef2f2" },
+  dark: { ink: "var(--text-primary)", sub: "var(--text-secondary)", muted: "var(--text-muted)", card: "var(--surface-card)", raised: "var(--surface-raised)", line: "var(--border-subtle)", brand: "var(--signal)", good: "#4caf7d", bad: "#e05c5c", high: "#f5a623", info: "#7a7a8c", badbg: "rgba(224,92,92,0.12)" },
+  light: { ink: "#1c1a2e", sub: "#55506b", muted: "#928da6", card: "#ffffff", raised: "#f4f3f9", line: "#e7e4f0", brand: "var(--signal)", good: "#16a34a", bad: "#dc2626", high: "#ea580c", info: "#8a86a0", badbg: "#fef2f2" },
 };
 const sevColor = (s: string, c: typeof T.dark) => s === "critical" ? c.bad : s === "high" ? c.high : c.info;
 const REGIME_LABEL: Record<string, string> = { UK: "United Kingdom · UK GDPR / PECR", US: "United States · CCPA / CPRA" };

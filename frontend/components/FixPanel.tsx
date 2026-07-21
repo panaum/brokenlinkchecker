@@ -103,7 +103,7 @@ export default function FixPanel({ result, findingId, siteId }: FixPanelProps) {
 
   if (!findingId || !siteId) {
     return (
-      <p className="text-[11px] mt-2" style={{ color: "rgba(255,255,255,0.35)" }}>
+      <p className="text-[11px] mt-2" style={{ color: "var(--text-muted)" }}>
         Fix guidance appears once this scan has been saved.
       </p>
     );
@@ -129,7 +129,7 @@ export default function FixPanel({ result, findingId, siteId }: FixPanelProps) {
       </div>
 
       {verifying && (
-        <p className="text-[11px] mt-2 ds-verifying" style={{ color: "rgba(255,255,255,0.55)" }}>
+        <p className="text-[11px] mt-2 ds-verifying" style={{ color: "var(--text-muted)" }}>
           Verifying this fix…
         </p>
       )}
@@ -145,7 +145,7 @@ export default function FixPanel({ result, findingId, siteId }: FixPanelProps) {
       )}
 
       {error && (
-        <p className="text-[11px] mt-2" style={{ color: "#f87171" }}>
+        <p className="text-[11px] mt-2" style={{ color: "var(--status-broken)" }}>
           {error}
         </p>
       )}
@@ -160,44 +160,44 @@ export default function FixPanel({ result, findingId, siteId }: FixPanelProps) {
           >
             <div
               className="mt-3 rounded-lg p-4 text-xs"
-              style={{ background: "rgba(255,255,255,0.04)" }}
+              style={{ background: "rgba(28,28,46,0.04)" }}
             >
-              {loading && <span style={{ color: "rgba(255,255,255,0.5)" }}>Loading…</span>}
+              {loading && <span style={{ color: "var(--text-muted)" }}>Loading…</span>}
 
               {fix && (
                 <>
                   <div className="flex flex-wrap items-center gap-2 mb-2">
-                    <span className="font-semibold text-white/90">{fix.title}</span>
+                    <span className="font-semibold" style={{ color: "var(--text-primary)" }}>{fix.title}</span>
                     <Chip>{fix.est_time_minutes} min</Chip>
                     {fix.requires_dev && <Chip>needs a developer</Chip>}
                     <Chip>{fix.builder}</Chip>
                   </div>
 
                   {fix.proposed_value ? (
-                    <div className="mb-2" style={{ color: "rgba(255,255,255,0.65)" }}>
+                    <div className="mb-2" style={{ color: "var(--text-secondary)" }}>
                       <div style={{ marginBottom: 4 }}>Suggested replacement:</div>
                       {/^https?:\/\//.test(fix.proposed_value) && /^https?:\/\//.test(result.url) ? (
                         <UrlDiff oldUrl={result.url} newUrl={fix.proposed_value} />
                       ) : (
                         <code className="font-mono text-[11px]" style={{ color: "var(--signal)" }}>{fix.proposed_value}</code>
                       )}{" "}
-                      <span style={{ color: "rgba(255,255,255,0.4)" }}>
+                      <span style={{ color: "var(--text-muted)" }}>
                         (confidence: {fix.confidence} — confirm before applying)
                       </span>
                     </div>
                   ) : (
-                    <p className="mb-2" style={{ color: "rgba(255,255,255,0.4)" }}>
+                    <p className="mb-2" style={{ color: "var(--text-muted)" }}>
                       No replacement suggested — this one needs a human decision.
                     </p>
                   )}
 
-                  <ol className="list-decimal ml-4 space-y-1.5" style={{ color: "rgba(255,255,255,0.7)" }}>
+                  <ol className="list-decimal ml-4 space-y-1.5" style={{ color: "var(--text-secondary)" }}>
                     {fix.steps.map((step, i) => (
                       <li key={i}>{step}</li>
                     ))}
                   </ol>
 
-                  <p className="mt-3 text-[10px]" style={{ color: "rgba(255,255,255,0.3)" }}>
+                  <p className="mt-3 text-[10px]" style={{ color: "var(--text-muted)" }}>
                     Written by hand for {fix.builder} · {fix.template_source}
                   </p>
                 </>
@@ -214,7 +214,7 @@ function Chip({ children }: { children: React.ReactNode }) {
   return (
     <span
       className="text-[10px] rounded-full px-2 py-0.5"
-      style={{ background: "rgba(255,255,255,0.08)", color: "rgba(255,255,255,0.6)" }}
+      style={{ background: "rgba(28,28,46,0.06)", color: "var(--text-secondary)" }}
     >
       {children}
     </span>
@@ -239,7 +239,7 @@ function Action({
       onClick={onClick}
       data-triage={triage}
       className="inline-flex items-center gap-1.5 rounded-lg px-2.5 py-1 text-[11px] transition-colors cursor-pointer"
-      style={{ background: "rgba(255,255,255,0.06)", color: "rgba(255,255,255,0.7)" }}
+      style={{ background: "rgba(28,28,46,0.06)", color: "var(--text-secondary)" }}
     >
       <Icon size={12} className={spin ? "animate-spin" : ""} />
       {label}

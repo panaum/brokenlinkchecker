@@ -16,11 +16,11 @@ interface Sentinel {
 
 const T = {
   dark: { ink: "var(--text-primary)", sub: "var(--text-secondary)", muted: "var(--text-muted)",
-    card: "var(--surface-card)", raised: "var(--surface-raised)", line: "rgba(255,255,255,0.08)",
-    brand: "#a855f7", good: "#4ade80", notice: "#fbbf24", warn: "#fb923c", crit: "#f87171", critbg: "rgba(248,113,113,0.12)", noticebg: "rgba(251,191,36,0.10)" },
+    card: "var(--surface-card)", raised: "var(--surface-raised)", line: "var(--border-subtle)",
+    brand: "var(--signal)", good: "var(--status-healthy)", notice: "var(--status-attention)", warn: "#f5a623", crit: "var(--status-broken)", critbg: "rgba(224,92,92,0.12)", noticebg: "rgba(245,166,35,0.10)" },
   light: { ink: "#1c1a2e", sub: "#55506b", muted: "#928da6",
     card: "#ffffff", raised: "#f4f3f9", line: "#e7e4f0",
-    brand: "#7c3aed", good: "#16a34a", notice: "#d97706", warn: "#ea580c", crit: "#dc2626", critbg: "#fef2f2", noticebg: "#fffbeb" },
+    brand: "var(--signal)", good: "#16a34a", notice: "#d97706", warn: "#ea580c", crit: "#dc2626", critbg: "#fef2f2", noticebg: "#fffbeb" },
 };
 
 const ICON = { ssl: Lock, domain: Globe, index: Search, uptime: Activity } as const;

@@ -12,7 +12,7 @@ export interface AttestationDocData {
   signoff: { observing_party: string; issued_at: string; site_url: string };
 }
 
-const INK = "#1c1a2e", SECONDARY = "#55506b", MUTED = "#8a86a0", PAPER = "#ffffff", PAGE = "#f4f3f9", LINE = "#e7e4f0", BRAND = "#7c3aed";
+const INK = "#1c1a2e", SECONDARY = "#55506b", MUTED = "#8a86a0", PAPER = "#ffffff", PAGE = "#f4f3f9", LINE = "#e7e4f0", BRAND = "#4f46e5";
 const REGIME_LABEL: Record<string, string> = { UK: "United Kingdom — UK GDPR / PECR", US: "United States — CCPA / CPRA" };
 const sevWord: Record<string, string> = { critical: "critical", high: "high", medium: "medium" };
 

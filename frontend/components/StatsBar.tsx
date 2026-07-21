@@ -70,22 +70,22 @@ export default function StatsBar({ results, diff }: StatsBarProps) {
     {
       label: "Total Links",
       rawValue: totalLinks,
-      color: "#ffffff",
-      bg: "rgba(255,255,255,0.08)",
+      color: "var(--text-primary)",
+      bg: "rgba(28,28,46,0.04)",
       delay: 0,
     },
     {
       label: "Working",
       rawValue: working,
-      color: "#4ade80",
-      bg: "rgba(74,222,128,0.10)",
+      color: "#4caf7d",
+      bg: "rgba(76,175,125,0.10)",
       delay: 100,
     },
     {
       label: "Broken",
       rawValue: broken,
-      color: "#f87171",
-      bg: "rgba(248,113,113,0.10)",
+      color: "#e05c5c",
+      bg: "rgba(224,92,92,0.10)",
       delay: 200,
     },
     ...(deadCta > 0
@@ -93,8 +93,8 @@ export default function StatsBar({ results, diff }: StatsBarProps) {
           {
             label: "Dead CTAs",
             rawValue: deadCta,
-            color: "#fb923c",
-            bg: "rgba(251,146,60,0.10)",
+            color: "#f5a623",
+            bg: "rgba(245,166,35,0.10)",
             delay: 300,
           },
         ]
@@ -102,8 +102,8 @@ export default function StatsBar({ results, diff }: StatsBarProps) {
     {
       label: "Redirects",
       rawValue: redirects,
-      color: "#e879f9",
-      bg: "rgba(232,121,249,0.10)",
+      color: "#4f46e5",
+      bg: "rgba(79,70,229,0.10)",
       delay: 400,
     },
     // Timeouts and bot-blocked responses both live here now — they are things
@@ -113,8 +113,8 @@ export default function StatsBar({ results, diff }: StatsBarProps) {
           {
             label: "Unverifiable",
             rawValue: cantVerify,
-            color: "#fbbf24",
-            bg: "rgba(251,191,36,0.10)",
+            color: "#f5a623",
+            bg: "rgba(245,166,35,0.10)",
             delay: 500,
           },
         ]
@@ -126,8 +126,8 @@ export default function StatsBar({ results, diff }: StatsBarProps) {
       rawValue: diff?.new_links ?? 0,
       displayValue: hasBaseline && diff?.new_links != null ? undefined : "n/a",
       hint: hasBaseline ? undefined : noBaselineHint,
-      color: "#93c5fd",
-      bg: "rgba(147,197,253,0.10)",
+      color: "#5b8def",
+      bg: "rgba(91,141,239,0.10)",
       delay: 600,
     },
     {
@@ -137,8 +137,8 @@ export default function StatsBar({ results, diff }: StatsBarProps) {
       hint: hasBaseline
         ? `${diff?.fixed ?? 0} fixed · ${diff?.recurring ?? 0} still open`
         : noBaselineHint,
-      color: (diff?.new ?? 0) > 0 ? "#f87171" : "#4ade80",
-      bg: (diff?.new ?? 0) > 0 ? "rgba(248,113,113,0.10)" : "rgba(74,222,128,0.10)",
+      color: (diff?.new ?? 0) > 0 ? "#e05c5c" : "#4caf7d",
+      bg: (diff?.new ?? 0) > 0 ? "rgba(224,92,92,0.10)" : "rgba(76,175,125,0.10)",
       delay: 700,
     },
   ];
@@ -177,7 +177,7 @@ function StatCardItem({ stat }: { stat: StatCard }) {
         style={{
           fontFamily: "var(--font-poppins), Poppins, sans-serif",
           fontWeight: 300,
-          color: "rgba(255,255,255,0.5)",
+          color: "var(--text-muted)",
         }}
       >
         {stat.label}
@@ -187,7 +187,7 @@ function StatCardItem({ stat }: { stat: StatCard }) {
         style={{
           fontFamily: "var(--font-poppins), Poppins, sans-serif",
           fontWeight: 700,
-          color: isPlaceholder ? "rgba(255,255,255,0.35)" : stat.color,
+          color: isPlaceholder ? "var(--text-muted)" : stat.color,
         }}
       >
         {isPlaceholder ? stat.displayValue : animValue}
@@ -195,7 +195,7 @@ function StatCardItem({ stat }: { stat: StatCard }) {
       {stat.hint && (
         <div
           className="text-[10px] mt-1.5"
-          style={{ color: "rgba(255,255,255,0.4)" }}
+          style={{ color: "var(--text-muted)" }}
         >
           {stat.hint}
         </div>

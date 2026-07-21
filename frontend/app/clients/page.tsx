@@ -185,7 +185,7 @@ function ClientCard({ client, sites, invites, expanded, onToggle, onChanged }: {
   return (
     <div className="ds-card ds-card-pad">
       <div style={{ display: "flex", alignItems: "center", gap: 12, cursor: "pointer" }} onClick={onToggle}>
-        <div style={{ width: 34, height: 34, borderRadius: 9, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, color: "var(--signal)", background: "rgba(168,85,247,0.14)", fontFamily: "var(--font-stack-display)" }}>
+        <div style={{ width: 34, height: 34, borderRadius: 9, flexShrink: 0, display: "flex", alignItems: "center", justifyContent: "center", fontWeight: 700, color: "var(--signal)", background: "rgba(79,70,229,0.14)", fontFamily: "var(--font-stack-display)" }}>
           {client.name.charAt(0).toUpperCase()}
         </div>
         <div style={{ flex: 1, minWidth: 0 }}>
@@ -332,7 +332,7 @@ function InvitesPanel({ clientId, invites, onChanged }: {
       {error && <div className="ds-status ds-status-broken" style={{ fontSize: "var(--text-caption)", marginTop: 8 }}><span className="ds-status-dot" />{error}</div>}
       {link && (
         <div style={{ marginTop: 8, display: "flex", gap: 6, alignItems: "center" }}>
-          <input readOnly value={link} onFocus={(e) => e.currentTarget.select()} className="font-mono" style={{ flex: 1, minWidth: 0, background: "rgba(3,8,9,0.4)", border: "1px solid var(--border-subtle)", color: "var(--text-secondary)", borderRadius: "var(--radius-sm)", padding: "7px 9px", fontSize: 11 }} />
+          <input readOnly value={link} onFocus={(e) => e.currentTarget.select()} className="font-mono" style={{ flex: 1, minWidth: 0, background: "rgba(28,28,46,0.04)", border: "1px solid var(--border-subtle)", color: "var(--text-secondary)", borderRadius: "var(--radius-sm)", padding: "7px 9px", fontSize: 11 }} />
           <button className="ds-btn-primary" onClick={copy} style={{ padding: "0 10px" }}>{copied ? <Check size={14} /> : <Copy size={14} />}</button>
         </div>
       )}

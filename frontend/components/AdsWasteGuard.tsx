@@ -22,11 +22,11 @@ interface Preview { count: number; campaigns: string[]; has_cost: boolean; skipp
 
 const T = {
   dark: { ink: "var(--text-primary)", sub: "var(--text-secondary)", muted: "var(--text-muted)",
-    card: "var(--surface-card)", raised: "var(--surface-raised)", line: "rgba(255,255,255,0.08)",
-    brand: "#a855f7", good: "#4ade80", warn: "#fbbf24", bad: "#f87171", badbg: "rgba(248,113,113,0.12)" },
+    card: "var(--surface-card)", raised: "var(--surface-raised)", line: "var(--border-subtle)",
+    brand: "var(--signal)", good: "#4caf7d", warn: "#f5a623", bad: "#e05c5c", badbg: "rgba(224,92,92,0.12)" },
   light: { ink: "#1c1a2e", sub: "#55506b", muted: "#928da6",
     card: "#ffffff", raised: "#f4f3f9", line: "#e7e4f0",
-    brand: "#7c3aed", good: "#16a34a", warn: "#d97706", bad: "#dc2626", badbg: "#fef2f2" },
+    brand: "var(--signal)", good: "#16a34a", warn: "#d97706", bad: "#dc2626", badbg: "#fef2f2" },
 };
 
 function useCountUp(target: number, ms = 600) {

@@ -80,7 +80,7 @@ export default function RedirectMap({ result }: { result: LinkResult }) {
                     style={{
                       width: isTerminus ? 40 : 36, height: isTerminus ? 40 : 36, borderRadius: "50%",
                       border: `2px solid ${color}`, color,
-                      background: loopIndices.has(i) ? "rgba(255,107,107,0.12)" : "rgba(255,255,255,0.04)",
+                      background: loopIndices.has(i) ? "rgba(224,92,92,0.12)" : "rgba(28,28,46,0.04)",
                       display: "flex", alignItems: "center", justifyContent: "center",
                       fontSize: 12, fontWeight: 700, flexShrink: 0,
                     }}

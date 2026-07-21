@@ -267,23 +267,24 @@ export default function ExportButton({
     fontFamily: "var(--font-poppins), Poppins, sans-serif",
     fontSize: "13px",
     fontWeight: 400,
-    color: "rgba(255,255,255,0.75)",
+    color: "var(--text-secondary)",
   };
 
   return (
     <div ref={ref} className="relative">
       <button
         onClick={() => setOpen((p) => !p)}
-        className="glass-card inline-flex items-center gap-2 px-4 py-2 text-white/60 hover:text-white transition-colors cursor-pointer"
+        className="glass-card inline-flex items-center gap-2 px-4 py-2 transition-colors cursor-pointer"
         style={{
           fontFamily: "var(--font-poppins), Poppins, sans-serif",
           fontWeight: 500,
           fontSize: "13px",
+          color: "var(--text-secondary)",
         }}
         disabled={exporting}
       >
         {exporting ? (
-          <span style={{ color: "rgba(255,255,255,0.5)" }}>Generating PDF…</span>
+          <span style={{ color: "var(--text-muted)" }}>Generating PDF…</span>
         ) : (
           <>
             <Download size={14} />
@@ -303,11 +304,10 @@ export default function ExportButton({
         <div
           className="absolute right-0 top-full mt-2 z-50 rounded-xl overflow-hidden flex flex-col"
           style={{
-            background: "rgba(15,8,30,0.97)",
-            backdropFilter: "blur(16px)",
-            border: "1px solid rgba(255,255,255,0.12)",
+            background: "var(--surface-card)",
+            border: "1px solid var(--border-subtle)",
             minWidth: "210px",
-            boxShadow: "0 8px 32px rgba(0,0,0,0.5)",
+            boxShadow: "var(--elev-3)",
           }}
         >
           {/* CSV */}
@@ -316,22 +316,22 @@ export default function ExportButton({
             className="flex items-center gap-3 px-4 py-3 transition-colors cursor-pointer text-left w-full"
             style={menuItemStyle}
             onMouseEnter={(e) => {
-              (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.04)";
+              (e.currentTarget as HTMLButtonElement).style.background = "rgba(28,28,46,0.06)";
             }}
             onMouseLeave={(e) => {
               (e.currentTarget as HTMLButtonElement).style.background = "transparent";
             }}
           >
-            <Download size={15} style={{ color: "#4ade80" }} />
+            <Download size={15} style={{ color: "#4caf7d" }} />
             <div>
-              <div style={{ fontWeight: 500, color: "#fff" }}>Export as CSV</div>
-              <div style={{ fontSize: "11px", color: "rgba(255,255,255,0.35)" }}>
+              <div style={{ fontWeight: 500, color: "var(--text-primary)" }}>Export as CSV</div>
+              <div style={{ fontSize: "11px", color: "var(--text-muted)" }}>
                 All links with plain-English notes
               </div>
             </div>
           </button>
 
-          <div style={{ height: "1px", background: "rgba(255,255,255,0.06)" }} />
+          <div style={{ height: "1px", background: "var(--border-subtle)" }} />
 
           {/* PDF */}
           <button
@@ -339,22 +339,22 @@ export default function ExportButton({
             className="flex items-center gap-3 px-4 py-3 transition-colors cursor-pointer text-left w-full"
             style={menuItemStyle}
             onMouseEnter={(e) => {
-              (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.04)";
+              (e.currentTarget as HTMLButtonElement).style.background = "rgba(28,28,46,0.06)";
             }}
             onMouseLeave={(e) => {
               (e.currentTarget as HTMLButtonElement).style.background = "transparent";
             }}
           >
-            <FileText size={15} style={{ color: "#fb923c" }} />
+            <FileText size={15} style={{ color: "#f5a623" }} />
             <div>
-              <div style={{ fontWeight: 500, color: "#fff" }}>Export as PDF Report</div>
-              <div style={{ fontSize: "11px", color: "rgba(255,255,255,0.35)" }}>
+              <div style={{ fontWeight: 500, color: "var(--text-primary)" }}>Export as PDF Report</div>
+              <div style={{ fontSize: "11px", color: "var(--text-muted)" }}>
                 Professional report — broken links only
               </div>
             </div>
           </button>
 
-          <div style={{ height: "1px", background: "rgba(255,255,255,0.06)" }} />
+          <div style={{ height: "1px", background: "var(--border-subtle)" }} />
 
           {/* Copy */}
           <button
@@ -362,22 +362,22 @@ export default function ExportButton({
             className="flex items-center gap-3 px-4 py-3 transition-colors cursor-pointer text-left w-full"
             style={menuItemStyle}
             onMouseEnter={(e) => {
-              (e.currentTarget as HTMLButtonElement).style.background = "rgba(255,255,255,0.04)";
+              (e.currentTarget as HTMLButtonElement).style.background = "rgba(28,28,46,0.06)";
             }}
             onMouseLeave={(e) => {
               (e.currentTarget as HTMLButtonElement).style.background = "transparent";
             }}
           >
             {copied ? (
-              <Check size={15} style={{ color: "#4ade80" }} />
+              <Check size={15} style={{ color: "#4caf7d" }} />
             ) : (
-              <Clipboard size={15} style={{ color: "#e879f9" }} />
+              <Clipboard size={15} style={{ color: "#4f46e5" }} />
             )}
             <div>
-              <div style={{ fontWeight: 500, color: copied ? "#4ade80" : "#fff" }}>
+              <div style={{ fontWeight: 500, color: copied ? "#4caf7d" : "var(--text-primary)" }}>
                 {copied ? "Copied!" : "Copy summary to clipboard"}
               </div>
-              <div style={{ fontSize: "11px", color: "rgba(255,255,255,0.35)" }}>
+              <div style={{ fontSize: "11px", color: "var(--text-muted)" }}>
                 Plain-text audit summary
               </div>
             </div>

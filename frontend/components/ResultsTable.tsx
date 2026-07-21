@@ -43,14 +43,14 @@ const ZONE_ORDER = [
 
 const ZONE_DOT_COLORS: Record<string, string> = {
   // A broken form is the most expensive defect on a lead-gen site.
-  Form: "#f472b6",
-  Navigation: "#60a5fa",
-  Header: "#a855f7",
-  Footer: "#94a3b8",
-  CTA: "#fbbf24",
-  "Body text": "#e2e8f0",
-  Other: "#64748b",
-  "Dead CTA": "#f87171",
+  Form: "#e05c8a",
+  Navigation: "#5b8def",
+  Header: "#4f46e5",
+  Footer: "#7a7a8c",
+  CTA: "#f5a623",
+  "Body text": "#7a7a8c",
+  Other: "#7a7a8c",
+  "Dead CTA": "#e05c5c",
 };
 
 // ─── Uptime helper ────────────────────────────────────────────────────────────
@@ -70,10 +70,10 @@ const ROW_ACCENT: Record<
   string,
   { border: string; bg: string } | undefined
 > = {
-  broken: { border: "#f87171", bg: "rgba(248,113,113,0.04)" },
-  error: { border: "#f87171", bg: "rgba(248,113,113,0.04)" },
-  dead_cta: { border: "#fbbf24", bg: "rgba(251,191,36,0.03)" },
-  redirect: { border: "#fb923c", bg: "rgba(251,146,60,0.03)" },
+  broken: { border: "#e05c5c", bg: "rgba(224,92,92,0.04)" },
+  error: { border: "#e05c5c", bg: "rgba(224,92,92,0.04)" },
+  dead_cta: { border: "#f5a623", bg: "rgba(245,166,35,0.03)" },
+  redirect: { border: "#f5a623", bg: "rgba(245,166,35,0.03)" },
 };
 
 // ─── Sort weights ─────────────────────────────────────────────────────────────
@@ -118,7 +118,7 @@ function ImpactDetailCard({
     <div
       className="rounded-xl px-4 py-3 mt-1"
       style={{
-        background: "rgba(255,255,255,0.03)",
+        background: "rgba(28,28,46,0.04)",
         border: `1px solid ${impact.color}22`,
       }}
     >
@@ -139,7 +139,7 @@ function ImpactDetailCard({
             fontFamily: "var(--font-poppins), Poppins, sans-serif",
             fontSize: "12px",
             fontWeight: 400,
-            color: "rgba(255,255,255,0.4)",
+            color: "var(--text-muted)",
           }}
         >
           {impact.score}/100
@@ -149,7 +149,7 @@ function ImpactDetailCard({
         style={{
           fontFamily: "var(--font-poppins), Poppins, sans-serif",
           fontSize: "12px",
-          color: "rgba(255,255,255,0.5)",
+          color: "var(--text-secondary)",
           margin: 0,
           marginBottom: 6,
         }}
@@ -166,7 +166,7 @@ function ImpactDetailCard({
           fontFamily: "var(--font-poppins), Poppins, sans-serif",
           fontSize: "11px",
           fontWeight: 500,
-          color: "rgba(255,255,255,0.3)",
+          color: "var(--text-muted)",
           textDecoration: "underline",
           textDecorationStyle: "dotted" as const,
           textUnderlineOffset: "3px",
@@ -177,16 +177,16 @@ function ImpactDetailCard({
       {showWhy && (
         <div className="mt-2 flex flex-col gap-1">
           {[
-            { label: `Zone: ${category}`, value: `+${zoneScore}`, color: "#60a5fa" },
-            { label: `Time broken: ${daysBroken} days`, value: `+${timeScore}`, color: "#fbbf24" },
-            { label: `Severity: ${severityLabel}`, value: `+${severityScore}`, color: "#f87171" },
+            { label: `Zone: ${category}`, value: `+${zoneScore}`, color: "#5b8def" },
+            { label: `Time broken: ${daysBroken} days`, value: `+${timeScore}`, color: "#f5a623" },
+            { label: `Severity: ${severityLabel}`, value: `+${severityScore}`, color: "#e05c5c" },
           ].map((f) => (
             <div key={f.label} className="flex items-center justify-between">
               <span
                 style={{
                   fontFamily: "var(--font-poppins), Poppins, sans-serif",
                   fontSize: "11px",
-                  color: "rgba(255,255,255,0.4)",
+                  color: "var(--text-muted)",
                 }}
               >
                 {f.label}
@@ -205,14 +205,14 @@ function ImpactDetailCard({
           ))}
           <div
             className="flex items-center justify-between mt-1 pt-1"
-            style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}
+            style={{ borderTop: "1px solid var(--border-subtle)" }}
           >
             <span
               style={{
                 fontFamily: "var(--font-poppins), Poppins, sans-serif",
                 fontSize: "11px",
                 fontWeight: 600,
-                color: "rgba(255,255,255,0.6)",
+                color: "var(--text-secondary)",
               }}
             >
               Total
@@ -262,12 +262,12 @@ function RowDetail({ result }: { result: LinkResult }) {
     >
       <td
         colSpan={6}
-        style={{ padding: 0, borderBottom: "1px solid rgba(255,255,255,0.06)" }}
+        style={{ padding: 0, borderBottom: "1px solid var(--border-subtle)" }}
       >
         <div
           style={{
             padding: "14px 20px 14px 36px",
-            background: "rgba(255,255,255,0.025)",
+            background: "rgba(28,28,46,0.04)",
             display: "flex",
             flexDirection: "column",
             gap: 8,
@@ -279,7 +279,7 @@ function RowDetail({ result }: { result: LinkResult }) {
               style={{
                 fontFamily: "monospace",
                 fontSize: "12px",
-                color: "rgba(255,255,255,0.55)",
+                color: "var(--text-muted)",
                 wordBreak: "break-all",
               }}
             >
@@ -291,9 +291,9 @@ function RowDetail({ result }: { result: LinkResult }) {
               title="Copy URL"
             >
               {copied ? (
-                <Check size={13} style={{ color: "#4ade80" }} />
+                <Check size={13} style={{ color: "#4caf7d" }} />
               ) : (
-                <Copy size={13} style={{ color: "rgba(255,255,255,0.3)" }} />
+                <Copy size={13} style={{ color: "var(--text-muted)" }} />
               )}
             </button>
             <a
@@ -302,7 +302,7 @@ function RowDetail({ result }: { result: LinkResult }) {
               rel="noopener noreferrer"
               className="shrink-0 transition-opacity hover:opacity-80"
             >
-              <ExternalLink size={13} style={{ color: "rgba(255,255,255,0.3)" }} />
+              <ExternalLink size={13} style={{ color: "var(--text-muted)" }} />
             </a>
           </div>
 
@@ -314,7 +314,7 @@ function RowDetail({ result }: { result: LinkResult }) {
               <span
                 style={{
                   fontSize: "11px",
-                  color: "rgba(255,255,255,0.35)",
+                  color: "var(--text-muted)",
                   fontFamily: "var(--font-poppins), Poppins, sans-serif",
                 }}
               >
@@ -324,7 +324,7 @@ function RowDetail({ result }: { result: LinkResult }) {
                 style={{
                   fontFamily: "monospace",
                   fontSize: "12px",
-                  color: "#fb923c",
+                  color: "#f5a623",
                   wordBreak: "break-all",
                 }}
               >
@@ -339,7 +339,7 @@ function RowDetail({ result }: { result: LinkResult }) {
               <span
                 style={{
                   fontSize: "11px",
-                  color: "rgba(255,255,255,0.3)",
+                  color: "var(--text-muted)",
                   fontFamily: "var(--font-poppins), Poppins, sans-serif",
                 }}
               >
@@ -351,7 +351,7 @@ function RowDetail({ result }: { result: LinkResult }) {
                 style={{
                   fontFamily: "monospace",
                   fontSize: "11px",
-                  color: "rgba(255,255,255,0.25)",
+                  color: "var(--text-muted)",
                 }}
               >
                 {result.source_element}
@@ -360,7 +360,7 @@ function RowDetail({ result }: { result: LinkResult }) {
             <span
               style={{
                 fontSize: "11px",
-                color: "rgba(255,255,255,0.3)",
+                color: "var(--text-muted)",
                 fontFamily: "var(--font-poppins), Poppins, sans-serif",
               }}
             >
@@ -374,14 +374,14 @@ function RowDetail({ result }: { result: LinkResult }) {
               <span
                 style={{
                   fontSize: "11px",
-                  color: "rgba(255,255,255,0.4)",
+                  color: "var(--text-muted)",
                   fontFamily: "var(--font-poppins), Poppins, sans-serif",
                 }}
               >
                 Broken for: {getDaysBroken(result.first_seen_at)} days
               </span>
               {getDaysBroken(result.first_seen_at) > 7 && (
-                <span style={{ color: "#f87171", fontSize: "11px" }}>⚠️ Long-standing issue</span>
+                <span style={{ color: "var(--status-broken)", fontSize: "11px" }}>⚠️ Long-standing issue</span>
               )}
             </div>
           )}
@@ -392,7 +392,7 @@ function RowDetail({ result }: { result: LinkResult }) {
               <span
                 style={{
                   fontSize: "11px",
-                  color: "rgba(255,255,255,0.35)",
+                  color: "var(--text-muted)",
                   fontFamily: "var(--font-poppins), Poppins, sans-serif",
                 }}
               >
@@ -405,9 +405,9 @@ function RowDetail({ result }: { result: LinkResult }) {
                     style={{
                       fontFamily: "monospace",
                       fontSize: "11px",
-                      color: "#a855f7",
-                      background: "rgba(167,139,250,0.1)",
-                      border: "1px solid rgba(167,139,250,0.15)",
+                      color: "var(--signal)",
+                      background: "rgba(79,70,229,0.1)",
+                      border: "1px solid rgba(79,70,229,0.15)",
                       borderRadius: "4px",
                       padding: "2px 6px",
                     }}
@@ -439,15 +439,15 @@ function RowDetail({ result }: { result: LinkResult }) {
             <div
               className="flex items-start gap-2 mt-1 rounded-lg px-3 py-2"
               style={{
-                background: "rgba(255,255,255,0.04)",
-                border: "1px solid rgba(255,255,255,0.07)",
+                background: "rgba(28,28,46,0.04)",
+                border: "1px solid var(--border-subtle)",
               }}
             >
-              <AlertCircle size={13} style={{ color: "#fbbf24", marginTop: 2, flexShrink: 0 }} />
+              <AlertCircle size={13} style={{ color: "#f5a623", marginTop: 2, flexShrink: 0 }} />
               <span
                 style={{
                   fontSize: "12px",
-                  color: "rgba(255,255,255,0.6)",
+                  color: "var(--text-secondary)",
                   fontFamily: "var(--font-poppins), Poppins, sans-serif",
                   lineHeight: 1.5,
                 }}
@@ -570,9 +570,9 @@ export default function ResultsTable({
       <div className="w-full max-w-5xl mx-auto mt-8 px-4">
         <div className="glass-card p-16 flex flex-col items-center justify-center text-center gap-6">
           <svg width="80" height="80" viewBox="0 0 80 80" fill="none">
-            <circle cx="40" cy="40" r="36" stroke="rgba(255,255,255,0.08)" strokeWidth="2" />
-            <circle cx="40" cy="40" r="24" stroke="rgba(255,255,255,0.05)" strokeWidth="2" />
-            <line x1="25" y1="55" x2="55" y2="25" stroke="rgba(255,255,255,0.12)" strokeWidth="2" strokeLinecap="round" />
+            <circle cx="40" cy="40" r="36" stroke="rgba(28,28,46,0.08)" strokeWidth="2" />
+            <circle cx="40" cy="40" r="24" stroke="rgba(28,28,46,0.05)" strokeWidth="2" />
+            <line x1="25" y1="55" x2="55" y2="25" stroke="rgba(28,28,46,0.12)" strokeWidth="2" strokeLinecap="round" />
           </svg>
           <div>
             <p
@@ -580,7 +580,7 @@ export default function ResultsTable({
                 fontFamily: "var(--font-poppins), Poppins, sans-serif",
                 fontWeight: 600,
                 fontSize: "18px",
-                color: "rgba(255,255,255,0.6)",
+                color: "var(--text-secondary)",
                 marginBottom: 6,
               }}
             >
@@ -591,7 +591,7 @@ export default function ResultsTable({
                 fontFamily: "var(--font-poppins), Poppins, sans-serif",
                 fontWeight: 400,
                 fontSize: "14px",
-                color: "rgba(255,255,255,0.3)",
+                color: "var(--text-muted)",
               }}
             >
               Try selecting a different filter or clearing your search
@@ -614,14 +614,13 @@ export default function ResultsTable({
             exit={{ opacity: 0, y: 10 }}
             className="fixed bottom-6 left-1/2 z-50 -translate-x-1/2 flex items-center gap-2 px-4 py-2 rounded-full"
             style={{
-              background: "rgba(20,10,40,0.95)",
-              border: "1px solid rgba(74,222,128,0.3)",
-              backdropFilter: "blur(12px)",
+              background: "var(--surface-card)",
+              border: "1px solid rgba(76,175,125,0.3)",
               fontFamily: "var(--font-poppins), Poppins, sans-serif",
               fontSize: "13px",
               fontWeight: 500,
-              color: "#4ade80",
-              boxShadow: "0 4px 20px rgba(0,0,0,0.4)",
+              color: "#4caf7d",
+              boxShadow: "var(--elev-3)",
             }}
           >
             <Check size={14} />
@@ -632,13 +631,13 @@ export default function ResultsTable({
 
       <div className="glass-card overflow-hidden">
         {/* Header */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-white/5">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-[var(--border-subtle)]">
           <h3
             style={{
               fontFamily: "var(--font-poppins), Poppins, sans-serif",
               fontWeight: 500,
               fontSize: "14px",
-              color: "rgba(255,255,255,0.6)",
+              color: "var(--text-secondary)",
             }}
           >
             Results
@@ -647,11 +646,12 @@ export default function ResultsTable({
             {onScrollToHistory && (
               <button
                 onClick={onScrollToHistory}
-                className="glass-card inline-flex items-center gap-2 px-4 py-2 text-white/60 hover:text-white transition-colors cursor-pointer"
+                className="glass-card inline-flex items-center gap-2 px-4 py-2 hover:text-[var(--text-primary)] transition-colors cursor-pointer"
                 style={{
                   fontFamily: "var(--font-poppins), Poppins, sans-serif",
                   fontWeight: 500,
                   fontSize: "13px",
+                  color: "var(--text-secondary)",
                 }}
               >
                 <Clock size={14} />
@@ -671,7 +671,7 @@ export default function ResultsTable({
         <div className="overflow-x-auto">
           <table className="w-full min-w-[760px]">
             <thead>
-              <tr style={{ borderBottom: "1px solid rgba(255,255,255,0.08)" }}>
+              <tr style={{ borderBottom: "1px solid var(--border-subtle)" }}>
                 {["Status", "Link Text", "URL", "Where on Page", "Time", ""].map(
                   (col) => (
                     <th
@@ -681,7 +681,7 @@ export default function ResultsTable({
                         fontSize: "10px",
                         textTransform: "uppercase",
                         letterSpacing: "0.08em",
-                        color: "rgba(255,255,255,0.35)",
+                        color: "var(--text-muted)",
                         fontFamily: "var(--font-poppins), Poppins, sans-serif",
                         fontWeight: 500,
                         whiteSpace: "nowrap",
@@ -703,7 +703,7 @@ export default function ResultsTable({
                     r.label === "dead_cta" ||
                     r.label === "error"
                 ).length;
-                const dotColor = ZONE_DOT_COLORS[zone] ?? "#64748b";
+                const dotColor = ZONE_DOT_COLORS[zone] ?? "#7a7a8c";
 
                 return [
                   /* Group header row */
@@ -712,17 +712,17 @@ export default function ResultsTable({
                     onClick={() => toggleGroup(zone)}
                     style={{
                       cursor: "pointer",
-                      background: "rgba(255,255,255,0.025)",
-                      borderBottom: "1px solid rgba(255,255,255,0.06)",
-                      borderTop: "1px solid rgba(255,255,255,0.06)",
+                      background: "rgba(28,28,46,0.04)",
+                      borderBottom: "1px solid var(--border-subtle)",
+                      borderTop: "1px solid var(--border-subtle)",
                     }}
                     onMouseEnter={(e) => {
                       (e.currentTarget as HTMLTableRowElement).style.background =
-                        "rgba(255,255,255,0.04)";
+                        "rgba(28,28,46,0.06)";
                     }}
                     onMouseLeave={(e) => {
                       (e.currentTarget as HTMLTableRowElement).style.background =
-                        "rgba(255,255,255,0.025)";
+                        "rgba(28,28,46,0.04)";
                     }}
                   >
                     <td colSpan={6} style={{ padding: "8px 16px" }}>
@@ -738,7 +738,7 @@ export default function ResultsTable({
                             fontSize: "11px",
                             textTransform: "uppercase",
                             letterSpacing: "0.07em",
-                            color: "rgba(255,255,255,0.55)",
+                            color: "var(--text-muted)",
                           }}
                         >
                           {zone}
@@ -746,22 +746,22 @@ export default function ResultsTable({
                         <span
                           style={{
                             fontSize: "11px",
-                            color: "rgba(255,255,255,0.3)",
+                            color: "var(--text-muted)",
                             fontFamily: "var(--font-poppins), Poppins, sans-serif",
                           }}
                         >
                           {items.length} link{items.length !== 1 ? "s" : ""}
                           {issueCount > 0 && (
-                            <span style={{ color: "#f87171", marginLeft: 4 }}>
+                            <span style={{ color: "var(--status-broken)", marginLeft: 4 }}>
                               · {issueCount} broken
                             </span>
                           )}
                         </span>
                         <span className="ml-auto">
                           {isCollapsed ? (
-                            <ChevronDown size={14} style={{ color: "rgba(255,255,255,0.3)" }} />
+                            <ChevronDown size={14} style={{ color: "var(--text-muted)" }} />
                           ) : (
-                            <ChevronUp size={14} style={{ color: "rgba(255,255,255,0.3)" }} />
+                            <ChevronUp size={14} style={{ color: "var(--text-muted)" }} />
                           )}
                         </span>
                       </div>
@@ -802,12 +802,12 @@ export default function ResultsTable({
                             onClick={() => toggleRow(rowKey)}
                             style={{
                               cursor: "pointer",
-                              borderBottom: "1px solid rgba(255,255,255,0.05)",
+                              borderBottom: "1px solid var(--border-subtle)",
                               borderLeft: accent
                                 ? `3px solid ${accent.border}`
                                 : "3px solid transparent",
                               background: isExpanded
-                                ? "rgba(255,255,255,0.04)"
+                                ? "rgba(79,70,229,0.06)"
                                 : accent
                                 ? accent.bg
                                 : "transparent",
@@ -816,7 +816,7 @@ export default function ResultsTable({
                             onMouseEnter={(e) => {
                               if (!isExpanded)
                                 (e.currentTarget as HTMLElement).style.background =
-                                  "rgba(255,255,255,0.03)";
+                                  "rgba(28,28,46,0.03)";
                             }}
                             onMouseLeave={(e) => {
                               if (!isExpanded)
@@ -837,7 +837,7 @@ export default function ResultsTable({
                                     "var(--font-poppins), Poppins, sans-serif",
                                   fontSize: "13px",
                                   fontWeight: 400,
-                                  color: "rgba(255,255,255,0.7)",
+                                  color: "var(--text-secondary)",
                                   display: "block",
                                   maxWidth: 160,
                                   overflow: "hidden",
@@ -864,7 +864,7 @@ export default function ResultsTable({
                                     style={{
                                       fontFamily: "monospace",
                                       fontSize: "10px",
-                                      color: "rgba(255,255,255,0.2)",
+                                      color: "var(--text-muted)",
                                       marginBottom: 2,
                                       display: "block",
                                     }}
@@ -880,7 +880,7 @@ export default function ResultsTable({
                                     style={{
                                       fontFamily: "monospace",
                                       fontSize: "12px",
-                                      color: "rgba(255,255,255,0.65)",
+                                      color: "var(--text-secondary)",
                                       maxWidth: 200,
                                       overflow: "hidden",
                                       textOverflow: "ellipsis",
@@ -901,11 +901,11 @@ export default function ResultsTable({
                                     className="shrink-0 cursor-pointer transition-colors"
                                   >
                                     {copiedUrl === result.url ? (
-                                      <Check size={12} style={{ color: "#4ade80" }} />
+                                      <Check size={12} style={{ color: "#4caf7d" }} />
                                     ) : (
                                       <Copy
                                         size={12}
-                                        style={{ color: "rgba(255,255,255,0.2)" }}
+                                        style={{ color: "var(--text-muted)" }}
                                       />
                                     )}
                                   </button>
@@ -922,9 +922,9 @@ export default function ResultsTable({
                                       "var(--font-poppins), Poppins, sans-serif",
                                     fontSize: "11px",
                                     fontWeight: 500,
-                                    color: "rgba(255,255,255,0.5)",
-                                    background: "rgba(255,255,255,0.05)",
-                                    border: "1px solid rgba(255,255,255,0.08)",
+                                    color: "var(--text-muted)",
+                                    background: "rgba(28,28,46,0.04)",
+                                    border: "1px solid var(--border-subtle)",
                                     borderRadius: "6px",
                                     padding: "3px 8px",
                                     whiteSpace: "nowrap",
@@ -942,11 +942,11 @@ export default function ResultsTable({
                                       fontFamily: "var(--font-poppins), Poppins, sans-serif",
                                       fontSize: "10px",
                                       fontWeight: 500,
-                                      color: "#c084fc",
-                                      background: "rgba(168,85,247,0.1)",
+                                      color: "var(--signal)",
+                                      background: "rgba(79,70,229,0.1)",
                                       borderRadius: "4px",
                                       padding: "1px 5px",
-                                      border: "1px solid rgba(168,85,247,0.2)",
+                                      border: "1px solid rgba(79,70,229,0.2)",
                                     }}
                                   >
                                     {result.found_on_pages.length} pages
@@ -980,12 +980,12 @@ export default function ResultsTable({
                               {isExpanded ? (
                                 <ChevronUp
                                   size={14}
-                                  style={{ color: "rgba(255,255,255,0.4)" }}
+                                  style={{ color: "var(--text-muted)" }}
                                 />
                               ) : (
                                 <ChevronDown
                                   size={14}
-                                  style={{ color: "rgba(255,255,255,0.2)" }}
+                                  style={{ color: "var(--text-muted)" }}
                                 />
                               )}
                             </td>

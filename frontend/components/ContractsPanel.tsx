@@ -14,8 +14,8 @@ interface Violation { kind: string; field: string; severity: string; consequence
 
 const C = {
   ink: "var(--text-primary)", sub: "var(--text-secondary)", muted: "var(--text-muted)",
-  card: "var(--surface-card)", raised: "var(--surface-raised)", line: "rgba(255,255,255,0.08)",
-  brand: "#a855f7", good: "#4ade80", high: "#fb923c", crit: "#f87171", critbg: "rgba(248,113,113,0.12)",
+  card: "var(--surface-card)", raised: "var(--surface-raised)", line: "var(--border-subtle)",
+  brand: "var(--signal)", good: "#4caf7d", high: "#f5a623", crit: "#e05c5c", critbg: "rgba(224,92,92,0.12)",
 };
 
 const destLabel = (d: Contract["destination"]) => {
@@ -146,7 +146,7 @@ export default function ContractsPanel({ siteId }: { siteId: string }) {
       {drafts.filter((d) => d.id !== review?.id).map((d) => (
         <div key={d.id} style={{ border: `1px solid ${C.line}`, borderRadius: 12, padding: "12px 16px", marginBottom: 10, display: "flex", justifyContent: "space-between", alignItems: "center", gap: 12 }}>
           <div style={{ minWidth: 0 }}>
-            <span style={{ background: "rgba(168,85,247,0.15)", color: C.brand, fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 999, marginRight: 8 }}>DRAFT</span>
+            <span style={{ background: "rgba(79,70,229,0.15)", color: C.brand, fontSize: 11, fontWeight: 700, padding: "2px 8px", borderRadius: 999, marginRight: 8 }}>DRAFT</span>
             <span style={{ color: C.sub, fontSize: 13 }}>{d.form_ref.page_url}</span>
           </div>
           <button onClick={() => setReview(d)} style={btn(C.brand, "#fff", "")}>Review</button>

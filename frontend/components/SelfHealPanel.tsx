@@ -152,7 +152,7 @@ export default function SelfHealPanel() {
         <div
           style={{
             background: "var(--status-healthy-bg)",
-            border: "1px solid rgba(74,222,128,0.28)",
+            border: "1px solid rgba(76,175,125,0.28)",
             borderRadius: "var(--radius-md)",
             padding: "var(--space-4)",
           }}

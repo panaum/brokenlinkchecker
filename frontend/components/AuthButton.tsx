@@ -16,7 +16,7 @@ export default function AuthButton() {
               alt={session.user.name || "User"}
               width={28}
               height={28}
-              className="rounded-full border border-[rgba(255,255,255,0.1)]"
+              className="rounded-full border border-[var(--border-subtle)]"
             />
           )}
           <span
@@ -24,7 +24,7 @@ export default function AuthButton() {
               fontFamily: "var(--font-poppins), Poppins, sans-serif",
               fontSize: "13px",
               fontWeight: 500,
-              color: "#fff",
+              color: "var(--text-primary)",
             }}
           >
             {session.user.name?.split(" ")[0]}
@@ -32,12 +32,12 @@ export default function AuthButton() {
         </div>
         <button
           onClick={() => signOut()}
-          className="px-3 py-1.5 rounded-lg border border-[rgba(255,255,255,0.1)] hover:bg-[rgba(255,255,255,0.05)] transition-colors cursor-pointer"
+          className="px-3 py-1.5 rounded-lg border border-[var(--border-subtle)] hover:bg-[rgba(79,70,229,0.06)] transition-colors cursor-pointer"
           style={{
             fontFamily: "var(--font-poppins), Poppins, sans-serif",
             fontSize: "12px",
             fontWeight: 500,
-            color: "rgba(255,255,255,0.7)",
+            color: "var(--text-secondary)",
           }}
         >
           Sign Out
@@ -51,8 +51,8 @@ export default function AuthButton() {
       onClick={() => signIn("google")}
       className="flex items-center gap-2 px-4 py-2 rounded-lg transition-transform hover:scale-105 active:scale-95 cursor-pointer"
       style={{
-        background: "linear-gradient(132deg, rgb(23,184,148), rgb(52,230,192))",
-        boxShadow: "0 4px 12px rgba(147,51,234,0.3)",
+        background: "var(--signal)",
+        boxShadow: "var(--shadow-brand)",
         border: "1px solid rgba(255,255,255,0.1)",
         fontFamily: "var(--font-poppins), Poppins, sans-serif",
         fontSize: "13px",

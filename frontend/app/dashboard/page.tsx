@@ -139,7 +139,7 @@ function SiteCard({
           style={{
             width: 34, height: 34, borderRadius: 9, flexShrink: 0, display: "flex", alignItems: "center",
             justifyContent: "center", fontWeight: 700, fontSize: 15, color: "var(--signal)",
-            background: "rgba(168,85,247,0.14)", fontFamily: "var(--font-stack-display)",
+            background: "rgba(79,70,229,0.14)", fontFamily: "var(--font-stack-display)",
           }}
         >
           {displayName(site).charAt(0).toUpperCase()}
@@ -499,7 +499,7 @@ export default function DashboardPage() {
                           <span className="font-mono" style={{ fontSize: "var(--text-body)", fontWeight: 600, color: "var(--signal)", marginLeft: 8 }}>{site.score}</span>
                         </div>
                         {/* Trend/magnitude bar — brand purple. */}
-                        <div style={{ height: 6, borderRadius: 999, background: "rgba(255,255,255,0.08)" }}>
+                        <div style={{ height: 6, borderRadius: 999, background: "rgba(28,28,46,0.08)" }}>
                           <div style={{ height: "100%", borderRadius: 999, width: `${site.score}%`, background: "var(--signal)", transition: "width var(--motion)" }} />
                         </div>
                       </div>
@@ -553,7 +553,7 @@ export default function DashboardPage() {
                 onClick={() => handleDeleteSite(confirmDelete.id)}
                 disabled={deletingId === confirmDelete.id}
                 className="ds-btn-primary"
-                style={{ background: "#b91c1c", display: "inline-flex", alignItems: "center", gap: 8 }}
+                style={{ background: "var(--status-broken)", display: "inline-flex", alignItems: "center", gap: 8 }}
               >
                 {deletingId === confirmDelete.id ? <><Loader2 size={14} className="animate-spin" /> Deleting…</> : "Delete"}
               </button>

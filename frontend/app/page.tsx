@@ -56,38 +56,6 @@ function calcScore(results: LinkResult[]): number {
   return Math.max(0, Math.min(100, score));
 }
 
-// ─── Particle dot background ─────────────────────────────────────────────────
-function ParticleBg() {
-  return (
-    <svg
-      aria-hidden="true"
-      style={{
-        position: "absolute",
-        inset: 0,
-        width: "100%",
-        height: "100%",
-        pointerEvents: "none",
-        zIndex: 0,
-        opacity: 0.35,
-      }}
-    >
-      <defs>
-        <pattern
-          id="dots"
-          x="0"
-          y="0"
-          width="40"
-          height="40"
-          patternUnits="userSpaceOnUse"
-        >
-          <circle cx="1.5" cy="1.5" r="1.5" fill="rgba(168,85,247,0.4)" />
-        </pattern>
-      </defs>
-      <rect width="100%" height="100%" fill="url(#dots)" />
-    </svg>
-  );
-}
-
 export default function HomePage() {
   const { data: session, status: sessionStatus } = useSession();
   const [url, setUrl] = useState("");
@@ -420,7 +388,7 @@ export default function HomePage() {
           fontSize: 14,
           fontWeight: 600,
           border: "1px solid var(--border-strong)",
-          background: "rgba(168,85,247,0.10)",
+          background: "rgba(79,70,229,0.10)",
           color: "var(--signal)",
           textDecoration: "none",
           backdropFilter: "blur(6px)",
@@ -430,34 +398,12 @@ export default function HomePage() {
       </Link>
 
       {/* ── HERO SECTION ── */}
-      <section className="relative pt-28 pb-8 noise-overlay overflow-hidden">
-        {/* Particle dot background */}
-        <div
-          style={{
-            position: "absolute",
-            inset: 0,
-            zIndex: 0,
-            overflow: "hidden",
-          }}
-        >
-          <ParticleBg />
-        </div>
-
-        {/* Atmospheric depth — dim blue-green glow, not a bright signal wash. */}
-        <div
-          className="absolute top-[-200px] left-[-200px] w-[600px] h-[600px] rounded-full bg-gradient-3 opacity-40 pointer-events-none"
-          style={{ filter: "blur(130px)", zIndex: 1 }}
-        />
-        <div
-          className="absolute top-[-100px] right-[-150px] w-[400px] h-[400px] rounded-full bg-gradient-2 opacity-30 pointer-events-none"
-          style={{ filter: "blur(130px)", zIndex: 1 }}
-        />
-
+      <section className="relative pt-28 pb-8 overflow-hidden">
         {/* Hero content */}
         <div className="relative z-10 text-center px-4">
           {/* Badge pill */}
-          <div className="inline-flex items-center gap-2 bg-gradient-2 px-4 py-2 rounded-full mb-6">
-            <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse-dot" />
+          <div className="inline-flex items-center gap-2 px-4 py-2 rounded-full mb-6" style={{ background: "var(--signal)" }}>
+            <span className="w-2 h-2 rounded-full animate-pulse-dot" style={{ background: "var(--status-healthy)" }} />
             <span
               className="text-white/90 text-sm"
               style={{
@@ -478,7 +424,7 @@ export default function HomePage() {
             }}
           >
             Find Every{" "}
-            <span className="gradient-text">Broken Link</span>
+            <span style={{ color: "var(--signal)" }}>Broken Link</span>
           </h1>
 
           {/* Subtitle */}
@@ -487,7 +433,7 @@ export default function HomePage() {
             style={{
               fontFamily: "var(--font-poppins), Poppins, sans-serif",
               fontWeight: 400,
-              color: "rgba(255,255,255,0.60)",
+              color: "var(--text-secondary)",
               fontSize: "18px",
             }}
           >
@@ -672,9 +618,9 @@ export default function HomePage() {
         <section className="relative z-10 px-4 mt-10">
           <div className="w-full max-w-3xl mx-auto glass-card p-10 text-center flex flex-col items-center gap-5">
             <svg width="72" height="72" viewBox="0 0 72 72" fill="none">
-              <circle cx="36" cy="36" r="32" stroke="rgba(255,255,255,0.08)" strokeWidth="2" />
-              <path d="M24 36h24M36 24v24" stroke="rgba(255,255,255,0.15)" strokeWidth="2" strokeLinecap="round" />
-              <circle cx="36" cy="36" r="8" stroke="rgba(255,255,255,0.1)" strokeWidth="2" />
+              <circle cx="36" cy="36" r="32" stroke="var(--border-subtle)" strokeWidth="2" />
+              <path d="M24 36h24M36 24v24" stroke="var(--border-strong)" strokeWidth="2" strokeLinecap="round" />
+              <circle cx="36" cy="36" r="8" stroke="var(--border-subtle)" strokeWidth="2" />
             </svg>
             <div>
               <p
@@ -682,7 +628,7 @@ export default function HomePage() {
                   fontFamily: "var(--font-poppins), Poppins, sans-serif",
                   fontWeight: 600,
                   fontSize: "18px",
-                  color: "rgba(255,255,255,0.7)",
+                  color: "var(--text-secondary)",
                   marginBottom: 8,
                 }}
               >
@@ -693,7 +639,7 @@ export default function HomePage() {
                   fontFamily: "var(--font-poppins), Poppins, sans-serif",
                   fontWeight: 400,
                   fontSize: "14px",
-                  color: "rgba(255,255,255,0.4)",
+                  color: "var(--text-muted)",
                   lineHeight: 2,
                   listStyle: "none",
                   padding: 0,
@@ -706,8 +652,9 @@ export default function HomePage() {
             </div>
             <button
               onClick={() => startScan()}
-              className="bg-gradient-1 text-white rounded-xl px-6 py-3 cursor-pointer hover:opacity-90 transition-opacity"
+              className="text-white rounded-xl px-6 py-3 cursor-pointer hover:opacity-90 transition-opacity"
               style={{
+                background: "var(--signal)",
                 fontFamily: "var(--font-poppins), Poppins, sans-serif",
                 fontWeight: 600,
                 fontSize: "14px",

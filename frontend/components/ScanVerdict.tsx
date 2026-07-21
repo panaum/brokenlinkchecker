@@ -80,7 +80,7 @@ export default function ScanVerdict({
   return (
     <section className="ds-container" style={{ padding: "0 24px", marginTop: 8, position: "relative" }}>
       {/* soft radial glow behind the verdict block */}
-      <div style={{ position: "absolute", inset: 0, pointerEvents: "none", background: "radial-gradient(600px 200px at 20% 40%, rgba(168,85,247,0.08), transparent 70%)" }} />
+      <div style={{ position: "absolute", inset: 0, pointerEvents: "none", background: "radial-gradient(600px 200px at 20% 40%, rgba(79,70,229,0.08), transparent 70%)" }} />
       <div
         className="ds-card"
         style={{ padding: "var(--space-6)", display: "flex", alignItems: "center", gap: "var(--space-6)", flexWrap: "wrap", position: "relative" }}
@@ -88,7 +88,7 @@ export default function ScanVerdict({
         {/* Score ring — health-colored, draws itself. */}
         <motion.div {...rise(0)} style={{ position: "relative", width: 112, height: 112, flexShrink: 0 }}>
           <svg width="112" height="112" viewBox="0 0 112 112">
-            <circle cx="56" cy="56" r={R} fill="none" stroke="rgba(255,255,255,0.08)" strokeWidth="8" />
+            <circle cx="56" cy="56" r={R} fill="none" stroke="var(--border-subtle)" strokeWidth="8" />
             <motion.circle
               cx="56" cy="56" r={R} fill="none"
               stroke={ringColor}

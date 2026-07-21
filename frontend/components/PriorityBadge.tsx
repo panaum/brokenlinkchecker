@@ -8,10 +8,10 @@ interface PriorityBadgeProps {
 }
 
 const PRIORITY_CONFIG: Record<string, { label: string; color: string; bg: string; emoji: string }> = {
-  critical: { label: "Critical", color: "#f87171", bg: "rgba(248,113,113,0.12)", emoji: "🔴" },
-  high: { label: "High", color: "#fb923c", bg: "rgba(251,146,60,0.12)", emoji: "🟠" },
-  medium: { label: "Medium", color: "#fbbf24", bg: "rgba(251,191,36,0.12)", emoji: "🟡" },
-  low: { label: "Low", color: "#60a5fa", bg: "rgba(96,165,250,0.12)", emoji: "🔵" },
+  critical: { label: "Critical", color: "#e05c5c", bg: "rgba(224,92,92,0.12)", emoji: "🔴" },
+  high: { label: "High", color: "#f5a623", bg: "rgba(245,166,35,0.12)", emoji: "🟠" },
+  medium: { label: "Medium", color: "#f5a623", bg: "rgba(245,166,35,0.12)", emoji: "🟡" },
+  low: { label: "Low", color: "#5b8def", bg: "rgba(91,141,239,0.12)", emoji: "🔵" },
 };
 
 export default function PriorityBadge({ priority }: PriorityBadgeProps) {

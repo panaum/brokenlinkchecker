@@ -16,8 +16,8 @@ interface Session {
 interface Data { scope_statement: string; sessions: Session[]; }
 
 const T = {
-  dark: { ink: "var(--text-primary)", sub: "var(--text-secondary)", muted: "var(--text-muted)", card: "var(--surface-card)", raised: "var(--surface-raised)", line: "rgba(255,255,255,0.08)", brand: "#a855f7", bad: "#f87171", high: "#fb923c", info: "#8b93a7", badbg: "rgba(248,113,113,0.12)" },
-  light: { ink: "#1c1a2e", sub: "#55506b", muted: "#928da6", card: "#ffffff", raised: "#f4f3f9", line: "#e7e4f0", brand: "#7c3aed", bad: "#dc2626", high: "#ea580c", info: "#8a86a0", badbg: "#fef2f2" },
+  dark: { ink: "var(--text-primary)", sub: "var(--text-secondary)", muted: "var(--text-muted)", card: "var(--surface-card)", raised: "var(--surface-raised)", line: "var(--border-subtle)", brand: "var(--signal)", bad: "var(--status-broken)", high: "#f5a623", info: "var(--status-neutral)", badbg: "rgba(224,92,92,0.12)" },
+  light: { ink: "#1c1a2e", sub: "#55506b", muted: "#928da6", card: "#ffffff", raised: "#f4f3f9", line: "#e7e4f0", brand: "var(--signal)", bad: "#dc2626", high: "#ea580c", info: "#8a86a0", badbg: "#fef2f2" },
 };
 const classColor = (cls: string, c: typeof T.dark) => cls === "advertising-adtech" ? c.bad : cls === "analytics" ? c.high : cls === "essential" ? c.info : c.sub;
 const sev = (s: string, c: typeof T.dark) => s === "critical" ? c.bad : s === "high" ? c.high : c.info;

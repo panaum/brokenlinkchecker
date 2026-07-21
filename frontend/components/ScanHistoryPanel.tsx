@@ -63,9 +63,9 @@ function formatChartDate(dateStr: string): string {
 }
 
 function scoreColor(score: number): { bg: string; text: string } {
-  if (score >= 90) return { bg: "rgba(74,222,128,0.15)", text: "#4ade80" };
-  if (score >= 70) return { bg: "rgba(251,146,60,0.15)", text: "#fb923c" };
-  return { bg: "rgba(248,113,113,0.15)", text: "#f87171" };
+  if (score >= 90) return { bg: "rgba(76,175,125,0.15)", text: "#4caf7d" };
+  if (score >= 70) return { bg: "rgba(245,166,35,0.15)", text: "#f5a623" };
+  return { bg: "rgba(224,92,92,0.15)", text: "#e05c5c" };
 }
 
 // ─── Custom Recharts Tooltip ──────────────────────────────────────────────────
@@ -85,11 +85,11 @@ function CustomChartTooltip({ active, payload }: CustomTooltipProps) {
   return (
     <div
       style={{
-        background: "rgba(15,8,30,0.95)",
-        border: "1px solid rgba(168,85,247,0.3)",
+        background: "var(--surface-card)",
+        border: "1px solid var(--border-subtle)",
         borderRadius: 8,
         padding: "8px 12px",
-        backdropFilter: "blur(12px)",
+        boxShadow: "var(--elev-3)",
       }}
     >
       <p
@@ -98,7 +98,7 @@ function CustomChartTooltip({ active, payload }: CustomTooltipProps) {
           fontFamily: "var(--font-poppins), Poppins, sans-serif",
           fontSize: "13px",
           fontWeight: 600,
-          color: "#a855f7",
+          color: "var(--signal)",
         }}
       >
         Health: {data.value}/100
@@ -108,7 +108,7 @@ function CustomChartTooltip({ active, payload }: CustomTooltipProps) {
           margin: "2px 0 0",
           fontFamily: "var(--font-poppins), Poppins, sans-serif",
           fontSize: "11px",
-          color: "rgba(255,255,255,0.45)",
+          color: "var(--text-muted)",
         }}
       >
         {data.payload.date}
@@ -134,7 +134,7 @@ function HistoryBrokenList({ scan }: { scan: ScanHistoryEntry }) {
           style={{
             fontFamily: "var(--font-poppins), Poppins, sans-serif",
             fontSize: "12px",
-            color: "rgba(255,255,255,0.4)",
+            color: "var(--text-muted)",
             fontStyle: "italic",
           }}
         >
@@ -164,9 +164,9 @@ function HistoryBrokenList({ scan }: { scan: ScanHistoryEntry }) {
         }
 
         const labelColors: Record<string, string> = {
-          broken: "#f87171",
-          dead_cta: "#fbbf24",
-          error: "#f87171",
+          broken: "#e05c5c",
+          dead_cta: "#f5a623",
+          error: "#e05c5c",
         };
 
         return (
@@ -177,7 +177,7 @@ function HistoryBrokenList({ scan }: { scan: ScanHistoryEntry }) {
           >
             <span
               style={{
-                color: labelColors[r.label] ?? "#f87171",
+                color: labelColors[r.label] ?? "#e05c5c",
                 fontFamily: "var(--font-poppins), Poppins, sans-serif",
                 fontWeight: 600,
                 fontSize: "10px",
@@ -192,7 +192,7 @@ function HistoryBrokenList({ scan }: { scan: ScanHistoryEntry }) {
               style={{
                 fontFamily: "monospace",
                 fontSize: "11px",
-                color: "rgba(255,255,255,0.55)",
+                color: "var(--text-muted)",
                 wordBreak: "break-all",
               }}
             >
@@ -206,7 +206,7 @@ function HistoryBrokenList({ scan }: { scan: ScanHistoryEntry }) {
           style={{
             fontFamily: "var(--font-poppins), Poppins, sans-serif",
             fontSize: "11px",
-            color: "rgba(255,255,255,0.35)",
+            color: "var(--text-muted)",
             marginTop: 4,
           }}
         >
@@ -250,8 +250,8 @@ const ScanHistoryPanel = forwardRef<HTMLElement, ScanHistoryPanelProps>(
                 style={{
                   width: 18,
                   height: 18,
-                  border: "2px solid rgba(255,255,255,0.1)",
-                  borderTopColor: "#a855f7",
+                  border: "2px solid var(--border-subtle)",
+                  borderTopColor: "var(--signal)",
                   borderRadius: "50%",
                 }}
               />
@@ -259,7 +259,7 @@ const ScanHistoryPanel = forwardRef<HTMLElement, ScanHistoryPanelProps>(
                 style={{
                   fontFamily: "var(--font-poppins), Poppins, sans-serif",
                   fontSize: "13px",
-                  color: "rgba(255,255,255,0.5)",
+                  color: "var(--text-muted)",
                 }}
               >
                 Loading scan history…
@@ -293,18 +293,18 @@ const ScanHistoryPanel = forwardRef<HTMLElement, ScanHistoryPanelProps>(
                 cursor: "pointer",
                 borderBottom: collapsed
                   ? "none"
-                  : "1px solid rgba(255,255,255,0.06)",
+                  : "1px solid var(--border-subtle)",
               }}
             >
               <div className="flex items-center gap-3">
-                <Clock size={18} style={{ color: "#a855f7" }} />
+                <Clock size={18} style={{ color: "var(--signal)" }} />
                 <div style={{ textAlign: "left" }}>
                   <p
                     style={{
                       fontFamily: "var(--font-poppins), Poppins, sans-serif",
                       fontWeight: 600,
                       fontSize: "14px",
-                      color: "white",
+                      color: "var(--text-primary)",
                       margin: 0,
                       lineHeight: 1.3,
                     }}
@@ -316,7 +316,7 @@ const ScanHistoryPanel = forwardRef<HTMLElement, ScanHistoryPanelProps>(
                       fontFamily: "var(--font-poppins), Poppins, sans-serif",
                       fontWeight: 400,
                       fontSize: "11px",
-                      color: "rgba(255,255,255,0.4)",
+                      color: "var(--text-muted)",
                       margin: 0,
                     }}
                   >
@@ -329,12 +329,12 @@ const ScanHistoryPanel = forwardRef<HTMLElement, ScanHistoryPanelProps>(
               {collapsed ? (
                 <ChevronDown
                   size={16}
-                  style={{ color: "rgba(255,255,255,0.3)" }}
+                  style={{ color: "var(--text-muted)" }}
                 />
               ) : (
                 <ChevronUp
                   size={16}
-                  style={{ color: "rgba(255,255,255,0.3)" }}
+                  style={{ color: "var(--text-muted)" }}
                 />
               )}
             </button>
@@ -358,7 +358,7 @@ const ScanHistoryPanel = forwardRef<HTMLElement, ScanHistoryPanelProps>(
                       >
                         <Clock
                           size={32}
-                          style={{ color: "rgba(255,255,255,0.15)" }}
+                          style={{ color: "var(--border-strong)" }}
                         />
                         <p
                           style={{
@@ -366,7 +366,7 @@ const ScanHistoryPanel = forwardRef<HTMLElement, ScanHistoryPanelProps>(
                               "var(--font-poppins), Poppins, sans-serif",
                             fontSize: "14px",
                             fontWeight: 500,
-                            color: "rgba(255,255,255,0.5)",
+                            color: "var(--text-muted)",
                             margin: 0,
                           }}
                         >
@@ -377,7 +377,7 @@ const ScanHistoryPanel = forwardRef<HTMLElement, ScanHistoryPanelProps>(
                             fontFamily:
                               "var(--font-poppins), Poppins, sans-serif",
                             fontSize: "12px",
-                            color: "rgba(255,255,255,0.3)",
+                            color: "var(--text-muted)",
                             margin: 0,
                           }}
                         >
@@ -396,7 +396,7 @@ const ScanHistoryPanel = forwardRef<HTMLElement, ScanHistoryPanelProps>(
                               >
                                 <TrendingUp
                                   size={14}
-                                  style={{ color: "#a855f7" }}
+                                  style={{ color: "var(--signal)" }}
                                 />
                                 <span
                                   style={{
@@ -404,7 +404,7 @@ const ScanHistoryPanel = forwardRef<HTMLElement, ScanHistoryPanelProps>(
                                       "var(--font-poppins), Poppins, sans-serif",
                                     fontSize: "12px",
                                     fontWeight: 500,
-                                    color: "rgba(255,255,255,0.5)",
+                                    color: "var(--text-muted)",
                                   }}
                                 >
                                   Health Score Trend
@@ -426,7 +426,7 @@ const ScanHistoryPanel = forwardRef<HTMLElement, ScanHistoryPanelProps>(
                                     tickLine={false}
                                     tick={{
                                       fontSize: 10,
-                                      fill: "rgba(255,255,255,0.35)",
+                                      fill: "var(--text-muted)",
                                       fontFamily:
                                         "var(--font-poppins), Poppins, sans-serif",
                                     }}
@@ -437,7 +437,7 @@ const ScanHistoryPanel = forwardRef<HTMLElement, ScanHistoryPanelProps>(
                                     tickLine={false}
                                     tick={{
                                       fontSize: 10,
-                                      fill: "rgba(255,255,255,0.25)",
+                                      fill: "var(--text-muted)",
                                       fontFamily:
                                         "var(--font-poppins), Poppins, sans-serif",
                                     }}
@@ -445,24 +445,24 @@ const ScanHistoryPanel = forwardRef<HTMLElement, ScanHistoryPanelProps>(
                                   <RechartsTooltip
                                     content={<CustomChartTooltip />}
                                     cursor={{
-                                      stroke: "rgba(168,85,247,0.2)",
+                                      stroke: "rgba(79,70,229,0.2)",
                                     }}
                                   />
                                   <Line
                                     type="monotone"
                                     dataKey="score"
-                                    stroke="#a855f7"
+                                    stroke="var(--signal)"
                                     strokeWidth={2.5}
                                     dot={{
-                                      fill: "#a855f7",
+                                      fill: "var(--signal)",
                                       r: 4,
                                       strokeWidth: 0,
                                     }}
                                     activeDot={{
-                                      fill: "#c084fc",
+                                      fill: "var(--signal-bright)",
                                       r: 6,
                                       strokeWidth: 2,
-                                      stroke: "#a855f7",
+                                      stroke: "var(--signal)",
                                     }}
                                   />
                                 </LineChart>
@@ -474,20 +474,20 @@ const ScanHistoryPanel = forwardRef<HTMLElement, ScanHistoryPanelProps>(
                               style={{
                                 padding: "12px 14px",
                                 borderRadius: 8,
-                                background: "rgba(168,85,247,0.06)",
-                                border: "1px solid rgba(168,85,247,0.12)",
+                                background: "rgba(79,70,229,0.06)",
+                                border: "1px solid rgba(79,70,229,0.12)",
                               }}
                             >
                               <TrendingUp
                                 size={14}
-                                style={{ color: "#a855f7" }}
+                                style={{ color: "var(--signal)" }}
                               />
                               <span
                                 style={{
                                   fontFamily:
                                     "var(--font-poppins), Poppins, sans-serif",
                                   fontSize: "12px",
-                                  color: "rgba(255,255,255,0.5)",
+                                  color: "var(--text-muted)",
                                 }}
                               >
                                 Scan again to see your health trend
@@ -512,7 +512,7 @@ const ScanHistoryPanel = forwardRef<HTMLElement, ScanHistoryPanelProps>(
                               <tr
                                 style={{
                                   borderBottom:
-                                    "1px solid rgba(255,255,255,0.08)",
+                                    "1px solid var(--border-subtle)",
                                 }}
                               >
                                 {[
@@ -530,7 +530,7 @@ const ScanHistoryPanel = forwardRef<HTMLElement, ScanHistoryPanelProps>(
                                       fontSize: "10px",
                                       textTransform: "uppercase",
                                       letterSpacing: "0.08em",
-                                      color: "rgba(255,255,255,0.35)",
+                                      color: "var(--text-muted)",
                                       fontFamily:
                                         "var(--font-poppins), Poppins, sans-serif",
                                       fontWeight: 500,
@@ -559,9 +559,9 @@ const ScanHistoryPanel = forwardRef<HTMLElement, ScanHistoryPanelProps>(
                                     style={{
                                       cursor: "pointer",
                                       borderBottom:
-                                        "1px solid rgba(255,255,255,0.05)",
+                                        "1px solid var(--border-subtle)",
                                       background: isExpanded
-                                        ? "rgba(255,255,255,0.03)"
+                                        ? "rgba(28,28,46,0.04)"
                                         : "transparent",
                                       transition: "background 0.15s",
                                     }}
@@ -570,7 +570,7 @@ const ScanHistoryPanel = forwardRef<HTMLElement, ScanHistoryPanelProps>(
                                         (
                                           e.currentTarget as HTMLElement
                                         ).style.background =
-                                          "rgba(255,255,255,0.025)";
+                                          "rgba(28,28,46,0.03)";
                                     }}
                                     onMouseLeave={(e) => {
                                       if (!isExpanded)
@@ -586,7 +586,7 @@ const ScanHistoryPanel = forwardRef<HTMLElement, ScanHistoryPanelProps>(
                                         fontFamily:
                                           "var(--font-poppins), Poppins, sans-serif",
                                         fontSize: "12px",
-                                        color: "rgba(255,255,255,0.65)",
+                                        color: "var(--text-secondary)",
                                         whiteSpace: "nowrap",
                                       }}
                                     >
@@ -600,7 +600,7 @@ const ScanHistoryPanel = forwardRef<HTMLElement, ScanHistoryPanelProps>(
                                         fontFamily:
                                           "var(--font-poppins), Poppins, sans-serif",
                                         fontSize: "12px",
-                                        color: "rgba(255,255,255,0.5)",
+                                        color: "var(--text-muted)",
                                         fontVariantNumeric: "tabular-nums",
                                       }}
                                     >
@@ -616,8 +616,8 @@ const ScanHistoryPanel = forwardRef<HTMLElement, ScanHistoryPanelProps>(
                                         fontSize: "12px",
                                         color:
                                           scan.broken_count > 0
-                                            ? "#f87171"
-                                            : "rgba(255,255,255,0.35)",
+                                            ? "#e05c5c"
+                                            : "var(--text-muted)",
                                         fontWeight:
                                           scan.broken_count > 0 ? 600 : 400,
                                         fontVariantNumeric: "tabular-nums",
@@ -635,8 +635,8 @@ const ScanHistoryPanel = forwardRef<HTMLElement, ScanHistoryPanelProps>(
                                         fontSize: "12px",
                                         color:
                                           scan.dead_cta_count > 0
-                                            ? "#fbbf24"
-                                            : "rgba(255,255,255,0.35)",
+                                            ? "#f5a623"
+                                            : "var(--text-muted)",
                                         fontWeight:
                                           scan.dead_cta_count > 0 ? 600 : 400,
                                         fontVariantNumeric: "tabular-nums",
@@ -683,9 +683,9 @@ const ScanHistoryPanel = forwardRef<HTMLElement, ScanHistoryPanelProps>(
                                           style={{
                                             padding: "4px 12px 12px 24px",
                                             borderBottom:
-                                              "1px solid rgba(255,255,255,0.05)",
+                                              "1px solid var(--border-subtle)",
                                             background:
-                                              "rgba(255,255,255,0.02)",
+                                              "rgba(28,28,46,0.03)",
                                           }}
                                         >
                                           <HistoryBrokenList scan={scan} />

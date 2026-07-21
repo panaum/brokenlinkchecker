@@ -73,9 +73,9 @@ export default function RedirectDownloadButton({ results }: RedirectDownloadProp
       title={isDisabled ? "Scan a page first to generate redirects" : `Download redirect rules for ${count} broken links`}
       className="inline-flex items-center gap-2 px-4 py-2 rounded-xl transition-all cursor-pointer"
       style={{
-        background: isDisabled ? "rgba(255,255,255,0.03)" : "rgba(96,165,250,0.12)",
-        border: `1px solid ${isDisabled ? "rgba(255,255,255,0.06)" : "rgba(96,165,250,0.25)"}`,
-        color: isDisabled ? "rgba(255,255,255,0.25)" : "#60a5fa",
+        background: isDisabled ? "rgba(28,28,46,0.04)" : "rgba(91,141,239,0.12)",
+        border: `1px solid ${isDisabled ? "var(--border-subtle)" : "rgba(91,141,239,0.25)"}`,
+        color: isDisabled ? "var(--text-muted)" : "#5b8def",
         fontFamily: "var(--font-poppins), Poppins, sans-serif",
         fontWeight: 500,
         fontSize: "13px",
@@ -88,7 +88,7 @@ export default function RedirectDownloadButton({ results }: RedirectDownloadProp
       {count > 0 && (
         <span
           style={{
-            background: "rgba(96,165,250,0.2)",
+            background: "rgba(91,141,239,0.2)",
             borderRadius: 9999,
             padding: "1px 7px",
             fontSize: "11px",

@@ -30,10 +30,10 @@ export default function ReportHeader({ results, detectedBuilders, diff, siteId }
       : `${results.length} links scanned`;
 
   const chips: { label: string; color: string }[] = [
-    { label: countLabel, color: "rgba(255,255,255,0.55)" },
-    { label: `${broken} broken`, color: "#f87171" },
-    { label: `${dead_cta} dead CTA${dead_cta === 1 ? "" : "s"}`, color: "#fb923c" },
-    { label: `${unverifiable} unverifiable`, color: "#fbbf24" },
+    { label: countLabel, color: "var(--text-muted)" },
+    { label: `${broken} broken`, color: "#e05c5c" },
+    { label: `${dead_cta} dead CTA${dead_cta === 1 ? "" : "s"}`, color: "#f5a623" },
+    { label: `${unverifiable} unverifiable`, color: "#f5a623" },
   ];
 
   return (
@@ -49,10 +49,10 @@ export default function ReportHeader({ results, detectedBuilders, diff, siteId }
           className="mb-2 text-sm font-medium"
           style={{
             color: diff.has_baseline
-              ? "#e2e8f0"
+              ? "var(--text-primary)"
               : diff.baseline_status === "unavailable"
-                ? "#fbbf24"
-                : "rgba(255,255,255,0.45)",
+                ? "#f5a623"
+                : "var(--text-muted)",
           }}
         >
           {diff.baseline_status === "unavailable"
@@ -66,9 +66,9 @@ export default function ReportHeader({ results, detectedBuilders, diff, siteId }
           <span
             className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium"
             style={{
-              background: "rgba(96,165,250,0.12)",
-              color: "#93c5fd",
-              border: "1px solid rgba(96,165,250,0.25)",
+              background: "rgba(91,141,239,0.12)",
+              color: "#5b8def",
+              border: "1px solid rgba(91,141,239,0.25)",
             }}
             title={`Detected page builder${detectedBuilders.length > 1 ? "s" : ""}`}
           >
@@ -82,9 +82,9 @@ export default function ReportHeader({ results, detectedBuilders, diff, siteId }
             href={`/api/sites/${encodeURIComponent(siteId)}/fix-pack`}
             className="ml-auto inline-flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-xs font-medium"
             style={{
-              background: "rgba(74,222,128,0.12)",
-              color: "#4ade80",
-              border: "1px solid rgba(74,222,128,0.25)",
+              background: "rgba(76,175,125,0.12)",
+              color: "#4caf7d",
+              border: "1px solid rgba(76,175,125,0.25)",
             }}
             title="fixes.csv, instructions.md, and the redirect ruleset"
           >
@@ -95,7 +95,7 @@ export default function ReportHeader({ results, detectedBuilders, diff, siteId }
         {chips.map((chip, i) => (
           <span key={chip.label} className="inline-flex items-center gap-3">
             {(i > 0 || detectedBuilders.length > 0) && (
-              <span aria-hidden style={{ color: "rgba(255,255,255,0.25)" }}>
+              <span aria-hidden style={{ color: "var(--text-muted)" }}>
                 ·
               </span>
             )}

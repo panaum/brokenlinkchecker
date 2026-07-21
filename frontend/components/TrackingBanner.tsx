@@ -108,7 +108,7 @@ export default function TrackingBanner({
                     height: 36,
                     borderRadius: 10,
                     background:
-                      "linear-gradient(132deg, rgb(23,184,148), rgb(52,230,192))",
+                      "var(--signal)",
                     display: "flex",
                     alignItems: "center",
                     justifyContent: "center",
@@ -123,7 +123,7 @@ export default function TrackingBanner({
                       fontFamily: "var(--font-poppins), Poppins, sans-serif",
                       fontWeight: 600,
                       fontSize: "14px",
-                      color: "white",
+                      color: "var(--text-primary)",
                       margin: 0,
                       lineHeight: 1.4,
                     }}
@@ -135,7 +135,7 @@ export default function TrackingBanner({
                       fontFamily: "var(--font-poppins), Poppins, sans-serif",
                       fontWeight: 400,
                       fontSize: "12px",
-                      color: "rgba(255,255,255,0.55)",
+                      color: "var(--text-muted)",
                       margin: 0,
                       lineHeight: 1.4,
                     }}
@@ -162,9 +162,9 @@ export default function TrackingBanner({
                       minWidth: 200,
                       padding: "8px 14px",
                       borderRadius: 8,
-                      border: "1px solid rgba(255,255,255,0.12)",
-                      background: "rgba(255,255,255,0.05)",
-                      color: "white",
+                      border: "1px solid var(--border-subtle)",
+                      background: "var(--surface-page)",
+                      color: "var(--text-primary)",
                       fontFamily: "var(--font-poppins), Poppins, sans-serif",
                       fontSize: "13px",
                       outline: "none",
@@ -177,7 +177,7 @@ export default function TrackingBanner({
                       padding: "8px 20px",
                       borderRadius: 8,
                       background:
-                        "linear-gradient(132deg, rgb(23,184,148), rgb(52,230,192))",
+                        "var(--signal)",
                       color: "white",
                       fontFamily: "var(--font-poppins), Poppins, sans-serif",
                       fontWeight: 600,
@@ -202,7 +202,7 @@ export default function TrackingBanner({
                         fontFamily:
                           "var(--font-poppins), Poppins, sans-serif",
                         fontSize: "12px",
-                        color: "#f87171",
+                        color: "#e05c5c",
                         margin: 0,
                         width: "100%",
                       }}
@@ -217,13 +217,13 @@ export default function TrackingBanner({
                   animate={{ opacity: 1 }}
                   className="flex items-center gap-2"
                 >
-                  <Check size={16} style={{ color: "#4ade80" }} />
+                  <Check size={16} style={{ color: "#4caf7d" }} />
                   <span
                     style={{
                       fontFamily: "var(--font-poppins), Poppins, sans-serif",
                       fontSize: "13px",
                       fontWeight: 500,
-                      color: "#4ade80",
+                      color: "#4caf7d",
                     }}
                   >
                     Tracking started! We&apos;ll remember every scan for{" "}

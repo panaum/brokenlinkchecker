@@ -14,11 +14,11 @@ interface Integration {
 }
 
 const STATUS: Record<string, { icon: React.ReactNode; color: string; label: string }> = {
-  healthy: { icon: <Check size={13} />, color: "#4ade80", label: "Healthy" },
-  down: { icon: <X size={13} />, color: "#f87171", label: "Down" },
-  unresponsive: { icon: <Clock size={13} />, color: "#fbbf24", label: "Unresponsive" },
-  unknown: { icon: <HelpCircle size={13} />, color: "#94a3b8", label: "Unknown" },
-  checking: { icon: <Loader2 size={13} className="animate-spin" />, color: "#94a3b8", label: "Checking…" },
+  healthy: { icon: <Check size={13} />, color: "var(--status-healthy)", label: "Healthy" },
+  down: { icon: <X size={13} />, color: "var(--status-broken)", label: "Down" },
+  unresponsive: { icon: <Clock size={13} />, color: "var(--status-attention)", label: "Unresponsive" },
+  unknown: { icon: <HelpCircle size={13} />, color: "var(--status-neutral)", label: "Unknown" },
+  checking: { icon: <Loader2 size={13} className="animate-spin" />, color: "var(--status-neutral)", label: "Checking…" },
 };
 
 function relTime(iso?: string | null): string {
@@ -100,9 +100,9 @@ export default function IntegrationsPanel({ scanId, pageUrl }: { scanId: string;
         className="inline-flex items-center gap-1.5 cursor-pointer"
         style={{
           padding: "4px 10px", borderRadius: 8, fontSize: 12, fontWeight: 500,
-          border: `1px solid ${downCount ? "rgba(248,113,113,0.4)" : "rgba(255,255,255,0.12)"}`,
-          background: downCount ? "rgba(248,113,113,0.08)" : "rgba(255,255,255,0.04)",
-          color: downCount ? "#fca5a5" : "rgba(255,255,255,0.75)",
+          border: `1px solid ${downCount ? "rgba(224,92,92,0.4)" : "var(--border-subtle)"}`,
+          background: downCount ? "rgba(224,92,92,0.08)" : "rgba(28,28,46,0.04)",
+          color: downCount ? "var(--status-broken)" : "var(--text-secondary)",
         }}
       >
         <Puzzle size={13} />
@@ -110,8 +110,8 @@ export default function IntegrationsPanel({ scanId, pageUrl }: { scanId: string;
         <span
           style={{
             minWidth: 18, textAlign: "center", padding: "0 5px", borderRadius: 999, fontSize: 11,
-            background: downCount ? "#f87171" : "rgba(255,255,255,0.12)",
-            color: downCount ? "#fff" : "rgba(255,255,255,0.8)",
+            background: downCount ? "var(--status-broken)" : "var(--border-subtle)",
+            color: downCount ? "#fff" : "var(--text-secondary)",
           }}
         >
           {loading && data === null ? "…" : count}
@@ -126,8 +126,8 @@ export default function IntegrationsPanel({ scanId, pageUrl }: { scanId: string;
           style={{
             position: "absolute", zIndex: 40, top: "calc(100% + 6px)", right: 0,
             width: 380, maxHeight: 440, overflowY: "auto",
-            background: "#12101a", border: "1px solid rgba(255,255,255,0.12)",
-            borderRadius: 12, padding: 14, boxShadow: "0 12px 40px rgba(0,0,0,0.5)",
+            background: "var(--surface-card)", border: "1px solid var(--border-subtle)",
+            borderRadius: 12, padding: 14, boxShadow: "var(--elev-3)",
           }}
         >
           <div style={{ fontSize: 13, fontWeight: 600, marginBottom: 10 }}>
@@ -137,7 +137,7 @@ export default function IntegrationsPanel({ scanId, pageUrl }: { scanId: string;
           {downCount > 0 && (
             <div
               className="rounded-lg px-3 py-2 mb-3"
-              style={{ background: "rgba(248,113,113,0.1)", border: "1px solid rgba(248,113,113,0.3)", fontSize: 11.5, color: "#fca5a5", lineHeight: 1.5 }}
+              style={{ background: "rgba(224,92,92,0.1)", border: "1px solid rgba(224,92,92,0.3)", fontSize: 11.5, color: "var(--status-broken)", lineHeight: 1.5 }}
             >
               A tool below isn&apos;t loading — its feature (booking, chat, tracking) is likely broken for visitors.
             </div>
@@ -145,7 +145,7 @@ export default function IntegrationsPanel({ scanId, pageUrl }: { scanId: string;
 
           {Object.entries(byCategory).map(([cat, items]) => (
             <div key={cat} style={{ marginBottom: 12 }}>
-              <div style={{ fontSize: 10.5, textTransform: "uppercase", letterSpacing: "0.06em", color: "rgba(255,255,255,0.4)", marginBottom: 5 }}>
+              <div style={{ fontSize: 10.5, textTransform: "uppercase", letterSpacing: "0.06em", color: "var(--text-muted)", marginBottom: 5 }}>
                 {cat}
               </div>
               {items.map((i, idx) => {
@@ -153,13 +153,13 @@ export default function IntegrationsPanel({ scanId, pageUrl }: { scanId: string;
                 return (
                   <div key={i.resource_url + idx} className="flex items-center justify-between py-1" style={{ fontSize: 12.5 }}>
                     <div style={{ minWidth: 0 }}>
-                      <div style={{ color: "rgba(255,255,255,0.9)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={i.resource_url}>
+                      <div style={{ color: "var(--text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }} title={i.resource_url}>
                         {i.host}
                         {i.detected_id && (
-                          <span style={{ color: "rgba(255,255,255,0.4)", marginLeft: 6, fontSize: 11 }}>{i.detected_id}</span>
+                          <span style={{ color: "var(--text-muted)", marginLeft: 6, fontSize: 11 }}>{i.detected_id}</span>
                         )}
                       </div>
-                      <div style={{ color: "rgba(255,255,255,0.35)", fontSize: 10.5 }}>
+                      <div style={{ color: "var(--text-muted)", fontSize: 10.5 }}>
                         {i.type}{i.last_checked_at ? ` · checked ${relTime(i.last_checked_at)}` : ""}
                       </div>
                     </div>

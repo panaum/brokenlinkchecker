@@ -30,10 +30,10 @@ export default function NavBar() {
         left: 0,
         right: 0,
         zIndex: 100,
-        background: "rgba(20,19,28,0.82)",
+        background: "rgba(255,255,255,0.82)",
         backdropFilter: "blur(16px)",
         WebkitBackdropFilter: "blur(16px)",
-        borderBottom: "1px solid rgba(255,255,255,0.06)",
+        borderBottom: "1px solid var(--border-subtle)",
       }}
     >
       <div
@@ -75,8 +75,8 @@ export default function NavBar() {
                     fontFamily: "var(--font-poppins), Poppins, sans-serif",
                     fontWeight: 500,
                     fontSize: "13px",
-                    color: isActive ? "#fff" : "rgba(255,255,255,0.45)",
-                    background: isActive ? "rgba(255,255,255,0.06)" : "transparent",
+                    color: isActive ? "var(--text-primary)" : "var(--text-muted)",
+                    background: isActive ? "rgba(79,70,229,0.06)" : "transparent",
                   }}
                 >
                   <Icon size={15} />
@@ -105,7 +105,7 @@ export default function NavBar() {
             className="hidden sm:flex items-center gap-2"
             style={{
               padding: "6px 10px", borderRadius: 8, cursor: "pointer",
-              background: "rgba(255,255,255,0.05)", border: "1px solid var(--border-subtle)",
+              background: "rgba(28,28,46,0.04)", border: "1px solid var(--border-subtle)",
               color: "var(--text-muted)",
             }}
           >

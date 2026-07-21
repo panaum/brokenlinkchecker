@@ -110,7 +110,7 @@ export default function ActiveTestingPanel({ siteId, siteUrl }: { siteId: string
 
   if (loading) {
     return (
-      <div className="flex items-center gap-2 text-sm" style={{ color: "rgba(255,255,255,0.4)" }}>
+      <div className="flex items-center gap-2 text-sm" style={{ color: "var(--text-muted)" }}>
         <Loader2 size={14} className="animate-spin" /> Loading active testing…
       </div>
     );
@@ -122,16 +122,16 @@ export default function ActiveTestingPanel({ siteId, siteUrl }: { siteId: string
   return (
     <div
       className="rounded-xl p-4"
-      style={{ background: "rgba(255,255,255,0.02)", border: "1px solid rgba(251,146,60,0.25)" }}
+      style={{ background: "var(--surface-card)", border: "1px solid rgba(245,166,35,0.25)" }}
     >
       <div className="flex items-center gap-2 mb-2" style={{ fontWeight: 600, fontSize: 14 }}>
-        <FlaskConical size={16} style={{ color: "#fb923c" }} />
+        <FlaskConical size={16} style={{ color: "#f5a623" }} />
         Active form testing
         <span
           style={{
             marginLeft: 6, fontSize: 10, padding: "1px 7px", borderRadius: 999,
-            background: globalOn ? "rgba(251,146,60,0.15)" : "rgba(255,255,255,0.06)",
-            color: globalOn ? "#fdba74" : "rgba(255,255,255,0.5)",
+            background: globalOn ? "rgba(245,166,35,0.15)" : "rgba(28,28,46,0.04)",
+            color: globalOn ? "#f5a623" : "var(--text-muted)",
           }}
         >
           {globalOn ? "enabled globally" : "off globally"}
@@ -141,18 +141,18 @@ export default function ActiveTestingPanel({ siteId, siteUrl }: { siteId: string
       {/* The mandatory warning — shown always, not just at enable time. */}
       <div
         className="flex gap-2 rounded-lg px-3 py-2 mb-3"
-        style={{ background: "rgba(251,146,60,0.08)", border: "1px solid rgba(251,146,60,0.2)" }}
+        style={{ background: "rgba(245,166,35,0.08)", border: "1px solid rgba(245,166,35,0.2)" }}
       >
-        <AlertTriangle size={14} style={{ color: "#fb923c", flexShrink: 0, marginTop: 2 }} />
-        <p style={{ fontSize: 12, color: "rgba(255,255,255,0.7)", lineHeight: 1.5, margin: 0 }}>
+        <AlertTriangle size={14} style={{ color: "#f5a623", flexShrink: 0, marginTop: 2 }} />
+        <p style={{ fontSize: 12, color: "var(--text-secondary)", lineHeight: 1.5, margin: 0 }}>
           This submits the form for real. Configure your CRM to filter the test
-          address <strong style={{ color: "#fdba74" }}>{email}</strong> before you
+          address <strong style={{ color: "#f5a623" }}>{email}</strong> before you
           run a test. Payment forms are always refused.
         </p>
       </div>
 
       {!globalOn && (
-        <p style={{ fontSize: 12, color: "rgba(255,255,255,0.5)", marginBottom: 10 }}>
+        <p style={{ fontSize: 12, color: "var(--text-muted)", marginBottom: 10 }}>
           Turned off globally. A test will refuse until <code>ACTIVE_FORM_TESTING</code>{" "}
           is set on the server. You can still enable individual forms below so
           they are ready.
@@ -166,13 +166,13 @@ export default function ActiveTestingPanel({ siteId, siteUrl }: { siteId: string
             <div
               key={f.form_key}
               className="flex items-center justify-between rounded-lg px-3 py-2"
-              style={{ background: "rgba(255,255,255,0.03)", fontSize: 12 }}
+              style={{ background: "rgba(28,28,46,0.04)", fontSize: 12 }}
             >
               <div className="min-w-0">
-                <div style={{ color: "rgba(255,255,255,0.85)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
+                <div style={{ color: "var(--text-primary)", overflow: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}>
                   {f.form_key}
                 </div>
-                <div style={{ color: "rgba(255,255,255,0.4)" }}>
+                <div style={{ color: "var(--text-muted)" }}>
                   {f.enabled ? `enabled · ${f.test_email ?? email}` : "disabled"}
                 </div>
               </div>
@@ -183,7 +183,7 @@ export default function ActiveTestingPanel({ siteId, siteUrl }: { siteId: string
                     disabled={busy === f.form_key}
                     className="cursor-pointer"
                     style={{ padding: "3px 10px", borderRadius: 6, fontSize: 11, fontWeight: 500,
-                             border: "1px solid rgba(251,146,60,0.4)", background: "rgba(251,146,60,0.12)", color: "#fdba74" }}
+                             border: "1px solid rgba(245,166,35,0.4)", background: "rgba(245,166,35,0.12)", color: "#f5a623" }}
                   >
                     {busy === f.form_key ? "Testing…" : "Run test"}
                   </button>
@@ -193,7 +193,7 @@ export default function ActiveTestingPanel({ siteId, siteUrl }: { siteId: string
                   disabled={busy === f.form_key}
                   className="cursor-pointer"
                   style={{ padding: "3px 10px", borderRadius: 6, fontSize: 11,
-                           border: "1px solid rgba(255,255,255,0.15)", color: "rgba(255,255,255,0.6)" }}
+                           border: "1px solid var(--border-strong)", color: "var(--text-secondary)" }}
                 >
                   {f.enabled ? "Disable" : "Enable"}
                 </button>
@@ -204,28 +204,28 @@ export default function ActiveTestingPanel({ siteId, siteUrl }: { siteId: string
       )}
 
       {result && (
-        <p style={{ fontSize: 12, color: "rgba(255,255,255,0.7)", marginBottom: 10, lineHeight: 1.5 }}>
+        <p style={{ fontSize: 12, color: "var(--text-secondary)", marginBottom: 10, lineHeight: 1.5 }}>
           {result}
         </p>
       )}
 
       {/* Enable a form — deliberate, with an explicit confirmation. */}
-      <div className="flex flex-col gap-2 pt-2" style={{ borderTop: "1px solid rgba(255,255,255,0.06)" }}>
-        <div style={{ fontSize: 11, color: "rgba(255,255,255,0.4)" }}>Enable a form for testing</div>
+      <div className="flex flex-col gap-2 pt-2" style={{ borderTop: "1px solid var(--border-subtle)" }}>
+        <div style={{ fontSize: 11, color: "var(--text-muted)" }}>Enable a form for testing</div>
         <input
           value={selector}
           onChange={(e) => setSelector(e.target.value)}
           placeholder="form CSS selector, e.g. #contact-form"
           className="rounded-lg px-3 py-2 text-sm outline-none"
-          style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "#fff" }}
+          style={{ background: "rgba(28,28,46,0.04)", border: "1px solid var(--border-subtle)", color: "var(--text-primary)" }}
         />
         <input
           value={email}
           onChange={(e) => setEmail(e.target.value)}
           className="rounded-lg px-3 py-2 text-sm outline-none"
-          style={{ background: "rgba(255,255,255,0.05)", border: "1px solid rgba(255,255,255,0.1)", color: "#fff" }}
+          style={{ background: "rgba(28,28,46,0.04)", border: "1px solid var(--border-subtle)", color: "var(--text-primary)" }}
         />
-        <label className="flex items-center gap-2" style={{ fontSize: 12, color: "rgba(255,255,255,0.6)" }}>
+        <label className="flex items-center gap-2" style={{ fontSize: 12, color: "var(--text-secondary)" }}>
           <input type="checkbox" checked={confirmed} onChange={(e) => setConfirmed(e.target.checked)} />
           I have set my CRM to filter {email}, and I understand this sends a real submission.
         </label>
@@ -235,9 +235,9 @@ export default function ActiveTestingPanel({ siteId, siteUrl }: { siteId: string
           className="cursor-pointer"
           style={{
             padding: "6px 12px", borderRadius: 8, fontSize: 12, fontWeight: 500,
-            border: "1px solid rgba(251,146,60,0.4)",
-            background: !selector.trim() || !confirmed ? "rgba(255,255,255,0.04)" : "rgba(251,146,60,0.15)",
-            color: !selector.trim() || !confirmed ? "rgba(255,255,255,0.3)" : "#fdba74",
+            border: "1px solid rgba(245,166,35,0.4)",
+            background: !selector.trim() || !confirmed ? "rgba(28,28,46,0.04)" : "rgba(245,166,35,0.15)",
+            color: !selector.trim() || !confirmed ? "var(--text-muted)" : "#f5a623",
           }}
         >
           Enable this form

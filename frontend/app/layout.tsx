@@ -1,36 +1,13 @@
 import type { Metadata } from "next";
-import { Bricolage_Grotesque, Familjen_Grotesk, JetBrains_Mono } from "next/font/google";
+import { GeistSans } from "geist/font/sans";
+import { GeistMono } from "geist/font/mono";
 import "./globals.css";
 import Providers from "@/components/SessionProvider";
 import CommandPalette from "@/components/CommandPalette";
 
-// Identity typography, self-hosted via next/font.
-//  - display: Bricolage Grotesque — technical-editorial, high-personality, for
-//    headings and verdicts.
-//  - body:    Familjen Grotesk — a warm grotesk, readable at body sizes.
-//  - mono:    JetBrains Mono — every piece of DATA (URLs, scores, counts,
-//    timestamps, status codes) with tabular numerals. Data in mono is what
-//    makes an instrument read as an instrument.
-const display = Bricolage_Grotesque({
-  subsets: ["latin"],
-  weight: ["500", "600", "700", "800"],
-  display: "swap",
-  variable: "--font-display",
-});
-
-const body = Familjen_Grotesk({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-  display: "swap",
-  variable: "--font-body",
-});
-
-const mono = JetBrains_Mono({
-  subsets: ["latin"],
-  weight: ["400", "500", "600", "700"],
-  display: "swap",
-  variable: "--font-mono",
-});
+// Typography — Geist, matched to the Deliverables Dashboard so the two apps
+// read as one product. Sans carries UI + headings; mono carries every piece of
+// DATA (URLs, scores, counts, timestamps, status codes) with tabular numerals.
 
 export const metadata: Metadata = {
   title: "LinkSpy — Broken Link Checker",
@@ -60,7 +37,7 @@ export default function RootLayout({
   return (
     <html
       lang="en"
-      className={`${display.variable} ${body.variable} ${mono.variable}`}
+      className={`${GeistSans.variable} ${GeistMono.variable}`}
       suppressHydrationWarning
     >
       <body className="antialiased" suppressHydrationWarning>

@@ -1,0 +1,77 @@
+/*
+  QA Ecosystem design tokens — single source of truth.
+
+  Exact values from the linkspy-issue-primitive.html reference :root. Consumed
+  by LinkSpy today; the Dashboard and Board app adopt the same file so the three
+  surfaces read as one product. Values live in ONE place: change them here.
+
+  HARD RULES (enforced in review, see README):
+    - Gradients appear in exactly three places — the score ring, the primary
+      button, and the selection spine. Nowhere else. Health-bar segments are FLAT.
+    - Violet (--violet) means selection / active state only — never a status.
+    - Status colour is its own language: red / green / amber, each with a -bg pair.
+    - Every numeric UI uses tabular numerals.
+    - Six type sizes only (below). Weight and colour carry hierarchy, not size.
+*/
+:root {
+  /* ── Accent: violet. Selection / active / interactive ONLY, never a status. */
+  --violet: #4F46E5;
+  --violet-hover: #4038CE;
+  --violet-deep: #3D2FBF;
+  --violet-soft: #E4E1FC;
+  --violet-softer: #EFEDFD;
+
+  /* ── Ink: three tiers of text. */
+  --ink: #171728;
+  --ink-2: #5C5C72;
+  --ink-3: #8E8EA3;
+
+  /* ── Lines & surfaces. */
+  --line: #E7E4F0;
+  --line-soft: #EFEDF5;
+  --card: #FFFFFF;
+
+  /* ── Status: its own language, never the accent. Each colour + a bg pair. */
+  --red: #C8384C;    --red-bg: #FCEBEE;
+  --green: #0F8A63;  --green-bg: #E3F4ED;
+  --amber: #A9700B;  --amber-bg: #FAF0DC;
+
+  /* ── Radius. */
+  --radius-sm: 6px;
+  --radius-ctl: 10px;
+  --radius-card: 16px;
+  --radius-pill: 999px;
+
+  /* ── Shadows: flat / default / raised. Raised is the ONE elevated surface
+        (the detail panel). */
+  --shadow-flat: 0 1px 2px rgba(23, 23, 40, 0.05);
+  --shadow: 0 1px 2px rgba(23, 23, 40, 0.04), 0 6px 20px rgba(23, 23, 40, 0.045);
+  --shadow-raised: 0 1px 2px rgba(23, 23, 40, 0.05), 0 16px 44px rgba(23, 23, 40, 0.085);
+
+  /* ── Motion: three durations, ONE easing curve. */
+  --fast: 0.13s;
+  --base: 0.2s;
+  --slow: 0.4s;
+  --ease: cubic-bezier(0.22, 0.61, 0.36, 1);
+
+  /* ── Type: SIX sizes. Nothing else. (px kept for a 1:1 map to the reference;
+        consumers may rem-ify at the Tailwind layer.) */
+  --text-xs: 11px;     /* micro-labels, eyebrows, kbd */
+  --text-sm: 12.5px;   /* meta, captions, secondary rows */
+  --text-md: 14px;     /* body, controls — the default */
+  --text-lg: 17px;     /* card / detail titles */
+  --text-xl: 22px;     /* section headlines, empty-state H2 */
+  --text-2xl: 28px;    /* banner site name, report H1 */
+
+  /* ── Fonts. Inter for UI, JetBrains Mono for all DATA (URLs, selectors,
+        counts, code) with tabular numerals. */
+  --font-ui: "Inter", -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+  --font-mono: "JetBrains Mono", ui-monospace, Menlo, monospace;
+
+  /* ── Page background: two violet radials on a near-white base. NOT a
+        violet-to-peach linear gradient. Apply with background-attachment: fixed. */
+  --bg-base: #F7F6FB;
+  --bg: radial-gradient(1100px 620px at 18% -12%, #E6E2F8 0%, rgba(230, 226, 248, 0) 62%),
+        radial-gradient(900px 500px at 92% 6%, #EFEBF9 0%, rgba(239, 235, 249, 0) 58%),
+        #F7F6FB;
+}

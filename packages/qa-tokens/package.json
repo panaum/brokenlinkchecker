@@ -1,0 +1,17 @@
+{
+  "name": "@qa/tokens",
+  "version": "0.1.0",
+  "private": true,
+  "description": "QA Ecosystem design tokens — one source of truth for LinkSpy, the Dashboard and Board.",
+  "type": "module",
+  "main": "./index.ts",
+  "types": "./index.ts",
+  "scripts": {
+    "test": "node check-parity.mjs"
+  },
+  "exports": {
+    ".": "./index.ts",
+    "./tokens.css": "./tokens.css"
+  },
+  "files": ["tokens.ts", "tokens.css", "index.ts", "README.md"]
+}

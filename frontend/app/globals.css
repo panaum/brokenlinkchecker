@@ -145,9 +145,9 @@
 /* Card — lifts a visible step above the page; hover raises elevation and
    brightens the hairline. */
 .ds-card {
-  background: rgba(255, 255, 255, 0.62);
-  backdrop-filter: blur(18px) saturate(1.35);
-  -webkit-backdrop-filter: blur(18px) saturate(1.35);
+  background: rgba(255, 255, 255, 0.50);
+  backdrop-filter: blur(22px) saturate(1.4);
+  -webkit-backdrop-filter: blur(22px) saturate(1.4);
   border: 1px solid rgba(255, 255, 255, 0.6);
   border-radius: var(--radius-lg);
   box-shadow: var(--elev-1), inset 0 1px 0 rgba(255, 255, 255, 0.55);
@@ -261,7 +261,7 @@ a, button, select, summary, [role="button"], [cmdk-item], label[for] {
 /* A frosted translucent panel. Needs a soft tinted backdrop behind it (see
    .scanner-aura) to actually read as glass rather than a flat card. */
 .glass-panel {
-  background: rgba(255, 255, 255, 0.55);
+  background: rgba(255, 255, 255, 0.48);
   backdrop-filter: blur(20px) saturate(1.5);
   -webkit-backdrop-filter: blur(20px) saturate(1.5);
   border: 1px solid rgba(255, 255, 255, 0.7);
@@ -334,9 +334,9 @@ a, button, select, summary, [role="button"], [cmdk-item], label[for] {
 
 /* Frosted glass card — translucent white over the ambient page gradient. */
 .glass-card {
-  background: rgba(255, 255, 255, 0.62);
-  backdrop-filter: blur(18px) saturate(1.35);
-  -webkit-backdrop-filter: blur(18px) saturate(1.35);
+  background: rgba(255, 255, 255, 0.50);
+  backdrop-filter: blur(22px) saturate(1.4);
+  -webkit-backdrop-filter: blur(22px) saturate(1.4);
   border: 1px solid rgba(255, 255, 255, 0.6);
   border-radius: 16px;
   box-shadow: var(--elev-1), inset 0 1px 0 rgba(255, 255, 255, 0.55);

@@ -141,8 +141,9 @@ const prefersReducedMotion = () =>
   typeof window !== "undefined" &&
   window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-export default function IssuesPage() {
-  const [demoView, setDemoView] = useState<"results" | "report" | "blocked" | "firstrun" | "empty">("results");
+// The three-column results UI as a standalone, embeddable component (used by
+// /issues with a demo switcher, and by /scanner under the scan form).
+export function ResultsView() {
   const [statuses, setStatuses] = useState<Record<string, Status>>({});
   const [view, setView] = useState<Status>("open");
   const [query, setQuery] = useState("");
@@ -306,35 +307,8 @@ export default function IssuesPage() {
   const dashoffset = CIRC * (1 - SCORE / 100);
 
   return (
-    <div
-      className={`issues-page ${inter.className}`}
-      style={{ "--font-ui": inter.style.fontFamily, "--font-mono": mono.style.fontFamily } as React.CSSProperties}
-    >
-      <div className="issues-wrap">
-        {/* demo-only view switcher (mirrors the reference) */}
-        <div className="switcher" role="group" aria-label="Demo view">
-          <em>Demo view</em>
-          {([
-            ["results", "After re-scan"],
-            ["report", "Client report"],
-            ["blocked", "Scan blocked"],
-            ["firstrun", "First run"],
-            ["empty", "Empty results"],
-          ] as const).map(([v, label]) => (
-            <button key={v} className="sw" aria-pressed={demoView === v} onClick={() => setDemoView(v)}>
-              {label}
-            </button>
-          ))}
-        </div>
-
-        {demoView === "report" && <ClientReport />}
-        {demoView === "blocked" && <BlockedState />}
-        {demoView === "firstrun" && <FirstRunState />}
-        {demoView === "empty" && <EmptyState />}
-
-        {demoView === "results" && (
-        <>
-        {/* ── verification banner ── */}
+    <>
+      {/* ── verification banner ── */}
         <div className="verify" role="status">
           <div className="verify-icon" aria-hidden>✓</div>
           <div className="grow">
@@ -559,13 +533,44 @@ export default function IssuesPage() {
             <RailCard title="TOP DOMAINS" dim="domain" rows={DOMAIN_ROWS} barsIn={barsIn} filter={filter} onFilter={toggleFilter} mono />
           </div>
         </div>
-        </>
-        )}
-      </div>
 
       {/* undo toast */}
       <div className={`toast ${toast ? "show" : ""}`} role="status" aria-live="polite">
         {toast && <>Issue ignored<button onClick={undo}>Undo</button></>}
+      </div>
+    </>
+  );
+}
+
+// ─── /issues demo page: the switcher chrome around ResultsView + the states ──
+export default function IssuesPage() {
+  const [demoView, setDemoView] = useState<"results" | "report" | "blocked" | "firstrun" | "empty">("results");
+  return (
+    <div
+      className={`issues-page ${inter.className}`}
+      style={{ "--font-ui": inter.style.fontFamily, "--font-mono": mono.style.fontFamily } as React.CSSProperties}
+    >
+      <div className="issues-wrap">
+        <div className="switcher" role="group" aria-label="Demo view">
+          <em>Demo view</em>
+          {([
+            ["results", "After re-scan"],
+            ["report", "Client report"],
+            ["blocked", "Scan blocked"],
+            ["firstrun", "First run"],
+            ["empty", "Empty results"],
+          ] as const).map(([v, label]) => (
+            <button key={v} className="sw" aria-pressed={demoView === v} onClick={() => setDemoView(v)}>
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {demoView === "report" && <ClientReport />}
+        {demoView === "blocked" && <BlockedState />}
+        {demoView === "firstrun" && <FirstRunState />}
+        {demoView === "empty" && <EmptyState />}
+        {demoView === "results" && <ResultsView />}
       </div>
     </div>
   );

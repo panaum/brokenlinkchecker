@@ -221,6 +221,13 @@
 .toast button { color: #C9C4FF; font-weight: 700; padding: 6px 10px; border-radius: var(--radius-sm); }
 .toast button:hover { background: rgba(255,255,255,.1); }
 
+/* ── scanner: scan form above the results ── */
+.scan-panel { background: var(--card); border-radius: var(--radius-card); box-shadow: var(--shadow); padding: 20px 24px; margin-bottom: 16px; }
+.scan-title { font-size: var(--text-lg); font-weight: 700; letter-spacing: -.01em; margin: 0 0 4px; }
+.scan-desc { font-size: var(--text-sm); color: var(--ink-3); margin: 0 0 14px; }
+.scan-panel .scan-row { display: flex; gap: 10px; }
+.scan-panel .scan-row .field { flex: 1; }
+
 /* ── demo view switcher (mirrors the reference; demo-only chrome) ── */
 .switcher { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }
 .switcher em { font-style: normal; font-size: var(--text-sm); color: var(--ink-3); margin-right: 6px; }

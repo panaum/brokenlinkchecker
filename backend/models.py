@@ -117,3 +117,53 @@ class ScanDiff(BaseModel):
     new: list[FindingRecord] = Field(default_factory=list)
     recurring: list[FindingRecord] = Field(default_factory=list)
     fixed: list[FindingRecord] = Field(default_factory=list)
+
+
+# ─── Phase 1 (issue primitive): issues as persistent entities ────────────────
+class IssueOccurrence(BaseModel):
+    """One place an issue appears: a region + element on a source page. The same
+    issue can have several (nav + hero + footer)."""
+    source_page_url: str
+    region: str = ""          # nav | hero | body | sidebar | footer
+    element_selector: str = ""
+    severity: str = "low"     # high | med | low
+
+
+class IssueRecord(BaseModel):
+    """A persistent problem on a site, identified across scans by its
+    fingerprint. Scans reconcile this — they never re-create it.
+
+    The pure reconciliation in issues.py builds and compares these; the DB layer
+    maps them to the issues / issue_occurrences rows. `id` is set only for issues
+    already loaded from the database."""
+    id: Optional[str] = None
+    fingerprint: str
+    status: str = "open"          # open | fixed | ignored
+    issue_type: str = "broken"    # broken | dead_cta | unverifiable | redirect
+    target_url: str
+    source_page_url: str
+    anchor_text: str = ""
+    region: str = ""              # primary (highest-severity) region
+    builder: str = ""
+    occurrence_count: int = 1
+    monthly_pageviews: Optional[int] = None
+    occurrences: list[IssueOccurrence] = Field(default_factory=list)
+    # Age survives scan-row deletion; carried forward, never reset on recurrence.
+    first_seen_at: Optional[str] = None
+    last_seen_at: Optional[str] = None
+    fixed_at: Optional[str] = None
+    ignored_at: Optional[str] = None
+
+
+class IssueDiff(BaseModel):
+    """What one scan did to a site's issue set. Consumed by the verification
+    banner: "You fixed 2 of 4 since {date}".
+
+    `has_baseline` is False on a site's first scan — nothing pre-existing is
+    reported as new.
+    """
+    has_baseline: bool = False
+    new: list[IssueRecord] = Field(default_factory=list)
+    still_open: list[IssueRecord] = Field(default_factory=list)
+    fixed: list[IssueRecord] = Field(default_factory=list)
+    ignored_still_present: list[IssueRecord] = Field(default_factory=list)

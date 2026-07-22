@@ -64,6 +64,15 @@ def _save_scan_sync(site_url, user_email, results, health_score, pages_scanned=1
     except Exception as e:
         print(f"[DB] issue tracking failed (scan {scan_id} was still saved): {e}")
 
+    # Phase 1 (issue primitive): fingerprint-based reconciliation into the new
+    # issues/issue_occurrences tables. Additive and independently guarded — runs
+    # alongside the legacy _track_issues until that path is retired. If the 025
+    # migration isn't applied yet, this no-ops loudly and the scan is untouched.
+    try:
+        reconcile_and_persist_issues(client, site_id, scan_id, site_url, results)
+    except Exception as e:
+        print(f"[DB] issue reconciliation failed (scan {scan_id} was still saved): {e}")
+
     print(f"[DB] Saved scan for {site_url} — {total} links, score {health_score}")
     return {"site_id": site_id, "scan_id": scan_id}
 
@@ -134,6 +143,129 @@ def _track_issues(client, site_id, scan_id, results, get_val):
                 .update({"resolved_at": "now()"})\
                 .eq("id", issue["id"])\
                 .execute()
+
+
+def _load_site_issues(client, site_id) -> list:
+    """Every issue on a site (any status) as IssueRecords, for reconciliation.
+
+    Occurrences are not loaded — reconciliation replaces them from the fresh
+    scan, it never diffs them. `id`, `fingerprint`, `status` and `first_seen_at`
+    are what carry an issue's lifecycle forward.
+    """
+    from models import IssueRecord
+
+    resp = (
+        client.table("issues")
+        .select("id, fingerprint, status, issue_type, target_url, "
+                "source_page_url, region, first_seen_at, last_seen_at")
+        .eq("site_id", site_id)
+        .execute()
+    )
+    out = []
+    for row in resp.data or []:
+        out.append(IssueRecord(
+            id=str(row["id"]),
+            fingerprint=row["fingerprint"],
+            status=row.get("status") or "open",
+            issue_type=row.get("issue_type") or "broken",
+            target_url=row.get("target_url") or "",
+            source_page_url=row.get("source_page_url") or "",
+            region=row.get("region") or "",
+            first_seen_at=row.get("first_seen_at"),
+            last_seen_at=row.get("last_seen_at"),
+        ))
+    return out
+
+
+def _replace_occurrences(client, issue_id, occurrences):
+    """A re-scan replaces an issue's occurrences wholesale — they can shrink, so
+    delete-then-insert is safer than upsert-only."""
+    client.table("issue_occurrences").delete().eq("issue_id", issue_id).execute()
+    rows = [{
+        "issue_id": issue_id,
+        "source_page_url": o.source_page_url,
+        "region": o.region or None,
+        "element_selector": o.element_selector or None,
+        "severity": o.severity or None,
+    } for o in occurrences]
+    if rows:
+        client.table("issue_occurrences").insert(rows).execute()
+
+
+def reconcile_and_persist_issues(client, site_id, scan_id, source_page_url, results, now=None):
+    """Fold one scan into a site's issue set and write the result.
+
+    Returns the IssueDiff so callers (the scan endpoint, the verification banner)
+    can report "you fixed N of M". Pure reconciliation lives in issues.py; this
+    is only the DB projection.
+    """
+    from issues import build_issues_from_scan, reconcile_issues
+    from diffing import utcnow_iso
+
+    now = now or utcnow_iso()
+    previous = _load_site_issues(client, site_id)
+    # First scan ever for this site => no baseline (empty table is a real
+    # baseline; None is reserved for "site had never been scanned"). We can't
+    # tell those apart from the issues table alone, so treat an empty set as the
+    # first-scan baseline: everything inserts as new, banner shows "first scan".
+    baseline = previous if previous else None
+
+    current = build_issues_from_scan(source_page_url, results, now=now)
+    diff = reconcile_issues(baseline, current, now=now)
+
+    for iss in diff.new:
+        ins = client.table("issues").insert({
+            "site_id": site_id,
+            "fingerprint": iss.fingerprint,
+            "status": "open",
+            "issue_type": iss.issue_type,
+            "target_url": iss.target_url,
+            "source_page_url": iss.source_page_url,
+            "anchor_text": iss.anchor_text or None,
+            "region": iss.region or None,
+            "builder": iss.builder or None,
+            "first_seen_scan_id": scan_id,
+            "last_seen_scan_id": scan_id,
+            "first_seen_at": now,
+            "last_seen_at": now,
+            "occurrence_count": iss.occurrence_count,
+        }).execute()
+        _replace_occurrences(client, ins.data[0]["id"], iss.occurrences)
+
+    for iss in diff.still_open:
+        client.table("issues").update({
+            "status": "open",
+            "last_seen_scan_id": scan_id,
+            "last_seen_at": now,
+            "fixed_at": None,
+            "fixed_at_scan_id": None,
+            "occurrence_count": iss.occurrence_count,
+            "region": iss.region or None,
+            "issue_type": iss.issue_type,
+        }).eq("id", iss.id).execute()
+        _replace_occurrences(client, iss.id, iss.occurrences)
+
+    for iss in diff.fixed:
+        client.table("issues").update({
+            "status": "fixed",
+            "fixed_at": now,
+            "fixed_at_scan_id": scan_id,
+        }).eq("id", iss.id).execute()
+
+    for iss in diff.ignored_still_present:
+        client.table("issues").update({
+            "last_seen_scan_id": scan_id,
+            "last_seen_at": now,
+            "occurrence_count": iss.occurrence_count,
+            "region": iss.region or None,
+        }).eq("id", iss.id).execute()
+        _replace_occurrences(client, iss.id, iss.occurrences)
+
+    print(f"[DB] issues reconciled for scan {scan_id}: "
+          f"{len(diff.new)} new · {len(diff.fixed)} fixed · "
+          f"{len(diff.still_open)} still open · "
+          f"{len(diff.ignored_still_present)} ignored")
+    return diff
 
 
 def save_scan_threaded(site_url, user_email, results, health_score, pages_scanned=1):

@@ -8,7 +8,7 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Inter, JetBrains_Mono } from "next/font/google";
-import { BlockedState, FirstRunState, EmptyState } from "./states";
+import { BlockedState, FirstRunState, EmptyState, ClientReport } from "./states";
 import "./issues.css";
 
 const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600", "700", "800"] });
@@ -142,7 +142,7 @@ const prefersReducedMotion = () =>
   window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 export default function IssuesPage() {
-  const [demoView, setDemoView] = useState<"results" | "blocked" | "firstrun" | "empty">("results");
+  const [demoView, setDemoView] = useState<"results" | "report" | "blocked" | "firstrun" | "empty">("results");
   const [statuses, setStatuses] = useState<Record<string, Status>>({});
   const [view, setView] = useState<Status>("open");
   const [query, setQuery] = useState("");
@@ -316,6 +316,7 @@ export default function IssuesPage() {
           <em>Demo view</em>
           {([
             ["results", "After re-scan"],
+            ["report", "Client report"],
             ["blocked", "Scan blocked"],
             ["firstrun", "First run"],
             ["empty", "Empty results"],
@@ -326,6 +327,7 @@ export default function IssuesPage() {
           ))}
         </div>
 
+        {demoView === "report" && <ClientReport />}
         {demoView === "blocked" && <BlockedState />}
         {demoView === "firstrun" && <FirstRunState />}
         {demoView === "empty" && <EmptyState />}

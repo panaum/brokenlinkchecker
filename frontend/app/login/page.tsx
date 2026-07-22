@@ -13,7 +13,7 @@ function LoginContent() {
   return (
     <main
       className="min-h-screen flex items-center justify-center relative overflow-hidden"
-      style={{ background: "var(--surface-page)" }}
+      style={{ background: "transparent" }}
     >
       {/* Background glow */}
       <div
@@ -190,7 +190,7 @@ export default function LoginPage() {
       fallback={
         <main
           className="min-h-screen flex items-center justify-center"
-          style={{ background: "var(--surface-page)" }}
+          style={{ background: "transparent" }}
         >
           <div
             style={{

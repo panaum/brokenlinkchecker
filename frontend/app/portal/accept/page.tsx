@@ -31,7 +31,7 @@ export default function PortalAcceptPage() {
   }, [router]);
 
   return (
-    <main style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: 24, background: "var(--surface-page)" }}>
+    <main style={{ minHeight: "100vh", display: "flex", alignItems: "center", justifyContent: "center", padding: 24, background: "transparent" }}>
       <div className="ds-card ds-card-pad" style={{ maxWidth: 400, textAlign: "center" }}>
         {error ? (
           <>

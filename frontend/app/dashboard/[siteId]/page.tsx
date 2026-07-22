@@ -91,7 +91,7 @@ export default function SiteDetailPage() {
   const name = site?.name?.trim() || (site ? domainOf(site.url) : "");
 
   return (
-    <div className="min-h-screen" style={{ background: "var(--surface-page)", paddingTop: 56 }}>
+    <div className="min-h-screen" style={{ background: "transparent", paddingTop: 56 }}>
       <NavBar />
       <div className="ds-container" style={{ maxWidth: 900, padding: "40px 24px 64px" }}>
         <Link href="/dashboard" className="ds-text-muted" style={{ display: "inline-flex", alignItems: "center", gap: 8, marginBottom: 20, fontSize: "var(--text-body)", textDecoration: "none" }}>

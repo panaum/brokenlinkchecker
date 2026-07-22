@@ -40,6 +40,17 @@
   --border-subtle: #e8e8f0;
   --border-strong: #d7d7e2;
 
+  /* Ambient page gradient — soft lavender melting into warm peach. Applied to
+     the body (fixed), so the whole app shares one calm backdrop. */
+  --page-gradient: linear-gradient(
+    158deg,
+    #e8e4f6 0%,
+    #ece7f3 26%,
+    #f2ece9 52%,
+    #f8eede 80%,
+    #f7e6d2 100%
+  );
+
   /* Text — 3 tiers, all AA on --surface-card */
   --text-primary: #1c1c2e;
   --text-secondary: #66667a;
@@ -85,7 +96,10 @@
   * { box-sizing: border-box; }
 
   body {
-    background: var(--surface-page);
+    background-color: var(--surface-page);
+    background-image: var(--page-gradient);
+    background-attachment: fixed;
+    background-repeat: no-repeat;
     color: var(--text-primary);
     font-family: var(--font-stack-body);
     -webkit-font-smoothing: antialiased;
@@ -266,11 +280,11 @@ a, button, select, summary, [role="button"], [cmdk-item], label[for] {
   pointer-events: none;
   border-radius: 9999px;
   filter: blur(40px);
-  opacity: 0.9;
+  opacity: 0.5;
   background:
-    radial-gradient(42% 58% at 26% 34%, rgba(99, 102, 241, 0.30), transparent 72%),
-    radial-gradient(46% 60% at 78% 46%, rgba(147, 51, 234, 0.20), transparent 72%),
-    radial-gradient(52% 70% at 52% 82%, rgba(56, 189, 248, 0.12), transparent 75%);
+    radial-gradient(42% 58% at 26% 34%, rgba(99, 102, 241, 0.22), transparent 72%),
+    radial-gradient(46% 60% at 78% 46%, rgba(147, 51, 234, 0.16), transparent 72%),
+    radial-gradient(52% 70% at 52% 82%, rgba(56, 189, 248, 0.10), transparent 75%);
 }
 @media (prefers-reduced-motion: no-preference) {
   .scanner-aura { animation: aura-drift 14s var(--ease-out-quart) infinite alternate; }

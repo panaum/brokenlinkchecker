@@ -75,7 +75,7 @@ export default function ClientsPage() {
   };
 
   return (
-    <div className="min-h-screen" style={{ background: "var(--surface-page)", paddingTop: 56 }}>
+    <div className="min-h-screen" style={{ background: "transparent", paddingTop: 56 }}>
       <NavBar />
       <div className="ds-container" style={{ maxWidth: "var(--content-max)", padding: "40px 24px 64px", display: "flex", flexDirection: "column", gap: "var(--space-6)" }}>
         <div style={{ display: "flex", flexWrap: "wrap", alignItems: "center", justifyContent: "space-between", gap: 16 }}>

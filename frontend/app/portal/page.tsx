@@ -64,7 +64,7 @@ export default function PortalHome() {
   }, 0);
 
   return (
-    <div style={{ minHeight: "100vh", background: "var(--surface-page)" }}>
+    <div style={{ minHeight: "100vh", background: "transparent" }}>
       {/* Minimal portal header — no agency nav. */}
       <header style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "16px 24px", borderBottom: "1px solid var(--border-subtle)" }}>
         <span className="font-display" style={{ fontSize: 18, fontWeight: 800, letterSpacing: "-0.02em", color: "var(--text-primary)" }}>

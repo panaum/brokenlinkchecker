@@ -377,7 +377,7 @@ export default function DashboardPage() {
   const fixedCount = useMemo(() => fixedThisMonth(sites.map((s) => s.scans)), [sites]);
 
   return (
-    <div className="relative min-h-screen" style={{ background: "var(--surface-page)", paddingTop: 56 }}>
+    <div className="relative min-h-screen" style={{ background: "transparent", paddingTop: 56 }}>
       <NavBar />
 
       <div className="ds-container" style={{ maxWidth: "var(--content-max)", padding: "40px 24px 64px", display: "flex", flexDirection: "column", gap: "var(--space-6)" }}>

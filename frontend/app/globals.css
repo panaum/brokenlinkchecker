@@ -145,10 +145,12 @@
 /* Card — lifts a visible step above the page; hover raises elevation and
    brightens the hairline. */
 .ds-card {
-  background: var(--surface-card);
-  border: 1px solid var(--border-subtle);
+  background: rgba(255, 255, 255, 0.62);
+  backdrop-filter: blur(18px) saturate(1.35);
+  -webkit-backdrop-filter: blur(18px) saturate(1.35);
+  border: 1px solid rgba(255, 255, 255, 0.6);
   border-radius: var(--radius-lg);
-  box-shadow: var(--elev-1);
+  box-shadow: var(--elev-1), inset 0 1px 0 rgba(255, 255, 255, 0.55);
   transition: box-shadow var(--motion), border-color var(--motion), transform var(--motion);
 }
 .ds-card-hover:hover {
@@ -330,12 +332,14 @@ a, button, select, summary, [role="button"], [cmdk-item], label[for] {
 .bg-gradient-2 { background: var(--signal); }
 .bg-gradient-3 { background: var(--signal); }
 
-/* Solid white card (blur/translucency retired). */
+/* Frosted glass card — translucent white over the ambient page gradient. */
 .glass-card {
-  background: var(--surface-card);
-  border: 1px solid var(--border-subtle);
+  background: rgba(255, 255, 255, 0.62);
+  backdrop-filter: blur(18px) saturate(1.35);
+  -webkit-backdrop-filter: blur(18px) saturate(1.35);
+  border: 1px solid rgba(255, 255, 255, 0.6);
   border-radius: 16px;
-  box-shadow: var(--elev-1);
+  box-shadow: var(--elev-1), inset 0 1px 0 rgba(255, 255, 255, 0.55);
 }
 
 .gradient-text {

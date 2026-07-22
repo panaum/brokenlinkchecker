@@ -8,6 +8,7 @@
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Inter, JetBrains_Mono } from "next/font/google";
+import { BlockedState, FirstRunState, EmptyState } from "./states";
 import "./issues.css";
 
 const inter = Inter({ subsets: ["latin"], weight: ["400", "500", "600", "700", "800"] });
@@ -141,6 +142,7 @@ const prefersReducedMotion = () =>
   window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 export default function IssuesPage() {
+  const [demoView, setDemoView] = useState<"results" | "blocked" | "firstrun" | "empty">("results");
   const [statuses, setStatuses] = useState<Record<string, Status>>({});
   const [view, setView] = useState<Status>("open");
   const [query, setQuery] = useState("");
@@ -309,6 +311,27 @@ export default function IssuesPage() {
       style={{ "--font-ui": inter.style.fontFamily, "--font-mono": mono.style.fontFamily } as React.CSSProperties}
     >
       <div className="issues-wrap">
+        {/* demo-only view switcher (mirrors the reference) */}
+        <div className="switcher" role="group" aria-label="Demo view">
+          <em>Demo view</em>
+          {([
+            ["results", "After re-scan"],
+            ["blocked", "Scan blocked"],
+            ["firstrun", "First run"],
+            ["empty", "Empty results"],
+          ] as const).map(([v, label]) => (
+            <button key={v} className="sw" aria-pressed={demoView === v} onClick={() => setDemoView(v)}>
+              {label}
+            </button>
+          ))}
+        </div>
+
+        {demoView === "blocked" && <BlockedState />}
+        {demoView === "firstrun" && <FirstRunState />}
+        {demoView === "empty" && <EmptyState />}
+
+        {demoView === "results" && (
+        <>
         {/* ── verification banner ── */}
         <div className="verify" role="status">
           <div className="verify-icon" aria-hidden>✓</div>
@@ -534,6 +557,8 @@ export default function IssuesPage() {
             <RailCard title="TOP DOMAINS" dim="domain" rows={DOMAIN_ROWS} barsIn={barsIn} filter={filter} onFilter={toggleFilter} mono />
           </div>
         </div>
+        </>
+        )}
       </div>
 
       {/* undo toast */}

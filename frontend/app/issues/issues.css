@@ -227,6 +227,10 @@
 .scan-desc { font-size: var(--text-sm); color: var(--ink-3); margin: 0 0 14px; }
 .scan-panel .scan-row { display: flex; gap: 10px; }
 .scan-panel .scan-row .field { flex: 1; }
+.scan-bar { height: 4px; border-radius: var(--radius-pill); background: #EEECF7; overflow: hidden; margin-top: 14px; }
+.scan-bar i { display: block; height: 100%; width: 40%; border-radius: var(--radius-pill); background: linear-gradient(90deg, var(--violet), var(--violet-deep)); animation: scan-slide 1s var(--ease) infinite; }
+@keyframes scan-slide { 0% { transform: translateX(-100%); } 100% { transform: translateX(320%); } }
+.scan-hint { font-size: var(--text-sm); color: var(--ink-3); margin-top: 10px; }
 
 /* ── demo view switcher (mirrors the reference; demo-only chrome) ── */
 .switcher { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 16px; }

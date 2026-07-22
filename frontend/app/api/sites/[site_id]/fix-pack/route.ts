@@ -8,14 +8,14 @@ export const runtime = "nodejs";
 /** Streams the Fix Pack zip from the backend, preserving its filename. */
 export async function GET(
   req: NextRequest,
-  { params }: { params: Promise<{ id: string }> },
+  { params }: { params: Promise<{ site_id: string }> },
 ) {
   const session = await getServerSession(authOptions);
   if (!session?.user?.email) {
     return new Response(JSON.stringify({ error: "not signed in" }), { status: 401 });
   }
 
-  const { id } = await params;
+  const { site_id: id } = await params;
   const backend = process.env.BACKEND_URL || "http://localhost:8000";
 
   try {

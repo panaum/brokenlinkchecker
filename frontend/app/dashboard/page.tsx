@@ -410,7 +410,7 @@ export default function DashboardPage() {
         </div>
 
         {/* Cards grid — 3 across, skeletons while loading. */}
-        <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: "var(--space-5)" }}>
+        <div className="stagger" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fill, minmax(320px, 1fr))", gap: "var(--space-5)" }}>
           {loading ? (
             Array.from({ length: 6 }).map((_, i) => (
               <div key={i} className="ds-card ds-card-pad" style={{ minHeight: 168, display: "flex", flexDirection: "column", gap: 14 }}>

@@ -103,7 +103,7 @@ export default function ClientsPage() {
             No clients yet. Add one, then assign its sites and invite a viewer.
           </div>
         ) : (
-          <div style={{ display: "flex", flexDirection: "column", gap: "var(--space-4)" }}>
+          <div className="stagger" style={{ display: "flex", flexDirection: "column", gap: "var(--space-4)" }}>
             {clients.map((c) => (
               <ClientCard
                 key={c.id}

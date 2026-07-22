@@ -4,6 +4,7 @@ import { useState, useCallback, useEffect, useRef, useMemo } from "react";
 import { useSession } from "next-auth/react";
 import { AnimatePresence } from "framer-motion";
 import { LinkResult, FilterType, SortOption, ScanMeta, ScanDiff, DiffFilter, ResourceType, HostCount, RedirectSummary } from "@/types";
+import { ResultsView, type Issue, type ResultsData } from "./issues/page";
 import UrlInput from "@/components/UrlInput";
 import ScanProgress from "@/components/ScanProgress";
 import StatsBar from "@/components/StatsBar";
@@ -54,6 +55,87 @@ function calcScore(results: LinkResult[]): number {
   score -= deadCtaCount * 2;
   score -= timeoutCount * 1;
   return Math.max(0, Math.min(100, score));
+}
+
+// ─── Live scan results -> the new ResultsView's Issue shape ──────────────────
+const _REGION_MAP: Record<string, string> = {
+  navigation: "nav", nav: "nav", menu: "nav", header: "hero", hero: "hero",
+  cta: "hero", banner: "hero", sidebar: "sidebar", aside: "sidebar",
+  footer: "footer", body: "body",
+};
+function _region(cat: string): string {
+  const k = (cat || "").toLowerCase();
+  for (const key in _REGION_MAP) if (k.includes(key)) return _REGION_MAP[key];
+  return "body";
+}
+function _sev(p?: string | null): "high" | "med" | "low" {
+  const x = (p || "").toLowerCase();
+  return x === "critical" || x === "high" ? "high" : x === "medium" ? "med" : "low";
+}
+function _tag(label: string, status?: number | null): { tag: string; cls: "bad" | "warn" | "neutral" } {
+  switch (label) {
+    case "broken": return { tag: status ? String(status) : "404", cls: "bad" };
+    case "dead_cta": return { tag: "Dead", cls: "warn" };
+    case "redirect": return { tag: "Redirect", cls: "neutral" };
+    case "forbidden": case "blocked": return { tag: "Blocked", cls: "neutral" };
+    case "timeout": return { tag: "Timeout", cls: "neutral" };
+    case "error": return { tag: "Error", cls: "bad" };
+    default: return { tag: label, cls: "neutral" };
+  }
+}
+function _host(u: string): string { try { return new URL(u).hostname.replace(/^www\./, ""); } catch { return ""; } }
+function _path(u: string): string { try { const x = new URL(u); return (x.pathname + x.search) || "/"; } catch { return u; } }
+function _summary(label: string): string {
+  switch (label) {
+    case "broken": return "This link returns an error and no longer resolves.";
+    case "dead_cta": return "This button or CTA has no destination set — it goes nowhere when clicked.";
+    case "redirect": return "This link redirects before it resolves.";
+    default: return "This link could not be verified automatically.";
+  }
+}
+function _clientFix(r: LinkResult): string {
+  const a = r.anchor_text || "this link";
+  if (r.label === "dead_cta") return `The “${a}” button doesn’t go anywhere when clicked — it needs a destination link.`;
+  return `The “${a}” link points to a page that no longer works — update it or remove it.`;
+}
+
+function buildResultsData(results: LinkResult[], score: number, scannedUrl: string): ResultsData {
+  const flagged = results.filter((r) => r.label !== "ok");
+  const issues: Issue[] = flagged.map((r, i) => {
+    const { tag, cls } = _tag(r.label, r.status_code);
+    const zones = (r.zones && r.zones.length ? r.zones : [r.category]).filter(Boolean) as string[];
+    const high = r.priority === "critical" || r.priority === "high";
+    const linkType: Issue["linkType"] = r.is_external ? "external" : (r.link_kind === "anchor" ? "anchor" : "internal");
+    return {
+      id: String(i + 1),
+      target: _path(r.url),
+      tag, tagCls: cls,
+      severity: high ? "HIGH PRIORITY" : "LOWER PRIORITY",
+      band: high ? "high" : "low",
+      region: _region(r.category || zones[0] || ""),
+      pageviews: 0,
+      scans: r.days_broken && r.days_broken > 0 ? Math.max(1, Math.round(r.days_broken)) : 1,
+      status: "open",
+      anchorText: r.anchor_text || "",
+      builder: "",
+      scoreImpact: "",
+      linkType,
+      domain: _host(r.url) || _host(scannedUrl),
+      summary: r.reason || _summary(r.label),
+      clientFix: _clientFix(r),
+      occurrences: zones.map((z) => ({ region: z, label: z, severity: _sev(r.priority) })),
+      life: [{ date: "now", label: "detected", status: "now" }],
+    };
+  });
+  return {
+    siteName: _host(scannedUrl) || scannedUrl,
+    totalLinks: results.length,
+    healthy: results.filter((r) => r.label === "ok").length,
+    broken: results.filter((r) => r.label === "broken" || r.label === "error").length,
+    deadCta: results.filter((r) => r.label === "dead_cta").length,
+    score,
+    issues,
+  };
 }
 
 export default function HomePage() {
@@ -486,145 +568,21 @@ export default function HomePage() {
         </AnimatePresence>
       </section>
 
-      {/* ── POST-SCAN RESULTS ── */}
+      {/* ── POST-SCAN RESULTS — new three-column issue UI, live data ── */}
       {scanComplete && results.length > 0 && (
-        <>
-          {/* Post-scan verdict block — the focal point and single primary action. */}
-          <ScanVerdict
-            results={results}
-            diff={diff}
-            score={healthScore}
-            onViewIssues={() =>
-              document.getElementById("issue-sections")?.scrollIntoView({ behavior: "smooth", block: "start" })
-            }
-          />
-
-          {/* Page preview card */}
-          {scanMeta && (
-            <PagePreviewCard meta={scanMeta} onRescan={handleRescan} />
-          )}
-
-          {/* Tracking banner — only if no history */}
-          {scanMeta && (
-            <TrackingBanner
-              scannedUrl={scanMeta.scannedUrl}
-              hasHistory={history.length > 0}
-            />
-          )}
-
-          {/* Report header: builder badge + bucket counts */}
-          <section className="relative z-10">
-            <ReportHeader results={results} detectedBuilders={detectedBuilders} diff={diff} siteId={siteId} />
-          </section>
-
-          {/* Report controls: Share + X-ray + integrations. z-30 so panels
-              overflow above the later results sections (siblings at z-10).
-              Width matches ReportHeader (max-w-5xl) so the right-aligned buttons
-              line up with the header card instead of overhanging it. */}
-          <section className="relative z-30 w-full max-w-5xl mx-auto flex flex-wrap items-center justify-end gap-3 px-4 mt-3">
-            <button
-              className="ds-btn-ghost"
-              onClick={() => setShowXray((v) => !v)}
-              aria-pressed={showXray}
-              style={{ display: "inline-flex", alignItems: "center", gap: 8, ...(showXray ? { borderColor: "var(--signal)", color: "var(--signal)" } : {}) }}
-            >
-              <ScanEye size={15} /> X-ray view
-            </button>
-            {scanId && <ShareButton scanId={scanId} />}
-            {scanId && scanMeta && (
-              <IntegrationsPanel scanId={scanId} pageUrl={scanMeta.scannedUrl} />
-            )}
-          </section>
-
-          {/* X-ray overlay — screenshot with crosshair markers on flagged elements. */}
-          {showXray && scanMeta && (
-            <section id="xray-section" className="relative z-10 ds-container px-4 sm:px-6 lg:px-8">
-              <XrayView results={results} pageUrl={scanMeta.scannedUrl} />
-            </section>
-          )}
-
-          {/* Keyboard triage over the findings list ("?" for shortcuts). */}
-          <KeyboardTriage />
-
-          {/* Health score */}
-          <section className="relative z-10">
-            <HealthScore results={results} />
-          </section>
-
-          {/* What Changed diff card — between health score and summary */}
-          {history.length > 0 && (
-            <WhatChangedCard
-              currentResults={results}
-              history={history}
-            />
-          )}
-
-          {/* Summary banner */}
-          <section className="relative z-10">
-            <SummaryBanner results={results} />
-          </section>
-
-          {/* Stats bar */}
-          <section className="relative z-10">
-            <StatsBar results={results} diff={diff} />
-          </section>
-
-          {/* Informational breakdowns */}
-          <section className="relative z-10">
-            <ResourcePanels linkTypes={linkTypes} topHosts={topHosts} schemes={schemes} redirects={redirects} />
-          </section>
-
-          {/* Triage: broken / dead CTA / unverifiable */}
-          <section id="issue-sections" className="relative z-10">
-            <IssueSections results={results} siteId={siteId} />
-          </section>
-
-          {/* Filter bar */}
-          {/* z-30 so the zone/sort dropdowns overflow ABOVE the results table
-              section (which is a sibling at z-10); equal z-index would let the
-              later table paint over the open dropdown. */}
-          <section className="relative z-30">
-            <FilterBar
-              results={results}
-              filter={filter}
-              onFilterChange={setFilter}
-              sortOption={sortOption}
-              onSortChange={setSortOption}
-              search={search}
-              onSearchChange={setSearch}
-              zoneFilter={zoneFilter}
-              onZoneFilterChange={setZoneFilter}
-              filteredCount={filteredResults.length}
-              diff={diff}
-              diffFilter={diffFilter}
-              onDiffFilterChange={setDiffFilter}
-            />
-          </section>
-
-          {/* Results table */}
-          <section className="relative z-10">
-            <ResultsTable
-              results={filteredResults}
-              sortOption={sortOption}
-              scannedUrl={scanMeta?.scannedUrl ?? url}
-              healthScore={healthScore}
-              // Only offer the History button when there is a panel to scroll to.
-              onScrollToHistory={
-                historyLoading || history.length > 0 ? scrollToHistory : undefined
-              }
-            />
-          </section>
-
-          {/* Previous scans of this URL. The ref is what the History button
-              scrolls to — without it the button silently does nothing. */}
-          {(historyLoading || history.length > 0) && (
-            <ScanHistoryPanel
-              ref={historyPanelRef}
-              history={history}
-              loading={historyLoading}
-            />
-          )}
-        </>
+        <section className="relative z-10 px-2 sm:px-4">
+          <div
+            className="issues-page"
+            style={{ background: "transparent", minHeight: "auto", "--font-ui": "inherit", "--font-mono": "ui-monospace, SFMono-Regular, Menlo, monospace" } as React.CSSProperties}
+          >
+            <div className="issues-wrap" style={{ paddingTop: 8 }}>
+              <ResultsView
+                key={scanId ?? scanMeta?.scannedUrl ?? url}
+                data={buildResultsData(results, healthScore, scanMeta?.scannedUrl ?? url)}
+              />
+            </div>
+          </div>
+        </section>
       )}
 
       {/* ── ZERO LINKS EDGE CASE ── */}

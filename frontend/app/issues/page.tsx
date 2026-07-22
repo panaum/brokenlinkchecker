@@ -16,7 +16,7 @@ const mono = JetBrains_Mono({ subsets: ["latin"], weight: ["400", "500"] });
 
 // ─── Types + mocked data ─────────────────────────────────────────────────────
 type Status = "open" | "fixed" | "ignored";
-type Issue = {
+export type Issue = {
   id: string;
   target: string;
   tag: string;
@@ -141,9 +141,35 @@ const prefersReducedMotion = () =>
   typeof window !== "undefined" &&
   window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
+const pct = (n: number, total: number) => (total ? Math.round((n / total) * 100) : 0);
+
+function deriveDomains(issues: Issue[]) {
+  const counts: Record<string, number> = {};
+  for (const i of issues) counts[i.domain] = (counts[i.domain] || 0) + 1;
+  const total = issues.length;
+  return Object.entries(counts)
+    .sort((a, b) => b[1] - a[1]).slice(0, 3)
+    .map(([value, count]) => ({ value, label: value, count, w: pct(count, total) }));
+}
+
+// Live data passed in from the real scanner; when omitted, the mocked demo data
+// is used (so /issues and /scanner keep working).
+export type ResultsData = {
+  siteName: string; totalLinks: number; healthy: number; broken: number;
+  deadCta: number; score: number; issues: Issue[];
+};
+
 // The three-column results UI as a standalone, embeddable component (used by
-// /issues with a demo switcher, and by /scanner under the scan form).
-export function ResultsView() {
+// /issues with a demo switcher, /scanner under the scan form, and the live /).
+export function ResultsView({ data }: { data?: ResultsData } = {}) {
+  const issuesData = data ? data.issues : ISSUES;
+  const targetScore = data ? data.score : SCORE;
+  const siteName = data ? data.siteName : "smilelabny.com";
+  const totalLinks = data ? data.totalLinks : 142;
+  const healthyN = data ? data.healthy : 139;
+  const brokenN = data ? data.broken : 2;
+  const deadN = data ? data.deadCta : 1;
+  const byTraffic = issuesData.some((i) => i.pageviews > 0);
   const [statuses, setStatuses] = useState<Record<string, Status>>({});
   const [view, setView] = useState<Status>("open");
   const [query, setQuery] = useState("");
@@ -171,18 +197,18 @@ export function ResultsView() {
   // score ring count-up + bar reveal on mount
   useEffect(() => {
     setBarsIn(true);
-    if (prefersReducedMotion()) { setScore(SCORE); return; }
+    if (prefersReducedMotion()) { setScore(targetScore); return; }
     let raf = 0;
     let start = 0;
     const tick = (ts: number) => {
       if (!start) start = ts;
       const p = Math.min((ts - start) / 1100, 1);
-      setScore(Math.round(SCORE * (1 - Math.pow(1 - p, 3))));
+      setScore(Math.round(targetScore * (1 - Math.pow(1 - p, 3))));
       if (p < 1) raf = requestAnimationFrame(tick);
     };
     raf = requestAnimationFrame(tick);
     return () => cancelAnimationFrame(raf);
-  }, []);
+  }, [targetScore]);
 
   const matches = useCallback(
     (iss: Issue) => {
@@ -205,14 +231,14 @@ export function ResultsView() {
     [debounced, filter],
   );
 
-  const openIssues = ISSUES.filter((i) => statusOf(i) === "open" && matches(i));
-  const fixedIssues = ISSUES.filter((i) => statusOf(i) === "fixed" && matches(i));
-  const ignoredIssues = ISSUES.filter((i) => statusOf(i) === "ignored" && matches(i));
+  const openIssues = issuesData.filter((i) => statusOf(i) === "open" && matches(i));
+  const fixedIssues = issuesData.filter((i) => statusOf(i) === "fixed" && matches(i));
+  const ignoredIssues = issuesData.filter((i) => statusOf(i) === "ignored" && matches(i));
 
   const counts = {
-    open: ISSUES.filter((i) => statusOf(i) === "open").length,
-    fixed: ISSUES.filter((i) => statusOf(i) === "fixed").length,
-    ignored: ISSUES.filter((i) => statusOf(i) === "ignored").length,
+    open: issuesData.filter((i) => statusOf(i) === "open").length,
+    fixed: issuesData.filter((i) => statusOf(i) === "fixed").length,
+    ignored: issuesData.filter((i) => statusOf(i) === "ignored").length,
   };
 
   // display order (also drives J/K + "N of M")
@@ -221,14 +247,14 @@ export function ResultsView() {
       const g: { key: string; label: string; sev: "hi" | "lo" | "ok"; items: Issue[] }[] = [];
       const high = openIssues.filter((i) => i.band === "high");
       const low = openIssues.filter((i) => i.band === "low");
-      if (high.length) g.push({ key: "high", label: "HIGH TRAFFIC · ACT FIRST", sev: "hi", items: high });
-      if (low.length) g.push({ key: "low", label: "LOW TRAFFIC", sev: "lo", items: low });
+      if (high.length) g.push({ key: "high", label: byTraffic ? "HIGH TRAFFIC · ACT FIRST" : "CRITICAL · ACT FIRST", sev: "hi", items: high });
+      if (low.length) g.push({ key: "low", label: byTraffic ? "LOW TRAFFIC" : "LOWER PRIORITY", sev: "lo", items: low });
       if (fixedIssues.length) g.push({ key: "fixed", label: "FIXED THIS SCAN", sev: "ok", items: fixedIssues });
       return g;
     }
     if (view === "fixed") return fixedIssues.length ? [{ key: "fixed", label: "FIXED", sev: "ok" as const, items: fixedIssues }] : [];
     return ignoredIssues.length ? [{ key: "ignored", label: "IGNORED", sev: "lo" as const, items: ignoredIssues }] : [];
-  }, [view, openIssues, fixedIssues, ignoredIssues]);
+  }, [view, openIssues, fixedIssues, ignoredIssues, byTraffic]);
 
   const order = useMemo(() => groups.flatMap((g) => g.items), [groups]);
 
@@ -239,7 +265,7 @@ export function ResultsView() {
     }
   }, [order, selectedId]);
 
-  const selected = ISSUES.find((i) => i.id === selectedId) ?? ISSUES[0];
+  const selected = issuesData.find((i) => i.id === selectedId) ?? issuesData[0];
   const selIndex = order.findIndex((i) => i.id === selectedId);
 
   const step = useCallback(
@@ -304,11 +330,24 @@ export function ResultsView() {
       ? { background: "#F3F2F8", color: "var(--ink-3)" }
       : { background: "var(--red-bg)", color: "var(--red)" };
 
-  const dashoffset = CIRC * (1 - SCORE / 100);
+  const dashoffset = CIRC * (1 - targetScore / 100);
+
+  // Rail cards: derived from live issues, or the mock rows for the demo.
+  const ageRows = data
+    ? [{ value: "this", label: "This scan", count: issuesData.length, w: 100 }]
+    : AGE_ROWS;
+  const linktypeRows = data
+    ? (["internal", "external", "anchor"] as const).map((v) => {
+        const count = issuesData.filter((i) => i.linkType === v).length;
+        return { value: v, label: v[0].toUpperCase() + v.slice(1), count, w: pct(count, issuesData.length) };
+      }).filter((r) => r.count > 0)
+    : LINKTYPE_ROWS;
+  const domainRows = data ? deriveDomains(issuesData) : DOMAIN_ROWS;
 
   return (
     <>
-      {/* ── verification banner ── */}
+      {/* ── verification banner (mock demo only; real scans have no history yet) ── */}
+        {!data && (
         <div className="verify" role="status">
           <div className="verify-icon" aria-hidden>✓</div>
           <div className="grow">
@@ -320,6 +359,7 @@ export function ResultsView() {
             <span className="vchip mono">/pages/new-patients</span>
           </div>
         </div>
+        )}
 
         {/* ── banner ── */}
         <div className="banner">
@@ -348,10 +388,10 @@ export function ResultsView() {
               <span className="gauge-cap">HEALTH</span>
             </button>
             <div className="grow">
-              <h2 className="mono">smilelabny.com</h2>
+              <h2 className="mono">{siteName}</h2>
               <div className="banner-meta">
-                <span>142 links · single page</span><span>·</span><span>re-scanned just now</span>
-                <span className="delta up">▲ 9 since 20 July</span>
+                <span>{totalLinks.toLocaleString()} links · single page</span><span>·</span><span>scanned just now</span>
+                {!data && <span className="delta up">▲ 9 since 20 July</span>}
               </div>
             </div>
             <div className="head-actions">
@@ -362,20 +402,21 @@ export function ResultsView() {
 
           {/* health bar — flat, each segment filters */}
           <div className="health-bar">
-            <button className="hseg ok" style={{ flex: 139 }} aria-pressed={filter?.dim === "health" && filter.value === "ok"}
-              aria-label="139 healthy links" onClick={() => toggleFilter({ dim: "health", value: "ok", label: "Healthy links" })} />
-            <button className="hseg bad" style={{ flex: 2, minWidth: 20 }} aria-pressed={filter?.dim === "health" && filter.value === "bad"}
-              aria-label="2 broken links" onClick={() => toggleFilter({ dim: "health", value: "bad", label: "Broken (404)" })} />
-            <button className="hseg warn" style={{ flex: 1, minWidth: 14 }} aria-pressed={filter?.dim === "health" && filter.value === "warn"}
-              aria-label="1 dead CTA" onClick={() => toggleFilter({ dim: "health", value: "warn", label: "Dead CTA" })} />
+            <button className="hseg ok" style={{ flex: healthyN || 1 }} aria-pressed={filter?.dim === "health" && filter.value === "ok"}
+              aria-label={`${healthyN} healthy links`} onClick={() => toggleFilter({ dim: "health", value: "ok", label: "Healthy links" })} />
+            <button className="hseg bad" style={{ flex: brokenN, minWidth: brokenN ? 20 : 0 }} aria-pressed={filter?.dim === "health" && filter.value === "bad"}
+              aria-label={`${brokenN} broken links`} onClick={() => toggleFilter({ dim: "health", value: "bad", label: "Broken" })} />
+            <button className="hseg warn" style={{ flex: deadN, minWidth: deadN ? 14 : 0 }} aria-pressed={filter?.dim === "health" && filter.value === "warn"}
+              aria-label={`${deadN} dead CTA`} onClick={() => toggleFilter({ dim: "health", value: "warn", label: "Dead CTA" })} />
           </div>
           <div className="health-key">
-            <span className="key"><i className="ok" />Healthy <b>139</b></span>
-            <span className="key"><i className="bad" />Broken <b>2</b></span>
-            <span className="key"><i className="warn" />Dead CTA <b>1</b></span>
-            <span className="key" style={{ marginLeft: "auto", color: "var(--ink-3)" }}>Click the ring to see how {SCORE} is calculated</span>
+            <span className="key"><i className="ok" />Healthy <b>{healthyN}</b></span>
+            <span className="key"><i className="bad" />Broken <b>{brokenN}</b></span>
+            <span className="key"><i className="warn" />Dead CTA <b>{deadN}</b></span>
+            {!data && <span className="key" style={{ marginLeft: "auto", color: "var(--ink-3)" }}>Click the ring to see how {SCORE} is calculated</span>}
           </div>
 
+          {!data && (
           <div id="score-breakdown" className={`breakdown ${ringOpen ? "open" : ""}`}>
             <div className="breakdown-in">
               <div className="bd-title">HOW {SCORE} IS CALCULATED</div>
@@ -387,6 +428,7 @@ export function ResultsView() {
               <p className="bd-note">Deductions scale with monthly pageviews from the connected GA4 property, so a broken link on a page nobody visits costs less than one on the money page.</p>
             </div>
           </div>
+          )}
         </div>
 
         {/* ── toolbar ── */}
@@ -442,8 +484,10 @@ export function ResultsView() {
                             <>verified just now · was open {iss.scans} scan{iss.scans !== 1 ? "s" : ""}</>
                           ) : (
                             <>
-                              <span className="traffic"><i />{iss.pageviews.toLocaleString()}/mo</span>
-                              · {iss.occurrences.map((o) => o.region.toLowerCase()).join(", ")}
+                              {iss.pageviews > 0 && (
+                                <><span className="traffic"><i />{iss.pageviews.toLocaleString()}/mo</span> · </>
+                              )}
+                              {iss.occurrences.map((o) => o.region.toLowerCase()).join(", ")}
                               · <span className="age">open {iss.scans} scan{iss.scans !== 1 ? "s" : ""}</span>
                             </>
                           )}
@@ -457,7 +501,7 @@ export function ResultsView() {
                 })}
               </div>
             ))}
-            <div className="list-foot">139 healthy links hidden<button>Show all</button></div>
+            <div className="list-foot">{healthyN.toLocaleString()} healthy links hidden<button>Show all</button></div>
           </div>
 
           {/* detail (raised) */}
@@ -528,9 +572,9 @@ export function ResultsView() {
 
           {/* stats rail */}
           <div className="sticky rail-stack stack">
-            <RailCard title="ISSUE AGE" dim="age" rows={AGE_ROWS} barsIn={barsIn} filter={filter} onFilter={toggleFilter} />
-            <RailCard title="LINK TYPES" dim="linktype" rows={LINKTYPE_ROWS} barsIn={barsIn} filter={filter} onFilter={toggleFilter} />
-            <RailCard title="TOP DOMAINS" dim="domain" rows={DOMAIN_ROWS} barsIn={barsIn} filter={filter} onFilter={toggleFilter} mono />
+            <RailCard title="ISSUE AGE" dim="age" rows={ageRows} barsIn={barsIn} filter={filter} onFilter={toggleFilter} />
+            <RailCard title="LINK TYPES" dim="linktype" rows={linktypeRows} barsIn={barsIn} filter={filter} onFilter={toggleFilter} />
+            <RailCard title="TOP DOMAINS" dim="domain" rows={domainRows} barsIn={barsIn} filter={filter} onFilter={toggleFilter} mono />
           </div>
         </div>
 

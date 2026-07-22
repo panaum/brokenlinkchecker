@@ -100,13 +100,20 @@
     background-image: var(--page-gradient);
     background-attachment: fixed;
     background-repeat: no-repeat;
+    background-size: 200% 200%;
+    animation: gradient-drift 26s ease-in-out infinite alternate;
     color: var(--text-primary);
     font-family: var(--font-stack-body);
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
     position: relative;
     min-height: 100vh;
-    transition: background var(--motion), color var(--motion);
+    transition: color var(--motion);
+  }
+  /* The lavender→peach backdrop is quietly alive — it drifts and breathes. */
+  @keyframes gradient-drift {
+    0%   { background-position: 0% 0%; }
+    100% { background-position: 100% 100%; }
   }
 
   /* ── ATMOSPHERE ── retired: the Dashboard canvas is flat and clean. */
@@ -234,8 +241,8 @@ button:focus-visible, a:focus-visible, input:focus-visible, select:focus-visible
 .ds-container { max-width: var(--content-max); margin-left: auto; margin-right: auto; }
 
 /* Staggered content reveal on mount (page transitions feel intentional). */
-@keyframes ds-rise { from { opacity: 0; transform: translateY(8px); } to { opacity: 1; transform: translateY(0); } }
-.ds-rise { animation: ds-rise 320ms var(--ease-out-quart) both; }
+@keyframes ds-rise { from { opacity: 0; transform: translateY(22px) scale(0.97); } to { opacity: 1; transform: translateY(0) scale(1); } }
+.ds-rise { animation: ds-rise 560ms var(--ease-out-quart) both; }
 
 /* ═══ Micro-interactions — calm, consistent feedback everywhere ═══ */
 
@@ -260,7 +267,7 @@ a, button, select, summary, [role="button"], [cmdk-item], label[for] {
 /* Staggered entrance cascade — add .stagger to a grid/list; its direct children
    rise in one after another with a refined ease. Depth caps at 14 so long
    lists don't feel slow. */
-.stagger > * { animation: ds-rise 460ms var(--ease-out-quart) both; }
+.stagger > * { animation: ds-rise 600ms var(--ease-out-quart) both; }
 .stagger > *:nth-child(1)  { animation-delay: 40ms; }
 .stagger > *:nth-child(2)  { animation-delay: 85ms; }
 .stagger > *:nth-child(3)  { animation-delay: 130ms; }

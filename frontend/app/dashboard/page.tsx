@@ -404,16 +404,6 @@ export default function DashboardPage() {
 
   const fixedCount = useMemo(() => fixedThisMonth(sites.map((s) => s.scans)), [sites]);
 
-  const rankedSites = useMemo(() => {
-    return [...sites]
-      .filter((s) => s.scans && s.scans.length > 0)
-      .map((s) => {
-        const scans = sortedScansOf(s);
-        return { ...s, score: scans[scans.length - 1]?.health_score ?? 0 };
-      })
-      .sort((a, b) => b.score - a.score);
-  }, [sites]);
-
   return (
     <div className="relative min-h-screen" style={{ background: "var(--surface-page)", paddingTop: 56 }}>
       <NavBar />
@@ -484,34 +474,9 @@ export default function DashboardPage() {
         {/* Third-party dependency watchdog — one shared outage, all clients. */}
         {!loading && <WatchdogPanel />}
 
-        {/* League table & activity feed */}
+        {/* Activity feed */}
         {!loading && (
-          <div style={{ display: "grid", gridTemplateColumns: "2fr 1fr", gap: "var(--space-5)" }}>
-            <div className="ds-card ds-card-pad">
-              <h2 className="ds-text-primary" style={{ fontSize: "var(--text-heading)", fontWeight: 600, marginBottom: 20 }}>Health league table</h2>
-              <div style={{ display: "flex", flexDirection: "column", gap: 16 }}>
-                {rankedSites.length === 0 ? (
-                  <p className="ds-text-secondary" style={{ fontSize: "var(--text-body)" }}>No scanned sites yet.</p>
-                ) : (
-                  rankedSites.map((site, index) => (
-                    <div key={site.id} style={{ display: "flex", alignItems: "center", gap: 14 }}>
-                      <span className="ds-text-muted" style={{ width: 28, textAlign: "center", fontSize: "var(--text-caption)" }}>#{index + 1}</span>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "baseline", marginBottom: 4 }}>
-                          <span className="ds-text-primary" style={{ fontSize: "var(--text-body)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>{displayName(site)}</span>
-                          <span className="font-mono" style={{ fontSize: "var(--text-body)", fontWeight: 600, color: "var(--signal)", marginLeft: 8 }}>{site.score}</span>
-                        </div>
-                        {/* Trend/magnitude bar — brand purple. */}
-                        <div style={{ height: 6, borderRadius: 999, background: "rgba(28,28,46,0.08)" }}>
-                          <div style={{ height: "100%", borderRadius: 999, width: `${site.score}%`, background: "var(--signal)", transition: "width var(--motion)" }} />
-                        </div>
-                      </div>
-                    </div>
-                  ))
-                )}
-              </div>
-            </div>
-
+          <div>
             <div className="ds-card ds-card-pad">
               <h2 className="ds-text-primary" style={{ fontSize: "var(--text-heading)", fontWeight: 600, marginBottom: 20 }}>Recent activity</h2>
               <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>

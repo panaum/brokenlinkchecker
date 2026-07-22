@@ -323,12 +323,14 @@ export function ResultsView({ data }: { data?: ResultsData } = {}) {
     setTimeout(() => setCopied(false), 1600);
   };
 
-  const isFixed = statusOf(selected) === "fixed";
-  const sevBadgeStyle = isFixed
-    ? { background: "var(--green-bg)", color: "var(--green)" }
-    : selected.severity === "LOW TRAFFIC"
-      ? { background: "#F3F2F8", color: "var(--ink-3)" }
-      : { background: "var(--red-bg)", color: "var(--red)" };
+  const isFixed = !!selected && statusOf(selected) === "fixed";
+  const sevBadgeStyle = !selected
+    ? {}
+    : isFixed
+      ? { background: "var(--green-bg)", color: "var(--green)" }
+      : selected.severity === "LOW TRAFFIC"
+        ? { background: "#F3F2F8", color: "var(--ink-3)" }
+        : { background: "var(--red-bg)", color: "var(--red)" };
 
   const dashoffset = CIRC * (1 - targetScore / 100);
 
@@ -343,6 +345,18 @@ export function ResultsView({ data }: { data?: ResultsData } = {}) {
       }).filter((r) => r.count > 0)
     : LINKTYPE_ROWS;
   const domainRows = data ? deriveDomains(issuesData) : DOMAIN_ROWS;
+
+  // No issues (a clean scan): show the quiet all-healthy state, never the empty
+  // three-column grid — and never crash on an undefined `selected`.
+  if (issuesData.length === 0) {
+    return (
+      <div className="empty">
+        <div className="empty-badge" aria-hidden>✓</div>
+        <h2>All {totalLinks.toLocaleString()} links healthy</h2>
+        <p className="mono">{siteName} · scanned just now · no issues found</p>
+      </div>
+    );
+  }
 
   return (
     <>

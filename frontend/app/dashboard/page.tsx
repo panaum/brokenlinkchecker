@@ -63,15 +63,6 @@ function sortedScansOf(site: DashboardSite): DashboardScan[] {
   );
 }
 
-type FeedItem = {
-  id: string;
-  type: "broken" | "cta" | "success";
-  siteName: string;
-  description: string;
-  context: string;
-  timestamp: string;
-};
-
 // --- One card: at-a-glance only. Config lives on the Site Detail page. ---
 // Stability band → a health-coded chip (never violet — health has its own
 // colors). "sturdy" reads calm, "brittle" asks for attention.
@@ -260,7 +251,6 @@ function SiteCard({
 
 export default function DashboardPage() {
   const [sites, setSites] = useState<DashboardSite[]>([]);
-  const [feed, setFeed] = useState<FeedItem[]>([]);
   const [loading, setLoading] = useState(true);
   const [scanningIds, setScanningIds] = useState<Set<string>>(new Set());
   const [showModal, setShowModal] = useState(false);
@@ -282,24 +272,6 @@ export default function DashboardPage() {
       if (!res.ok) throw new Error("Failed to fetch dashboard data");
       const data = (await res.json()) as { sites?: DashboardSite[] };
       setSites(data.sites ?? []);
-
-      const mockFeed: FeedItem[] = (data.sites ?? [])
-        .filter((s) => s.scans && s.scans.length > 0)
-        .map((s) => {
-          const latest = [...s.scans].sort((a, b) => new Date(a.scanned_at).getTime() - new Date(b.scanned_at).getTime()).pop()!;
-          const isGood = latest.health_score >= 90;
-          return {
-            id: s.id + latest.id,
-            type: isGood ? ("success" as const) : ("broken" as const),
-            siteName: displayName(s),
-            description: isGood ? "Scan completed cleanly" : `${latest.broken_count} broken links found`,
-            context: isGood ? `${latest.total_links} links checked` : "Review results to fix",
-            timestamp: latest.scanned_at,
-          };
-        })
-        .sort((a, b) => new Date(b.timestamp).getTime() - new Date(a.timestamp).getTime())
-        .slice(0, 6);
-      setFeed(mockFeed);
     } catch (err) {
       console.error(err);
     } finally {
@@ -473,33 +445,6 @@ export default function DashboardPage() {
 
         {/* Third-party dependency watchdog — one shared outage, all clients. */}
         {!loading && <WatchdogPanel />}
-
-        {/* Activity feed */}
-        {!loading && (
-          <div>
-            <div className="ds-card ds-card-pad">
-              <h2 className="ds-text-primary" style={{ fontSize: "var(--text-heading)", fontWeight: 600, marginBottom: 20 }}>Recent activity</h2>
-              <div style={{ display: "flex", flexDirection: "column", gap: 18 }}>
-                {feed.length === 0 && <p className="ds-text-secondary" style={{ fontSize: "var(--text-body)" }}>No recent activity.</p>}
-                {feed.map((item) => {
-                  const cls = item.type === "broken" ? "ds-status-broken" : item.type === "cta" ? "ds-status-attention" : "ds-status-healthy";
-                  return (
-                    <div key={item.id} style={{ display: "flex", alignItems: "flex-start", gap: 10 }}>
-                      <span className={`ds-status ${cls}`} style={{ marginTop: 4 }}><span className="ds-status-dot" /></span>
-                      <div style={{ flex: 1, minWidth: 0 }}>
-                        <p className="ds-text-primary" style={{ fontSize: "var(--text-body)", whiteSpace: "nowrap", overflow: "hidden", textOverflow: "ellipsis" }}>
-                          {item.siteName} <span className="ds-text-secondary">— {item.description}</span>
-                        </p>
-                        <p className="ds-text-muted" style={{ fontSize: "var(--text-caption)", marginTop: 2 }}>{item.context}</p>
-                      </div>
-                      <span className="ds-text-muted" style={{ fontSize: "var(--text-caption)", whiteSpace: "nowrap" }}>{relTime(item.timestamp)}</span>
-                    </div>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-        )}
       </div>
 
       {/* Delete confirmation */}

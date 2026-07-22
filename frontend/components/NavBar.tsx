@@ -3,7 +3,7 @@
 import { usePathname } from "next/navigation";
 import Link from "next/link";
 import { motion } from "framer-motion";
-import { LayoutDashboard, Link2, Search, Users, Eye } from "lucide-react";
+import { LayoutDashboard, Link2, Search, Users } from "lucide-react";
 import Image from "next/image";
 import AuthButton from "@/components/AuthButton";
 import Changelog from "@/components/Changelog";
@@ -15,7 +15,6 @@ function openPalette() {
 
 const NAV_ITEMS = [
   { href: "/", label: "Scanner", icon: Link2 },
-  { href: "/scanner", label: "Preview", icon: Eye },
   { href: "/dashboard", label: "Dashboard", icon: LayoutDashboard },
   { href: "/clients", label: "Clients", icon: Users },
 ];

@@ -22,7 +22,9 @@ interface FilterBarProps {
 }
 
 const DIFF_ITEMS: { label: string; value: DiffFilter; color: string; bg: string }[] = [
-  { label: "All", value: "all", color: "#1c1c2e", bg: "rgba(28,28,46,0.04)" },
+  // "Any change" rather than "All" so this diff reset doesn't read as a
+  // duplicate of the status row's "All" (both total results.length).
+  { label: "Any change", value: "all", color: "#1c1c2e", bg: "rgba(28,28,46,0.04)" },
   { label: "New", value: "new", color: "#e05c5c", bg: "rgba(224,92,92,0.12)" },
   { label: "Recurring", value: "recurring", color: "#f5a623", bg: "rgba(245,166,35,0.12)" },
   { label: "Fixed", value: "fixed", color: "#4caf7d", bg: "rgba(76,175,125,0.12)" },

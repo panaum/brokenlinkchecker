@@ -93,7 +93,7 @@ export default function ResourcePanels({
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4 }}
-      className="ds-container w-full mt-8 px-6 grid gap-4 md:grid-cols-3"
+      className="ds-container w-full mt-8 px-6 grid gap-4 md:grid-cols-3 items-start"
     >
       <Panel title="Link Types" rows={typeRows} mono />
       <Panel title="Top Hosts" rows={hostRows} mono />

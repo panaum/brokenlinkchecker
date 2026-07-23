@@ -514,16 +514,16 @@ export default function HomePage() {
             {/* Report header: builder badge + bucket counts */}
             <ReportHeader results={results} detectedBuilders={detectedBuilders} diff={diff} siteId={siteId} />
 
-            {/* Report controls: Share + X-ray + integrations. z-30 so the
-                Integrations dropdown paints above later sections; the weld has
-                NO overflow-clip, so it isn't cut off. */}
-            <section className="relative z-30 flex flex-wrap items-center justify-end gap-3 px-6 py-3">
-              <button
-                className="ds-btn-ghost"
-                onClick={() => setShowXray((v) => !v)}
-                aria-pressed={showXray}
-                style={{ display: "inline-flex", alignItems: "center", gap: 8, ...(showXray ? { borderColor: "var(--signal)", color: "var(--signal)" } : {}) }}
-              >
+            {/* Report controls: X-ray · Share · Integrations — equal segments
+                split by hairlines, like the stat tiles. flex 1 1 0 splits
+                across whatever renders, so an absent Share (scanId null) or a
+                null IntegrationsPanel leaves no blank segment and no stray
+                divider. NO per-segment wrapper — the direct children ARE the
+                segments (styled via .seg-row > * in globals.css). z-30 (kept)
+                so the Integrations dropdown paints above later sections; the
+                weld has NO overflow-clip, so it isn't cut off. */}
+            <section className="relative z-30 seg-row">
+              <button onClick={() => setShowXray((v) => !v)} aria-pressed={showXray}>
                 <ScanEye size={15} /> X-ray view
               </button>
               {scanId && <ShareButton scanId={scanId} />}

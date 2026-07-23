@@ -435,6 +435,52 @@ a, button, select, summary, [role="button"], [cmdk-item], label[for] {
 .weld > *:last-child { border-bottom: none; }
 .weld-clip { overflow: hidden; }
 
+/* ═══ Segmented action row (X-ray · Share · Integrations) ═══
+   Equal segments spanning the card, split by hairlines like the stat tiles —
+   NOT right-pinned buttons. flex 1 1 0 splits evenly across whatever ACTUALLY
+   renders: a null child (IntegrationsPanel with 0 integrations, or an absent
+   Share when scanId is null) emits no DOM node, so there is no empty track and
+   no dangling divider. The buttons are styled as the flex container's DIRECT
+   children — NO per-segment wrapper div (a wrapper renders even when its child
+   returns null, which would reintroduce the blank cell).
+   No border-top here: the weld already draws ReportHeader's border-bottom as
+   the hairline above this row. No overflow: the dropdowns must escape (z-30).
+   ShareButton / IntegrationsPanel are untouched — we only neutralise their
+   TRIGGER (`.seg-row > div > button`, a direct child of their root); their
+   dropdown is a sibling `div[role="dialog"]`, so it keeps its own frame. */
+.seg-row { display: flex; }
+.seg-row > * { flex: 1 1 0; min-width: 0; }
+.seg-row > *:not(:first-child) { border-left: 1px solid var(--border-subtle); }
+.seg-row > button,
+.seg-row > div > button {
+  width: 100%;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding: 12px 16px !important;
+  border: none !important;
+  border-radius: 0 !important;
+  background: transparent !important;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: background 0.15s ease;
+}
+/* Hover tints the segment, not a border. */
+.seg-row > button:hover,
+.seg-row > div > button:hover { background: rgba(28, 28, 46, 0.04) !important; }
+/* X-ray active — aria-pressed keeps working; signal tint replaces the border. */
+.seg-row > button[aria-pressed="true"] {
+  color: var(--signal) !important;
+  background: rgba(79, 70, 229, 0.08) !important;
+}
+/* Below ~640px: stack to a column; dividers become row separators (top). */
+@media (max-width: 640px) {
+  .seg-row { flex-direction: column; }
+  .seg-row > * { flex: 0 0 auto; }
+  .seg-row > *:not(:first-child) { border-left: none; border-top: 1px solid var(--border-subtle); }
+}
+
 .gradient-text {
   color: var(--signal);
 }

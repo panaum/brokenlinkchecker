@@ -517,7 +517,7 @@ export default function HomePage() {
               overflow above the later results sections (siblings at z-10).
               Width matches ReportHeader (ds-container) so the right-aligned
               buttons line up with the header card instead of overhanging it. */}
-          <section className="relative z-30 ds-container w-full flex flex-wrap items-center justify-end gap-3 px-6 mt-3">
+          <section className="relative z-30 ds-container w-full flex flex-wrap items-center justify-end gap-3 px-6 mt-1">
             <button
               className="ds-btn-ghost"
               onClick={() => setShowXray((v) => !v)}

@@ -19,7 +19,7 @@ into an .htaccess file.
 import csv
 import io
 from typing import Optional
-from urllib.parse import urlsplit, urlunsplit
+from urllib.parse import urlsplit
 
 # The checker stops following after this many hops and calls it a loop.
 MAX_REDIRECT_HOPS = 10
@@ -79,13 +79,6 @@ def _path_of(url: str) -> str:
 # ─────────────────────────────────────────────────────────────────────────────
 # Chain analysis
 # ─────────────────────────────────────────────────────────────────────────────
-def _normalize_for_loop(url: str) -> str:
-    """Compare hops ignoring a trailing slash, so /a -> /a/ -> /a reads as a loop."""
-    parts = urlsplit(url)
-    path = parts.path.rstrip("/") or "/"
-    return urlunsplit((parts.scheme.lower(), parts.netloc.lower(), path, parts.query, ""))
-
-
 def analyze_chain(chain: list) -> list:
     """Flags for a hop chain [{"url", "status"}, …] ending at the final URL.
 
@@ -110,13 +103,16 @@ def analyze_chain(chain: list) -> list:
             if FLAG_SLASH_BOUNCE not in flags:
                 flags.append(FLAG_SLASH_BOUNCE)
 
+    # A genuine loop revisits an EXACT URL — a cycle returns to a node it has
+    # already visited (e.g. /a -> /a/ -> /a, where /a repeats). Compare exact
+    # URLs, NOT slash-normalized ones: /x and /x/ are distinct resources, so a
+    # terminating bounce /x -> /x/ (200) settles and must not read as a loop.
     seen = set()
     for url in urls:
-        key = _normalize_for_loop(url)
-        if key in seen:
+        if url in seen:
             flags.append(FLAG_LOOP)
             break
-        seen.add(key)
+        seen.add(url)
 
     return flags
 

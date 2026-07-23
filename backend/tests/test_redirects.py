@@ -64,6 +64,15 @@ def test_slash_bounce_is_flagged():
     assert FLAG_SLASH_BOUNCE in analyze_chain(chain)
 
 
+def test_terminating_slash_bounce_is_not_a_loop():
+    """/x -> /x/ settles at 200. /x and /x/ are distinct resources, so it is a
+    bounce, not a loop — loop detection compares EXACT URLs, not slash-normalized
+    ones. (Regression: normalization used to conflate them and over-report loops,
+    inflating the Redirects panel's loop count to match the slash-bounce count.)"""
+    chain = [_hop("https://a.test/x"), _hop("https://a.test/x/", 200)]
+    assert FLAG_LOOP not in analyze_chain(chain)
+
+
 def test_loop_is_detected():
     chain = [_hop("https://a.test/x"), _hop("https://a.test/y"),
              _hop("https://a.test/x", 200)]
@@ -71,7 +80,8 @@ def test_loop_is_detected():
 
 
 def test_slash_only_loop_is_detected():
-    """/a -> /a/ -> /a never settles."""
+    """A genuine A->B->A: /a -> /a/ -> /a. The exact URL /a repeats at hops 1 and
+    3, so exact-URL comparison catches it without slash normalization."""
     chain = [_hop("https://a.test/a"), _hop("https://a.test/a/"),
              _hop("https://a.test/a", 200)]
     assert FLAG_LOOP in analyze_chain(chain)

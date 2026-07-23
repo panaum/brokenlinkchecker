@@ -10,10 +10,9 @@ import StatsBar from "@/components/StatsBar";
 import ReportHeader from "@/components/ReportHeader";
 import IssueSections from "@/components/IssueSections";
 import ResourcePanels from "@/components/ResourcePanels";
-import ScanHistoryPanel from "@/components/ScanHistoryPanel";
 import FilterBar from "@/components/FilterBar";
 import ResultsTable from "@/components/ResultsTable";
-import WhatChangedCard from "@/components/WhatChangedCard";
+import WhatChangedCard, { WhatChangedHandle } from "@/components/WhatChangedCard";
 import TrackingBanner from "@/components/TrackingBanner";
 import NavBar from "@/components/NavBar";
 import IntegrationsPanel from "@/components/IntegrationsPanel";
@@ -87,7 +86,7 @@ export default function HomePage() {
   // ─── History state ─────────────────────────────────────────────────────────
   const [history, setHistory] = useState<HistoryScanEntry[]>([]);
   const [historyLoading, setHistoryLoading] = useState(false);
-  const historyPanelRef = useRef<HTMLElement>(null);
+  const historyCardRef = useRef<WhatChangedHandle>(null);
 
   // Tab favicon reflects scan state: radar while scanning, green ring healthy,
   // red dot when the last scan found issues.
@@ -335,8 +334,12 @@ export default function HomePage() {
     fetchHistory();
   }, [scanComplete, results.length, scanMeta]);
 
-  const scrollToHistory = useCallback(() => {
-    historyPanelRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  // History now lives in the merged WhatChangedCard near the top. The Results
+  // table's History button must scroll UP to it AND open it — scrolling to a
+  // collapsed card does nothing useful — so expand first, then scroll.
+  const openHistory = useCallback(() => {
+    historyCardRef.current?.expand();
+    historyCardRef.current?.scrollIntoView();
   }, []);
 
   // ─── Deep link: /?url=… ────────────────────────────────────────────────────
@@ -561,9 +564,12 @@ export default function HomePage() {
           {/* ── WELD B: What Changed → Stats, one card. overflow-clip so
               StatsBar's tinted tiles clip to the rounded corners; no dropdown. */}
           <div className="ds-container w-full weld weld-clip mt-4">
-            {/* What Changed diff card (conditional row) */}
+            {/* What Changed + Scan History, merged into one card (conditional
+                row). The Results table's History button opens + scrolls to it
+                via historyCardRef. */}
             {history.length > 0 && (
               <WhatChangedCard
+                ref={historyCardRef}
                 currentResults={results}
                 history={history}
               />
@@ -609,20 +615,10 @@ export default function HomePage() {
               healthScore={healthScore}
               // Only offer the History button when there is a panel to scroll to.
               onScrollToHistory={
-                historyLoading || history.length > 0 ? scrollToHistory : undefined
+                historyLoading || history.length > 0 ? openHistory : undefined
               }
             />
           </section>
-
-          {/* Previous scans of this URL. The ref is what the History button
-              scrolls to — without it the button silently does nothing. */}
-          {(historyLoading || history.length > 0) && (
-            <ScanHistoryPanel
-              ref={historyPanelRef}
-              history={history}
-              loading={historyLoading}
-            />
-          )}
         </>
       )}
 

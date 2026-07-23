@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef, useImperativeHandle, forwardRef } from "react";
 import { motion, AnimatePresence } from "framer-motion";
-import { ChevronDown, ChevronUp, Sparkles } from "lucide-react";
+import { ChevronDown, ChevronUp, Sparkles, Clock } from "lucide-react";
 import { LinkResult } from "@/types";
+import ScanHistoryList from "@/components/ScanHistoryPanel";
 
 interface ScanHistoryEntry {
   id: string;
@@ -134,10 +135,15 @@ function TruncatedUrl({ url }: { url: string }) {
   );
 }
 
-export default function WhatChangedCard({
-  currentResults,
-  history,
-}: WhatChangedCardProps) {
+export interface WhatChangedHandle {
+  /** Open the card — the Results table's History button calls this. */
+  expand: () => void;
+  /** Scroll the card into view (it lives near the top, above StatsBar). */
+  scrollIntoView: () => void;
+}
+
+const WhatChangedCard = forwardRef<WhatChangedHandle, WhatChangedCardProps>(
+  function WhatChangedCard({ currentResults, history }, ref) {
   // We need at least 1 previous scan to compare
   if (history.length < 1) return null;
 
@@ -216,11 +222,25 @@ export default function WhatChangedCard({
 
   const [collapsed, setCollapsed] = useState(!hasChanges);
 
+  // State stays here (so the card keeps auto-opening when there are changes);
+  // the Results table's History button reaches in via this handle to open the
+  // card and scroll to it, rather than lifting collapse state up to the page.
+  const rootRef = useRef<HTMLElement>(null);
+  useImperativeHandle(
+    ref,
+    () => ({
+      expand: () => setCollapsed(false),
+      scrollIntoView: () =>
+        rootRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }),
+    }),
+    []
+  );
+
   const pluralize = (n: number, word: string) =>
     `${n} ${word}${n !== 1 ? "s" : ""}`;
 
   return (
-    <section className="relative z-10">
+    <section ref={rootRef} className="relative z-10">
       <motion.div
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
@@ -270,9 +290,10 @@ export default function WhatChangedCard({
                     lineHeight: 1.4,
                   }}
                 >
-                  {hasChanges
+                  {(hasChanges
                     ? `${diff.newIssues.length} new · ${diff.fixed.length} fixed · ${diff.stillBroken.length} persisting`
-                    : "No changes since last scan"}
+                    : "No changes since last scan") +
+                    ` · ${history.length} previous scan${history.length === 1 ? "" : "s"}`}
                 </p>
               </div>
             </div>
@@ -463,6 +484,34 @@ export default function WhatChangedCard({
                       )}
                     </div>
                   )}
+
+                  {/* Scan history — the full trend + per-scan table, merged in
+                      here so history lives in one place, below the diff detail. */}
+                  <div
+                    style={{
+                      marginTop: 20,
+                      paddingTop: 16,
+                      borderTop: "1px solid var(--border-subtle)",
+                    }}
+                  >
+                    <div
+                      className="flex items-center gap-2"
+                      style={{ marginBottom: 4 }}
+                    >
+                      <Clock size={14} style={{ color: "var(--signal)" }} />
+                      <span
+                        style={{
+                          fontFamily: "var(--font-poppins), Poppins, sans-serif",
+                          fontSize: "12px",
+                          fontWeight: 600,
+                          color: "var(--text-secondary)",
+                        }}
+                      >
+                        Scan history
+                      </span>
+                    </div>
+                    <ScanHistoryList history={history} />
+                  </div>
                 </div>
               </motion.div>
             )}
@@ -471,4 +520,7 @@ export default function WhatChangedCard({
       </motion.div>
     </section>
   );
-}
+  }
+);
+
+export default WhatChangedCard;

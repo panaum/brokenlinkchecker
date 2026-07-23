@@ -145,10 +145,14 @@ export default function StatsBar({ results, diff }: StatsBarProps) {
 
   return (
     <div className="w-full max-w-5xl mx-auto mt-8 px-4">
+      {/* One joined bar: equal-width tiles, no gaps, rounded + clipped on the
+          outer container only. repeat(stats.length) keeps it a single row when
+          the optional Dead CTAs / Unverifiable tiles are present. */}
       <div
-        className={`grid gap-4`}
+        className="glass-card grid overflow-hidden"
         style={{
-          gridTemplateColumns: `repeat(${Math.min(stats.length, 4)}, minmax(0, 1fr))`,
+          gridTemplateColumns: `repeat(${stats.length}, minmax(0, 1fr))`,
+          gap: 0,
         }}
       >
         {stats.map((stat) => (
@@ -168,7 +172,7 @@ function StatCardItem({ stat }: { stat: StatCard }) {
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: stat.delay / 1000, duration: 0.4 }}
-      className="glass-card p-5 text-center"
+      className="p-5 text-center"
       style={{ background: stat.bg }}
       title={stat.hint}
     >

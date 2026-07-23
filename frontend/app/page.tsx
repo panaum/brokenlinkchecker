@@ -614,9 +614,10 @@ export default function HomePage() {
               scannedUrl={scanMeta?.scannedUrl ?? url}
               healthScore={healthScore}
               // Only offer the History button when there is a panel to scroll to.
-              onScrollToHistory={
-                historyLoading || history.length > 0 ? openHistory : undefined
-              }
+              // Only offer the button when the merged card actually exists, so
+              // it can never be a dead click. The sub-second window where it's
+              // absent (history still loading) is less jarring than a no-op.
+              onScrollToHistory={history.length > 0 ? openHistory : undefined}
             />
           </section>
         </>

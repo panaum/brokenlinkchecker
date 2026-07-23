@@ -93,7 +93,12 @@ export default function ResourcePanels({
       initial={{ opacity: 0, y: 16 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4 }}
-      className="ds-container w-full mt-8 px-6 grid gap-4 md:grid-cols-3 items-start"
+      className="ds-container w-full mt-8 px-6 grid gap-4 items-start"
+      // auto-fit collapses empty tracks, so the rendered panels always stretch
+      // to fill the row whatever the count (same principle as .seg-row's flex).
+      // The 250px min handles wrapping — no manual breakpoints. items-start
+      // keeps each panel at its own content height, not the tallest.
+      style={{ gridTemplateColumns: "repeat(auto-fit, minmax(250px, 1fr))" }}
     >
       <Panel title="Link Types" rows={typeRows} mono />
       <Panel title="Top Hosts" rows={hostRows} mono />

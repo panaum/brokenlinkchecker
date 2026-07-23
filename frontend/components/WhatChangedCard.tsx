@@ -220,7 +220,7 @@ export default function WhatChangedCard({
     `${n} ${word}${n !== 1 ? "s" : ""}`;
 
   return (
-    <section className="relative z-10 px-4 mb-2">
+    <section className="relative z-10">
       <motion.div
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}

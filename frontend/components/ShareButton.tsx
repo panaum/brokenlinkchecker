@@ -60,7 +60,12 @@ export default function ShareButton({ scanId }: { scanId: string }) {
           aria-label="Share report link"
           style={{
             position: "absolute", top: "calc(100% + 8px)", right: 0, zIndex: 40, width: 360,
-            background: "var(--surface-raised)", border: "1px solid var(--border-strong)",
+            // Same frosted surface as the report cards (.glass-card), so the
+            // panel sits in the warm off-white family instead of cold pure white.
+            background: "rgba(255, 255, 255, 0.5)",
+            border: "1px solid rgba(255, 255, 255, 0.6)",
+            backdropFilter: "blur(22px) saturate(1.4)",
+            WebkitBackdropFilter: "blur(22px) saturate(1.4)",
             borderRadius: "var(--radius-md)", boxShadow: "var(--elev-2)", padding: 14,
           }}
         >

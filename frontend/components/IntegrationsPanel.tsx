@@ -126,7 +126,12 @@ export default function IntegrationsPanel({ scanId, pageUrl }: { scanId: string;
           style={{
             position: "absolute", zIndex: 40, top: "calc(100% + 6px)", right: 0,
             width: 380, maxHeight: 440, overflowY: "auto",
-            background: "var(--surface-card)", border: "1px solid var(--border-subtle)",
+            // Same frosted surface as the report cards (.glass-card), so the
+            // panel sits in the warm off-white family instead of cold pure white.
+            background: "rgba(255, 255, 255, 0.5)",
+            border: "1px solid rgba(255, 255, 255, 0.6)",
+            backdropFilter: "blur(22px) saturate(1.4)",
+            WebkitBackdropFilter: "blur(22px) saturate(1.4)",
             borderRadius: 12, padding: 14, boxShadow: "var(--elev-3)",
           }}
         >

@@ -143,17 +143,21 @@ export default function StatsBar({ results, diff }: StatsBarProps) {
     },
   ];
 
+  // Mobile packs into 2 columns so the 11px labels stay legible; from sm: up it
+  // is one row of stats.length. Literal class strings so Tailwind keeps them.
+  const smCols =
+    stats.length >= 8 ? "sm:grid-cols-8" : stats.length === 7 ? "sm:grid-cols-7" : "sm:grid-cols-6";
+
   return (
     <div className="w-full max-w-5xl mx-auto mt-8 px-4">
-      {/* One joined bar: equal-width tiles, no gaps, rounded + clipped on the
-          outer container only. repeat(stats.length) keeps it a single row when
-          the optional Dead CTAs / Unverifiable tiles are present. */}
+      {/* One joined bar. gap 0 at every breakpoint; the hairline dividers come
+          from each tile's right/bottom box-shadow, clipped to the rounded
+          container by overflow-hidden — so when the grid wraps to 2 columns on
+          mobile they read as row + column dividers, never gaps. Rounded corners
+          live on the outer container only. */}
       <div
-        className="glass-card grid overflow-hidden"
-        style={{
-          gridTemplateColumns: `repeat(${stats.length}, minmax(0, 1fr))`,
-          gap: 0,
-        }}
+        className={`glass-card grid grid-cols-2 ${smCols} overflow-hidden`}
+        style={{ gap: 0 }}
       >
         {stats.map((stat) => (
           <StatCardItem key={stat.label} stat={stat} />
@@ -173,7 +177,10 @@ function StatCardItem({ stat }: { stat: StatCard }) {
       animate={{ opacity: 1, y: 0 }}
       transition={{ delay: stat.delay / 1000, duration: 0.4 }}
       className="p-5 text-center"
-      style={{ background: stat.bg }}
+      // Right + bottom hairlines = dividers between tiles (columns always, rows
+      // once wrapped on mobile). The outer edges' shadows are clipped by the
+      // container's overflow-hidden, so no double border.
+      style={{ background: stat.bg, boxShadow: "1px 0 0 var(--border-subtle), 0 1px 0 var(--border-subtle)" }}
       title={stat.hint}
     >
       <div

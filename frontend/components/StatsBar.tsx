@@ -149,14 +149,14 @@ export default function StatsBar({ results, diff }: StatsBarProps) {
     stats.length >= 8 ? "sm:grid-cols-8" : stats.length === 7 ? "sm:grid-cols-7" : "sm:grid-cols-6";
 
   return (
-    <div className="ds-container w-full mt-8 px-6">
+    <div className="w-full">
       {/* One joined bar. gap 0 at every breakpoint; the hairline dividers come
           from each tile's right/bottom box-shadow, clipped to the rounded
           container by overflow-hidden — so when the grid wraps to 2 columns on
           mobile they read as row + column dividers, never gaps. Rounded corners
           live on the outer container only. */}
       <div
-        className={`glass-card grid grid-cols-2 ${smCols} overflow-hidden`}
+        className={`grid grid-cols-2 ${smCols} overflow-hidden`}
         style={{ gap: 0 }}
       >
         {stats.map((stat) => (

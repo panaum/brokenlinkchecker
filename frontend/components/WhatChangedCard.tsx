@@ -225,9 +225,9 @@ export default function WhatChangedCard({
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.35 }}
-        className="ds-container w-full px-6"
+        className="w-full"
       >
-        <div className="glass-card overflow-hidden">
+        <div className="overflow-hidden">
           {/* Header */}
           <button
             onClick={() => setCollapsed((p) => !p)}

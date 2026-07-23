@@ -81,7 +81,7 @@ export default function TrackingBanner({
   };
 
   return (
-    <section className="relative z-10 px-4 mb-2">
+    <section className="relative">
       <AnimatePresence>
         {!dismissed && (
           <motion.div
@@ -89,10 +89,9 @@ export default function TrackingBanner({
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: -10 }}
             transition={{ duration: 0.3 }}
-            className="w-full max-w-3xl mx-auto"
+            className="w-full"
           >
             <div
-              className="glass-card"
               style={{
                 padding: "16px 24px",
                 display: "flex",

@@ -418,6 +418,23 @@ a, button, select, summary, [role="button"], [cmdk-item], label[for] {
   box-shadow: var(--elev-1), inset 0 1px 0 rgba(255, 255, 255, 0.55);
 }
 
+/* ═══ Welded report card ═══
+   Several sections joined into ONE card: the wrapper owns the single frame,
+   children sit as flush rows separated by hairline dividers. Deliberately NO
+   backdrop-filter and NO position here — either would create a stacking context
+   that traps the toolbar's z-30 and hide the Integrations dropdown behind a
+   later weld. Weld A carries no overflow (so that dropdown can escape); Weld B
+   adds .weld-clip for StatsBar's tinted tiles. */
+.weld {
+  background: rgba(255, 255, 255, 0.72);
+  border: 1px solid var(--border-subtle);
+  border-radius: 12px;
+  box-shadow: var(--elev-1);
+}
+.weld > * { border-bottom: 1px solid var(--border-subtle); }
+.weld > *:last-child { border-bottom: none; }
+.weld-clip { overflow: hidden; }
+
 .gradient-text {
   color: var(--signal);
 }

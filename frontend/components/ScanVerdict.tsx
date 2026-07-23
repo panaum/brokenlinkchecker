@@ -98,11 +98,10 @@ export default function ScanVerdict({
   });
 
   return (
-    <section className="ds-container" style={{ padding: "0 24px", marginTop: 8, position: "relative" }}>
+    <section style={{ position: "relative" }}>
       {/* soft radial glow behind the verdict block */}
       <div style={{ position: "absolute", inset: 0, pointerEvents: "none", background: "radial-gradient(600px 200px at 20% 40%, rgba(79,70,229,0.08), transparent 70%)" }} />
       <div
-        className="ds-card"
         style={{ padding: "var(--space-6)", display: "flex", alignItems: "center", gap: "var(--space-6)", flexWrap: "wrap", position: "relative" }}
       >
         {/* Score ring — health-colored, draws itself. ~46px. */}

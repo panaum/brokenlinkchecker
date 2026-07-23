@@ -41,11 +41,11 @@ export default function ReportHeader({ results, detectedBuilders, diff, siteId }
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4 }}
-      className="ds-container w-full mt-8 px-6"
+      className="w-full"
     >
       {/* The diff summary line moved to ScanVerdict — this leads with the
           link/placement count and bucket counts. */}
-      <div className="glass-card px-5 py-4 flex flex-wrap items-center gap-x-3 gap-y-2 text-sm">
+      <div className="px-6 py-4 flex flex-wrap items-center gap-x-3 gap-y-2 text-sm">
         {detectedBuilders.length > 0 && (
           <span
             className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium"

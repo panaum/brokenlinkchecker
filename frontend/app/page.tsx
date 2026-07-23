@@ -486,74 +486,78 @@ export default function HomePage() {
       {/* ── POST-SCAN RESULTS ── */}
       {scanComplete && results.length > 0 && (
         <>
-          {/* Post-scan verdict block — the focal point and single primary action.
-              Now also carries the site · time metadata and the Re-scan action
-              (previously the separate PagePreviewCard). */}
-          <ScanVerdict
-            results={results}
-            diff={diff}
-            score={healthScore}
-            meta={scanMeta}
-            onRescan={handleRescan}
-            onViewIssues={() =>
-              document.getElementById("issue-sections")?.scrollIntoView({ behavior: "smooth", block: "start" })
-            }
-          />
-
-          {/* Tracking banner — only if no history */}
-          {scanMeta && (
-            <TrackingBanner
-              scannedUrl={scanMeta.scannedUrl}
-              hasHistory={history.length > 0}
+          {/* ── WELD A: verdict → tracking → report header → controls, one card.
+              No overflow-clip here on purpose: the Integrations dropdown (z-30)
+              must escape below the card. The wrapper owns the frame; each child
+              is stripped to a flush row (see the components). */}
+          <div className="ds-container w-full weld mt-2">
+            {/* Verdict — score, site · time metadata, Re-scan (was PagePreviewCard). */}
+            <ScanVerdict
+              results={results}
+              diff={diff}
+              score={healthScore}
+              meta={scanMeta}
+              onRescan={handleRescan}
+              onViewIssues={() =>
+                document.getElementById("issue-sections")?.scrollIntoView({ behavior: "smooth", block: "start" })
+              }
             />
-          )}
 
-          {/* Report header: builder badge + bucket counts */}
-          <section className="relative z-10">
-            <ReportHeader results={results} detectedBuilders={detectedBuilders} diff={diff} siteId={siteId} />
-          </section>
-
-          {/* Report controls: Share + X-ray + integrations. z-30 so panels
-              overflow above the later results sections (siblings at z-10).
-              Width matches ReportHeader (ds-container) so the right-aligned
-              buttons line up with the header card instead of overhanging it. */}
-          <section className="relative z-30 ds-container w-full flex flex-wrap items-center justify-end gap-3 px-6 mt-1">
-            <button
-              className="ds-btn-ghost"
-              onClick={() => setShowXray((v) => !v)}
-              aria-pressed={showXray}
-              style={{ display: "inline-flex", alignItems: "center", gap: 8, ...(showXray ? { borderColor: "var(--signal)", color: "var(--signal)" } : {}) }}
-            >
-              <ScanEye size={15} /> X-ray view
-            </button>
-            {scanId && <ShareButton scanId={scanId} />}
-            {scanId && scanMeta && (
-              <IntegrationsPanel scanId={scanId} pageUrl={scanMeta.scannedUrl} />
+            {/* Tracking banner — only if no history (conditional row) */}
+            {scanMeta && (
+              <TrackingBanner
+                scannedUrl={scanMeta.scannedUrl}
+                hasHistory={history.length > 0}
+              />
             )}
-          </section>
 
-          {/* X-ray overlay — screenshot with crosshair markers on flagged elements. */}
+            {/* Report header: builder badge + bucket counts */}
+            <ReportHeader results={results} detectedBuilders={detectedBuilders} diff={diff} siteId={siteId} />
+
+            {/* Report controls: Share + X-ray + integrations. z-30 so the
+                Integrations dropdown paints above later sections; the weld has
+                NO overflow-clip, so it isn't cut off. */}
+            <section className="relative z-30 flex flex-wrap items-center justify-end gap-3 px-6 py-3">
+              <button
+                className="ds-btn-ghost"
+                onClick={() => setShowXray((v) => !v)}
+                aria-pressed={showXray}
+                style={{ display: "inline-flex", alignItems: "center", gap: 8, ...(showXray ? { borderColor: "var(--signal)", color: "var(--signal)" } : {}) }}
+              >
+                <ScanEye size={15} /> X-ray view
+              </button>
+              {scanId && <ShareButton scanId={scanId} />}
+              {scanId && scanMeta && (
+                <IntegrationsPanel scanId={scanId} pageUrl={scanMeta.scannedUrl} />
+              )}
+            </section>
+          </div>
+
+          {/* X-ray overlay — full width, between the two welds. */}
           {showXray && scanMeta && (
-            <section id="xray-section" className="relative z-10 ds-container px-4 sm:px-6 lg:px-8">
+            <section id="xray-section" className="relative z-10 ds-container px-4 sm:px-6 lg:px-8 mt-4">
               <XrayView results={results} pageUrl={scanMeta.scannedUrl} />
             </section>
           )}
 
-          {/* Keyboard triage over the findings list ("?" for shortcuts). */}
+          {/* Keyboard triage over the findings list ("?" for shortcuts). Renders
+              no visible markup, so it sits between the welds. */}
           <KeyboardTriage />
 
-          {/* What Changed diff card */}
-          {history.length > 0 && (
-            <WhatChangedCard
-              currentResults={results}
-              history={history}
-            />
-          )}
+          {/* ── WELD B: What Changed → Stats, one card. overflow-clip so
+              StatsBar's tinted tiles clip to the rounded corners; no dropdown. */}
+          <div className="ds-container w-full weld weld-clip mt-4">
+            {/* What Changed diff card (conditional row) */}
+            {history.length > 0 && (
+              <WhatChangedCard
+                currentResults={results}
+                history={history}
+              />
+            )}
 
-          {/* Stats bar */}
-          <section className="relative z-10">
+            {/* Stats bar */}
             <StatsBar results={results} diff={diff} />
-          </section>
+          </div>
 
           {/* Informational breakdowns */}
           <section className="relative z-10">

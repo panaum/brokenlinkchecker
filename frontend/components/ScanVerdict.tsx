@@ -4,7 +4,7 @@ import React, { useEffect, useRef, useState } from "react";
 import Link from "next/link";
 import { motion } from "framer-motion";
 import { ArrowRight, BellRing } from "lucide-react";
-import { LinkResult, ScanDiff } from "@/types";
+import { LinkResult, ScanDiff, ScanMeta } from "@/types";
 
 // Numbers never snap — they count up on the one easing curve. Honors
 // prefers-reduced-motion (instant).
@@ -33,6 +33,22 @@ function useCountUp(target: number, duration = 900): number {
 
 const EASE = [0.165, 0.84, 0.44, 1] as const;
 
+// Hostname without the www. prefix — "https://www.fautons.com/x" → "fautons.com".
+function hostOf(u: string): string {
+  try { return new URL(u).hostname.replace(/^www\./, ""); } catch { return u; }
+}
+
+// Relative time — "just now" / "3 min ago" / "2 hr ago" / a date.
+function relativeTime(d: Date): string {
+  const s = Math.floor((Date.now() - d.getTime()) / 1000);
+  if (s < 45) return "just now";
+  const m = Math.floor(s / 60);
+  if (m < 60) return `${m} min ago`;
+  const h = Math.floor(m / 60);
+  if (h < 24) return `${h} hr ago`;
+  return d.toLocaleDateString();
+}
+
 // The post-scan focal point: one plain-English verdict as the largest text on
 // the page, a score ring drawing itself in the signal color, the delta vs the
 // last scan, and exactly ONE primary action.
@@ -40,11 +56,15 @@ export default function ScanVerdict({
   results,
   diff,
   score,
+  meta,
+  onRescan,
   onViewIssues,
 }: {
   results: LinkResult[];
   diff: ScanDiff | null;
   score: number;
+  meta?: ScanMeta | null;
+  onRescan?: () => void;
   onViewIssues: () => void;
 }) {
   const broken = results.filter((r) => r.label === "broken").length;
@@ -67,7 +87,7 @@ export default function ScanVerdict({
   // Score ring geometry. Draws itself via stroke-dashoffset (600ms). The ring
   // and numeral are BRAND purple — identity, not a status. Health is conveyed by
   // the verdict sentence and the issue counts, not the score's color.
-  const R = 46;
+  const R = 20; // ~46px outer diameter (2·R + strokeWidth)
   const C = 2 * Math.PI * R;
   const ringColor = "var(--signal)";
 
@@ -85,24 +105,23 @@ export default function ScanVerdict({
         className="ds-card"
         style={{ padding: "var(--space-6)", display: "flex", alignItems: "center", gap: "var(--space-6)", flexWrap: "wrap", position: "relative" }}
       >
-        {/* Score ring — health-colored, draws itself. */}
-        <motion.div {...rise(0)} style={{ position: "relative", width: 112, height: 112, flexShrink: 0 }}>
-          <svg width="112" height="112" viewBox="0 0 112 112">
-            <circle cx="56" cy="56" r={R} fill="none" stroke="var(--border-subtle)" strokeWidth="8" />
+        {/* Score ring — health-colored, draws itself. ~46px. */}
+        <motion.div {...rise(0)} style={{ position: "relative", width: 52, height: 52, flexShrink: 0 }}>
+          <svg width="52" height="52" viewBox="0 0 52 52">
+            <circle cx="26" cy="26" r={R} fill="none" stroke="var(--border-subtle)" strokeWidth="6" />
             <motion.circle
-              cx="56" cy="56" r={R} fill="none"
+              cx="26" cy="26" r={R} fill="none"
               stroke={ringColor}
-              strokeWidth="8" strokeLinecap="round"
+              strokeWidth="6" strokeLinecap="round"
               strokeDasharray={C}
               initial={{ strokeDashoffset: C }}
               animate={{ strokeDashoffset: C * (1 - score / 100) }}
               transition={{ duration: 0.6, ease: EASE, delay: 0.1 }}
-              transform="rotate(-90 56 56)"
+              transform="rotate(-90 26 26)"
             />
           </svg>
-          <div style={{ position: "absolute", inset: 0, display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center" }}>
-            <span className="font-mono" style={{ fontSize: 30, fontWeight: 700, color: ringColor, lineHeight: 1 }}>{shownScore}</span>
-            <span className="font-mono ds-text-muted" style={{ fontSize: 11 }}>/ 100</span>
+          <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
+            <span className="font-mono" style={{ fontSize: 15, fontWeight: 700, color: ringColor, lineHeight: 1 }}>{shownScore}</span>
           </div>
         </motion.div>
 
@@ -118,10 +137,24 @@ export default function ScanVerdict({
               <span className="ds-status ds-status-neutral"><span className="ds-status-dot" />First scan — no baseline to compare yet.</span>
             )}
           </motion.div>
+
+          {/* Site · time metadata (moved here from the old PagePreviewCard). */}
+          {meta && (
+            <motion.div
+              {...rise(0.16)}
+              className="ds-text-muted"
+              style={{ marginTop: 6, fontSize: "var(--text-caption)", fontFamily: "var(--font-poppins), Poppins, sans-serif" }}
+            >
+              <span className="mono">{hostOf(meta.scannedUrl)}</span> · {relativeTime(meta.scannedAt)}
+            </motion.div>
+          )}
         </div>
 
-        {/* The single primary action. */}
-        <motion.div {...rise(0.18)} style={{ flexShrink: 0 }}>
+        {/* Actions — Re-scan plus the single primary action. */}
+        <motion.div {...rise(0.18)} style={{ flexShrink: 0, display: "flex", alignItems: "center", gap: 8 }}>
+          {onRescan && (
+            <button className="ds-btn-ghost" onClick={onRescan}>Re-scan</button>
+          )}
           {hasIssues ? (
             <button className="ds-btn-primary" onClick={onViewIssues} style={{ display: "inline-flex", alignItems: "center", gap: 8 }}>
               View fixes <ArrowRight size={16} />

@@ -13,9 +13,6 @@ import ResourcePanels from "@/components/ResourcePanels";
 import ScanHistoryPanel from "@/components/ScanHistoryPanel";
 import FilterBar from "@/components/FilterBar";
 import ResultsTable from "@/components/ResultsTable";
-import HealthScore from "@/components/HealthScore";
-import SummaryBanner from "@/components/SummaryBanner";
-import PagePreviewCard from "@/components/PagePreviewCard";
 import WhatChangedCard from "@/components/WhatChangedCard";
 import TrackingBanner from "@/components/TrackingBanner";
 import NavBar from "@/components/NavBar";
@@ -489,20 +486,19 @@ export default function HomePage() {
       {/* ── POST-SCAN RESULTS ── */}
       {scanComplete && results.length > 0 && (
         <>
-          {/* Post-scan verdict block — the focal point and single primary action. */}
+          {/* Post-scan verdict block — the focal point and single primary action.
+              Now also carries the site · time metadata and the Re-scan action
+              (previously the separate PagePreviewCard). */}
           <ScanVerdict
             results={results}
             diff={diff}
             score={healthScore}
+            meta={scanMeta}
+            onRescan={handleRescan}
             onViewIssues={() =>
               document.getElementById("issue-sections")?.scrollIntoView({ behavior: "smooth", block: "start" })
             }
           />
-
-          {/* Page preview card */}
-          {scanMeta && (
-            <PagePreviewCard meta={scanMeta} onRescan={handleRescan} />
-          )}
 
           {/* Tracking banner — only if no history */}
           {scanMeta && (
@@ -546,23 +542,13 @@ export default function HomePage() {
           {/* Keyboard triage over the findings list ("?" for shortcuts). */}
           <KeyboardTriage />
 
-          {/* Health score */}
-          <section className="relative z-10">
-            <HealthScore results={results} />
-          </section>
-
-          {/* What Changed diff card — between health score and summary */}
+          {/* What Changed diff card */}
           {history.length > 0 && (
             <WhatChangedCard
               currentResults={results}
               history={history}
             />
           )}
-
-          {/* Summary banner */}
-          <section className="relative z-10">
-            <SummaryBanner results={results} />
-          </section>
 
           {/* Stats bar */}
           <section className="relative z-10">

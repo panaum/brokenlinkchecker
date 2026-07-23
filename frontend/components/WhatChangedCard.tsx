@@ -225,7 +225,7 @@ export default function WhatChangedCard({
         initial={{ opacity: 0, y: 12 }}
         animate={{ opacity: 1, y: 0 }}
         transition={{ duration: 0.35 }}
-        className="w-full max-w-3xl mx-auto"
+        className="ds-container w-full px-6"
       >
         <div className="glass-card overflow-hidden">
           {/* Header */}

@@ -41,26 +41,10 @@ export default function ReportHeader({ results, detectedBuilders, diff, siteId }
       initial={{ opacity: 0, y: 12 }}
       animate={{ opacity: 1, y: 0 }}
       transition={{ duration: 0.4 }}
-      className="w-full max-w-5xl mx-auto mt-8 px-4"
+      className="ds-container w-full mt-8 px-6"
     >
-      {/* Every report leads with the diff. */}
-      {diff?.summary && (
-        <div
-          className="mb-2 text-sm font-medium"
-          style={{
-            color: diff.has_baseline
-              ? "var(--text-primary)"
-              : diff.baseline_status === "unavailable"
-                ? "#f5a623"
-                : "var(--text-muted)",
-          }}
-        >
-          {diff.baseline_status === "unavailable"
-            ? "Couldn't compare against the previous scan — baseline tracking isn't set up"
-            : diff.summary}
-        </div>
-      )}
-
+      {/* The diff summary line moved to ScanVerdict — this leads with the
+          link/placement count and bucket counts. */}
       <div className="glass-card px-5 py-4 flex flex-wrap items-center gap-x-3 gap-y-2 text-sm">
         {detectedBuilders.length > 0 && (
           <span

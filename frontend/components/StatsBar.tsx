@@ -149,7 +149,7 @@ export default function StatsBar({ results, diff }: StatsBarProps) {
     stats.length >= 8 ? "sm:grid-cols-8" : stats.length === 7 ? "sm:grid-cols-7" : "sm:grid-cols-6";
 
   return (
-    <div className="w-full max-w-5xl mx-auto mt-8 px-4">
+    <div className="ds-container w-full mt-8 px-6">
       {/* One joined bar. gap 0 at every breakpoint; the hairline dividers come
           from each tile's right/bottom box-shadow, clipped to the rounded
           container by overflow-hidden — so when the grid wraps to 2 columns on

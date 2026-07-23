@@ -100,6 +100,11 @@ export default function XrayView({
   const matchedFps = useMemo(() => new Set(markers.map((m) => m.fp)), [markers]);
   const unplaced = flagged.filter((r) => !matchedFps.has(r.fingerprint || r.url));
 
+  // A clean scan has nothing to list. Collapse to one full-width column and
+  // drop the rail rather than reserve 300px for an empty list — the count is
+  // kept as a caption under the screenshot.
+  const railEmpty = markers.length === 0 && unplaced.length === 0;
+
   // Pan the screenshot to a marker and flag it active (pulse).
   const focusMarker = useCallback((m: Marker) => {
     setActive(m.fp);
@@ -130,7 +135,7 @@ export default function XrayView({
   }
 
   return (
-    <div className="ds-card ds-card-pad" style={{ display: "grid", gridTemplateColumns: "minmax(0,1fr) 300px", gap: "var(--space-4)" }}>
+    <div className="ds-card ds-card-pad" style={{ display: "grid", gridTemplateColumns: railEmpty ? "1fr" : "minmax(0,1fr) 300px", gap: "var(--space-4)" }}>
       {/* Screenshot + markers */}
       <div ref={scrollRef} style={{ maxHeight: 560, overflowY: "auto", borderRadius: "var(--radius-md)", border: "1px solid var(--border-subtle)", background: "var(--surface-page)" }}>
         <div ref={imgWrapRef} style={{ position: "relative", width: "100%" }}>
@@ -169,8 +174,14 @@ export default function XrayView({
         </div>
       </div>
 
-      {/* Findings rail */}
-      <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 560, overflowY: "auto" }}>
+      {railEmpty ? (
+        /* Clean scan — no rail; keep the count as a caption under the shot. */
+        <div className="ds-text-muted font-mono" style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.06em" }}>
+          {markers.length} located · {unplaced.length} unplaced
+        </div>
+      ) : (
+        /* Findings rail */
+        <div style={{ display: "flex", flexDirection: "column", gap: 6, maxHeight: 560, overflowY: "auto" }}>
         <div className="ds-text-muted font-mono" style={{ fontSize: 11, textTransform: "uppercase", letterSpacing: "0.06em", marginBottom: 4 }}>
           {markers.length} located · {unplaced.length} unplaced
         </div>
@@ -202,7 +213,8 @@ export default function XrayView({
             {unplaced.length} finding{unplaced.length === 1 ? "" : "s"} not on the page (meta tags, form actions, or off-screen) — see the full list below.
           </div>
         )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }

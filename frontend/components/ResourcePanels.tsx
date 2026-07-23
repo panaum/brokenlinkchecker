@@ -1,5 +1,6 @@
 "use client";
 
+import { useState } from "react";
 import { motion } from "framer-motion";
 import { HostCount, RedirectFlag, RedirectSummary, ResourceType } from "@/types";
 
@@ -131,8 +132,15 @@ function Panel({
   mono?: boolean;
   footer?: string;
 }) {
+  // Cap the list so a long panel (Link Types runs ~10 rows) doesn't drive the
+  // block's height; "+N more" reveals the rest. Bar widths still scale to the
+  // full set's max, so they stay consistent whether collapsed or expanded.
+  const [expanded, setExpanded] = useState(false);
+  const ROW_LIMIT = 5;
   if (!rows.length) return null;
   const max = Math.max(...rows.map((r) => r.count), 1);
+  const visible = expanded ? rows : rows.slice(0, ROW_LIMIT);
+  const hidden = rows.length - visible.length;
 
   return (
     <section className="glass-card p-5">
@@ -143,7 +151,7 @@ function Panel({
         {title}
       </h3>
       <ul className="space-y-2">
-        {rows.map((row) => (
+        {visible.map((row) => (
           <li key={row.label} className="text-xs">
             <div className="flex items-center justify-between gap-3">
               <span
@@ -175,6 +183,21 @@ function Panel({
           </li>
         ))}
       </ul>
+      {rows.length > ROW_LIMIT && (
+        <button
+          onClick={() => setExpanded((e) => !e)}
+          className="text-[11px] mt-2.5"
+          style={{
+            color: "var(--signal)",
+            background: "none",
+            border: "none",
+            padding: 0,
+            cursor: "pointer",
+          }}
+        >
+          {expanded ? "Show less" : `+${hidden} more`}
+        </button>
+      )}
       {footer && (
         <p className="text-[11px] mt-3" style={{ color: "var(--text-muted)" }}>
           {footer}

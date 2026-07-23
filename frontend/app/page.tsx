@@ -23,7 +23,7 @@ import XrayView from "@/components/XrayView";
 import KeyboardTriage from "@/components/KeyboardTriage";
 import { useDynamicFavicon } from "@/lib/useDynamicFavicon";
 import { staffToken, withToken } from "@/lib/backendClient";
-import { ScanEye } from "lucide-react";
+import { ScanEye, BarChart3 } from "lucide-react";
 import Link from "next/link";
 import { Wrench } from "lucide-react";
 
@@ -79,6 +79,7 @@ export default function HomePage() {
   const [scanMeta, setScanMeta] = useState<ScanMeta | null>(null);
   const [scanId, setScanId] = useState<string | null>(null);
   const [showXray, setShowXray] = useState(false);
+  const [showBreakdown, setShowBreakdown] = useState(false);
   const [scanMode, setScanMode] = useState<"single" | "site">("single");
   const eventSourceRef = useRef<EventSource | null>(null);
   const scanningRef = useRef(false);
@@ -523,6 +524,9 @@ export default function HomePage() {
                 so the Integrations dropdown paints above later sections; the
                 weld has NO overflow-clip, so it isn't cut off. */}
             <section className="relative z-30 seg-row">
+              <button onClick={() => setShowBreakdown((v) => !v)} aria-pressed={showBreakdown}>
+                <BarChart3 size={15} /> Breakdown
+              </button>
               <button onClick={() => setShowXray((v) => !v)} aria-pressed={showXray}>
                 <ScanEye size={15} /> X-ray view
               </button>
@@ -532,6 +536,16 @@ export default function HomePage() {
               )}
             </section>
           </div>
+
+          {/* Breakdown panels — toggled from the Breakdown segment in the
+              control bar, closed by default (on a clean scan nobody needs it).
+              Opens directly below the verdict card, the same slot X-ray uses,
+              so it sits adjacent to its own button. z-10 unchanged. */}
+          {showBreakdown && (
+            <section className="relative z-10">
+              <ResourcePanels linkTypes={linkTypes} topHosts={topHosts} schemes={schemes} redirects={redirects} />
+            </section>
+          )}
 
           {/* X-ray overlay — full width, between the two welds. */}
           {showXray && scanMeta && (
@@ -558,11 +572,6 @@ export default function HomePage() {
             {/* Stats bar */}
             <StatsBar results={results} diff={diff} />
           </div>
-
-          {/* Informational breakdowns */}
-          <section className="relative z-10">
-            <ResourcePanels linkTypes={linkTypes} topHosts={topHosts} schemes={schemes} redirects={redirects} />
-          </section>
 
           {/* Triage: broken / dead CTA / unverifiable */}
           <section id="issue-sections" className="relative z-10">

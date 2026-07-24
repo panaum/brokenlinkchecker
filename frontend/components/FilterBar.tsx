@@ -115,9 +115,12 @@ export default function FilterBar({
   return (
     <div className="w-full max-w-5xl mx-auto mt-6 px-4">
       <div className="flex flex-col gap-4">
-        {/* Diff filter — only meaningful once a baseline exists */}
-        {showDiffFilter && (
-          <div className="flex flex-wrap items-center gap-2">
+        {/* Chip row: diff chips (only once a baseline exists) + a hairline
+            separator + status chips. One row instead of two — the separator
+            keeps the two filter axes readable as distinct groups. */}
+        <div className="flex flex-wrap items-center gap-2">
+          {showDiffFilter && (
+            <>
             <span
               className="text-[11px] uppercase tracking-widest mr-1"
               style={{ color: "var(--text-muted)" }}
@@ -160,11 +163,21 @@ export default function FilterBar({
                 </button>
               );
             })}
-          </div>
-        )}
+            {/* Separator between the two filter groups */}
+            <span
+              aria-hidden
+              style={{
+                width: 1,
+                alignSelf: "stretch",
+                minHeight: 22,
+                margin: "0 4px",
+                background: "var(--border-strong)",
+              }}
+            />
+            </>
+          )}
 
-        {/* Status filter cards */}
-        <div className="flex flex-wrap gap-2">
+          {/* Status filter cards */}
           {STATUS_ITEMS.map((item) => {
             const count = countByLabel(results, item.value);
             const isActive = filter === item.value;

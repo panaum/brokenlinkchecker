@@ -5,6 +5,7 @@ import Link from "next/link";
 import { motion } from "framer-motion";
 import { ArrowRight, BellRing } from "lucide-react";
 import { LinkResult, ScanDiff, ScanMeta } from "@/types";
+import { countBuckets } from "@/lib/buckets";
 
 // Numbers never snap — they count up on the one easing curve. Honors
 // prefers-reduced-motion (instant).
@@ -73,11 +74,19 @@ export default function ScanVerdict({
   const hasIssues = issues > 0;
   const shownScore = useCountUp(score);
 
+  // Counted by bucket — the same way IssueSections lists them. A link we could
+  // not auto-check (bot-blocked, timeout) is unverifiable, NOT broken, so it
+  // must not turn the headline into a failure. It just isn't "all clear" either.
+  const { unverifiable } = countBuckets(results);
+  const needsManualCheck = !hasIssues && unverifiable > 0;
+
   let verdict: string;
   if (broken > 0) {
     verdict = `${broken} broken ${broken === 1 ? "link is" : "links are"} turning visitors away.`;
   } else if (deadCta > 0) {
     verdict = `${deadCta} call-to-action${deadCta === 1 ? "" : "s"} ${deadCta === 1 ? "leads" : "lead"} nowhere.`;
+  } else if (needsManualCheck) {
+    verdict = `All links working — ${unverifiable} ${unverifiable === 1 ? "needs" : "need"} a manual check`;
   } else {
     verdict = "All clear — no broken links on watch.";
   }
@@ -90,6 +99,15 @@ export default function ScanVerdict({
   const R = 20; // ~46px outer diameter (2·R + strokeWidth)
   const C = 2 * Math.PI * R;
   const ringColor = "var(--signal)";
+
+  // Middle state marker: a short arc sized to the unverifiable share of links,
+  // floored so a 1-in-107 slice is still visible at 46px. Drawn as a SEPARATE
+  // segment in the neutral "unknown" colour — the ring itself keeps its own
+  // colour, because blending toward amber would read as a warning and an
+  // unverifiable link is not a fault.
+  const unknownArc = needsManualCheck
+    ? Math.min(C, Math.max(5, (C * unverifiable) / Math.max(results.length, 1)))
+    : 0;
 
   const rise = (delay: number) => ({
     initial: { opacity: 0, y: 8 },
@@ -118,6 +136,18 @@ export default function ScanVerdict({
               transition={{ duration: 0.6, ease: EASE, delay: 0.1 }}
               transform="rotate(-90 26 26)"
             />
+            {/* "N unknown" marker — sits at the end of the ring so it reads as
+                "106 confirmed, 1 unknown" without any words. Score is untouched. */}
+            {needsManualCheck && (
+              <circle
+                cx="26" cy="26" r={R} fill="none"
+                stroke="var(--status-neutral)"
+                strokeWidth="6" strokeLinecap="round"
+                strokeDasharray={`${unknownArc} ${C}`}
+                strokeDashoffset={-(C - unknownArc)}
+                transform="rotate(-90 26 26)"
+              />
+            )}
           </svg>
           <div style={{ position: "absolute", inset: 0, display: "flex", alignItems: "center", justifyContent: "center" }}>
             <span className="font-mono" style={{ fontSize: 15, fontWeight: 700, color: ringColor, lineHeight: 1 }}>{shownScore}</span>

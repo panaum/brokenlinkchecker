@@ -46,6 +46,8 @@ interface StatCard {
   /** Renders verbatim instead of counting up — used for "n/a" on a first scan. */
   displayValue?: string;
   hint?: string;
+  /** First tile of a group — draws a heavier rule to its left. */
+  groupStart?: boolean;
 }
 
 export default function StatsBar({ results, diff }: StatsBarProps) {
@@ -129,6 +131,9 @@ export default function StatsBar({ results, diff }: StatsBarProps) {
       color: "#7a7a8c",
       bg: "rgba(122,122,140,0.10)",
       delay: 600,
+      // Everything from here on is a diff count, not an absolute count of what
+      // is on the page — a heavier rule splits the bar into those two groups.
+      groupStart: true,
     },
     {
       label: "New Issues",
@@ -180,7 +185,16 @@ function StatCardItem({ stat }: { stat: StatCard }) {
       // Right + bottom hairlines = dividers between tiles (columns always, rows
       // once wrapped on mobile). The outer edges' shadows are clipped by the
       // container's overflow-hidden, so no double border.
-      style={{ background: stat.bg, boxShadow: "1px 0 0 var(--border-subtle), 0 1px 0 var(--border-subtle)" }}
+      style={{
+        background: stat.bg,
+        boxShadow: [
+          "1px 0 0 var(--border-subtle)",
+          "0 1px 0 var(--border-subtle)",
+          // Group boundary: a heavier inset rule on the left (inset so it adds
+          // no layout shift and stays clipped to the bar's rounded corners).
+          ...(stat.groupStart ? ["inset 2px 0 0 var(--border-strong)"] : []),
+        ].join(", "),
+      }}
       title={stat.hint}
     >
       <div

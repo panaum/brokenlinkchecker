@@ -561,6 +561,13 @@ export default function HomePage() {
               no visible markup, so it sits between the welds. */}
           <KeyboardTriage />
 
+          {/* Triage: broken / dead CTA / unverifiable. Sits directly under the
+              verdict card — the one thing needing action comes before the
+              counts. Renders nothing on a clean scan, so it costs no space. */}
+          <section id="issue-sections" className="relative z-10">
+            <IssueSections results={results} siteId={siteId} />
+          </section>
+
           {/* ── WELD B: What Changed → Stats, one card. overflow-clip so
               StatsBar's tinted tiles clip to the rounded corners; no dropdown. */}
           <div className="ds-container w-full weld weld-clip mt-4">
@@ -578,11 +585,6 @@ export default function HomePage() {
             {/* Stats bar */}
             <StatsBar results={results} diff={diff} />
           </div>
-
-          {/* Triage: broken / dead CTA / unverifiable */}
-          <section id="issue-sections" className="relative z-10">
-            <IssueSections results={results} siteId={siteId} />
-          </section>
 
           {/* Filter bar */}
           {/* z-30 so the zone/sort dropdowns overflow ABOVE the results table

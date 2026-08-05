@@ -3252,6 +3252,49 @@ async def qa_bridge_status(qa_page_ref: str = Query(...),
             "checks": checks}
 
 
+@app.get("/api/qa-bridge/presence")
+async def qa_bridge_presence(registry_site_id: str = Query(...),
+                             authorization: str = Header(default=None),
+                             x_api_key: str = Header(default=None)):
+    """PRODUCTION PRESENCE — read-only, site-keyed. What the Deliverables app
+    needs to render a quiet awareness strip on a page's checklist: open
+    incidents + sentinel checks that need attention for this registry site.
+
+    Same service-key auth as /api/qa-bridge/status (the caller is a server, not
+    a browser — which is exactly why /api/sites/{id}/sentinel, being session-
+    authed, cannot serve this). Reads STORED sentinel status and incident rows
+    only: never probes, never pings, never writes."""
+    from datetime import datetime, timezone
+    from database import get_sentinel_status, recent_pings, list_incidents
+    from sentinel import summarize_sentinel
+    from presence import presence_signals, open_incident_count
+    key = await _qa_authenticate(authorization, x_api_key)
+    if not key:
+        return JSONResponse({"error": "A valid QA-bridge service key is required."}, status_code=401)
+    if not _qa_rl.allow(key["id"], time.time()):
+        return JSONResponse({"error": "Rate limit exceeded. Try again shortly."}, status_code=429)
+
+    site_path = f"/dashboard/{registry_site_id}"
+    try:
+        status = await get_sentinel_status(registry_site_id)
+        pings = await recent_pings(registry_site_id)
+        incidents = await list_incidents(registry_site_id, limit=20)
+    except Exception as e:
+        # Storage hiccup is the consumer's "unavailable" case, not a 500 that
+        # would make a QA page look broken (constitution rule 6).
+        print(f"[presence] read failed for {registry_site_id}: {e}")
+        return JSONResponse({"error": "presence_unavailable"}, status_code=503)
+
+    summary = summarize_sentinel(status, pings)
+    return {"registry_site_id": registry_site_id,
+            "as_of": datetime.now(timezone.utc).isoformat(),
+            "last_checked": summary.get("last_checked"),
+            "open_incidents": open_incident_count(incidents),
+            # App-relative on purpose — the Dashboard signs it into a handoff.
+            "site_path": site_path,
+            "signals": presence_signals(summary, incidents, site_path)}
+
+
 # ─── QA-bridge admin (agency-internal) — mapping + service keys ───────────────
 @app.get("/api/sites/{site_id}/qa-bridge/maps")
 async def qa_maps_list(site_id: str, _acc: dict = Depends(require_site_access("member"))):

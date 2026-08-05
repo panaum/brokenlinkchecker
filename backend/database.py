@@ -2059,6 +2059,70 @@ async def list_incidents(site_id, limit=50) -> list:
     return await asyncio.to_thread(_list_incidents_sync, site_id, limit)
 
 
+# ─── Presence: bulk reads for the client-chips surface ───────────────────────
+# One query per table for ANY number of sites, so a client page costs three
+# round trips whether the client has one site or thirty. Read-only; a missing
+# table degrades to empty (the chips then read 'unknown'/'settling'), never
+# raises into a page render.
+def _sentinel_status_bulk_sync(site_ids) -> dict:
+    client = _get_client()
+    try:
+        rows = client.table("sentinel_status").select("*").in_("site_id", list(site_ids)).execute().data or []
+        return {r["site_id"]: r for r in rows}
+    except Exception as e:
+        if _tables_missing(e):
+            return {}
+        raise
+
+
+async def sentinel_status_bulk(site_ids) -> dict:
+    import asyncio
+    if not site_ids:
+        return {}
+    return await asyncio.to_thread(_sentinel_status_bulk_sync, site_ids)
+
+
+def _open_incident_counts_sync(site_ids) -> dict:
+    client = _get_client()
+    try:
+        rows = client.table("sentinel_incidents").select("site_id")\
+            .in_("site_id", list(site_ids)).is_("restored_at", "null").execute().data or []
+    except Exception as e:
+        if _tables_missing(e):
+            return {}
+        raise
+    counts = {}
+    for r in rows:
+        counts[r["site_id"]] = counts.get(r["site_id"], 0) + 1
+    return counts
+
+
+async def open_incident_counts(site_ids) -> dict:
+    import asyncio
+    if not site_ids:
+        return {}
+    return await asyncio.to_thread(_open_incident_counts_sync, site_ids)
+
+
+def _fragility_bulk_sync(site_ids) -> dict:
+    client = _get_client()
+    try:
+        rows = client.table("fragility_scores").select("site_id, score, band, factors, insufficient")\
+            .in_("site_id", list(site_ids)).execute().data or []
+        return {r["site_id"]: r for r in rows}
+    except Exception as e:
+        if _tables_missing(e):
+            return {}
+        raise
+
+
+async def fragility_bulk(site_ids) -> dict:
+    import asyncio
+    if not site_ids:
+        return {}
+    return await asyncio.to_thread(_fragility_bulk_sync, site_ids)
+
+
 def _all_sites_min_sync() -> list:
     client = _get_client()
     try:

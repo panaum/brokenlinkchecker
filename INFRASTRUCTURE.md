@@ -59,7 +59,15 @@ was true, the code wins and the disagreement is recorded in
 Ordered by operational severity. Each is a place where the code contradicts the
 assumed state of the system.
 
-### D1 — `DASHBOARD_BRIDGE_KEY` points at an endpoint that does not exist ⚠️
+### D1 — `DASHBOARD_BRIDGE_KEY` points at an endpoint that does not exist ✅ RESOLVED
+
+**Resolved 2026-08-05.** The Dashboard now serves
+`GET /api/registry-bridge/delivery` (`src/app/api/registry-bridge/delivery/route.ts`,
+commit `db85693`), which validates `DASHBOARD_BRIDGE_KEY` with a timing-safe
+compare. Both vars are live and required for the Delivery panel and the
+delivery-presence line. The original finding is kept below for the record.
+
+---
 
 LinkSpy's frontend calls the Dashboard at
 `{DASHBOARD_BRIDGE_URL}/api/registry-bridge/delivery?registry_site_id=…`
@@ -266,8 +274,9 @@ Next.js, NextAuth **v4** (`next-auth@4.24.14`). No `vercel.json`, no
 | `GOOGLE_CLIENT_SECRET` | Google OAuth token exchange (`:10`) | secret | — | **Yes** — fails at callback |
 | `SPINE_SECRET` | HMAC key for handoff tokens (`api/handoff/sign/route.ts:9`, `handoff/route.ts:17`, `api/delivery/route.ts:21`) | secret | **Railway, Vercel dashboard, Vercel qa-ecosystem** | Yes for handoff — sign 503s |
 | `DASHBOARD_APP_URL` | Base origin handoff links point at (`api/handoff/sign/route.ts:15`) | url | — | Yes for handoff — 400 `"no target base"` |
-| `DASHBOARD_BRIDGE_URL` | Dashboard read-API origin for delivery data (`api/delivery/route.ts:35`) | url | — | **No — target route does not exist (D1)** |
-| `DASHBOARD_BRIDGE_KEY` | Bearer credential for that bridge (`:36`) | secret | *(nominally Vercel dashboard)* | **No — never validated anywhere (D1)** |
+| `DASHBOARD_BRIDGE_URL` | Dashboard read-API origin for delivery data (`api/delivery/route.ts:35`, `api/presence/delivery/route.ts:33`) | url | — | No — Delivery panel + presence line degrade quietly (**D1 resolved**) |
+| `DASHBOARD_BRIDGE_KEY` | Bearer credential for that bridge (`:36`, `presence:34`) | secret | Vercel dashboard | No — as above (**D1 resolved**) |
+| `PRESENCE` | Gates the **delivery-presence line** on Site Detail (`api/presence/delivery/route.ts:26`). Only the literal `1` enables it | flag | *(same name, set separately, on Vercel dashboard)* | No — unset ⇒ the Overview is byte-identical to pre-presence |
 | `CRON_SECRET` | Bearer auth on `/api/cron/auto-scan` (`:7`) | secret | Vercel dashboard *(separate endpoint)* | Fails open if unset; route likely unreachable (D3) |
 | `GITHUB_WEBHOOK_SECRET` | HMAC verification of GitHub deployment webhooks (`api/webhooks/github/route.ts:6`) | secret | GitHub repo settings | Yes for that route — 401 otherwise |
 | `AUTH_SECRET` | — | — | — | **Dead** — v5 name (D10) |
@@ -290,6 +299,7 @@ Auth is a shared team password + signed cookie — **not** NextAuth.
 | `LINKSPY_API_URL` | LinkSpy backend base for the registry + QA-bridge clients (`lib/registry.ts:11`, `lib/linkspy/client.ts:18`, `drain:36`) | url | — | No — feature silently unavailable |
 | `LINKSPY_API_KEY` | Bearer service key for those calls; **server-only, never reaches the browser** | secret | LinkSpy (validated backend-side) | No — `registryConfigured()` false ⇒ typed "unavailable" |
 | `LINKSPY_APP_URL` | LinkSpy dashboard base for operator deep links (`lib/linkspy/client.ts:24`) | url | — | No — falls back to `LINKSPY_API_URL`, then plain instructions |
+| `PRESENCE` | Gates the **production-presence strip** on the page checklist view (`lib/linkspy/presence-shape.ts:37` via `lib/linkspy/presence.ts:62`). Only the literal `1` enables it | flag | *(same name, set separately, on Vercel brokenlinkchecker)* | No — unset ⇒ the checklist view is byte-identical to pre-presence |
 | `ANTHROPIC_API_KEY` | Enables Claude judgment in the AI QA agent (`lib/ai/anthropic.ts:5`) | secret | — | No — deterministic checks still run |
 | `E2E_PASSWORD` | Playwright login; must equal the server's `APP_PASSWORD` (`e2e/auth.setup.ts:15`) | secret | — | Test-only |
 | `NODE_ENV` | Cookie `secure` flag, Prisma client caching | platform | — | Injected |

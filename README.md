@@ -92,4 +92,3 @@ Health check endpoint. Returns `{"status": "ok"}`.
 - 🔄 **Sortable table** — Click any column header to sort
 - 📱 **Responsive** — Works on mobile, tablet, and desktop
 Revert to single page scanner
- 

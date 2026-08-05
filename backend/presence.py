@@ -91,3 +91,94 @@ def presence_signals(sentinel, incidents, site_path=None):
 
     signals.sort(key=lambda s: _RANK.get(s["severity"], 9))
     return signals
+
+
+# ═══ CLIENT CHIPS ════════════════════════════════════════════════════════════
+# Four honest signals per site, never a composite. See
+# docs/design-notes/presence-client-chips.md for why each chip exists and why
+# `sentinel` excludes both SSL (its own chip) and uptime (an open incident IS
+# the uptime verdict — counting both prints one outage twice).
+#
+# Presence invents NO threshold. Every state below is a verdict computed by the
+# module that owns it (sentinel.escalation, sentinel.indexability_verdict,
+# fragility.fragility_score), so the chips stay true as those modules evolve.
+
+CHIP_KEYS = ("ssl", "sentinel", "incidents", "fragility")
+
+# Worst-of ladder. `settling` sits below `notice` and above `ok`: it must never
+# be why a client reads green, nor why one reads red.
+STATE_ORDER = ("critical", "warn", "notice", "settling", "unknown", "ok")
+_STATE_RANK = {s: i for i, s in enumerate(STATE_ORDER)}
+
+
+def worst_state(states):
+    """The most severe of a set of states. The ONLY reduction in this pipeline —
+    reversible by construction, because the worst chip is still visible as
+    itself. Empty → 'unknown'."""
+    known = [s for s in (states or []) if s in _STATE_RANK]
+    if not known:
+        return "unknown"
+    return min(known, key=lambda s: _STATE_RANK[s])
+
+
+def _fragility_chip(fragility):
+    """Stored nightly score. Missing or gated → 'settling' with the gate's own
+    reason: fragility.history_gate refuses to score a site under 60 days / 8
+    scans, and presence honours that rather than working around it."""
+    if not fragility or fragility.get("insufficient"):
+        gate = (fragility or {}).get("gate") or {}
+        have_days, have_scans = gate.get("have_days"), gate.get("have_scans")
+        detail = "Needs 60+ days and 8+ scans of history"
+        if have_days is not None or have_scans is not None:
+            detail += f" — {have_days or 0} days, {have_scans or 0} scans so far"
+        return {"key": "fragility", "state": "settling", "label": "Fragility",
+                "text": "settling", "detail": detail}
+
+    band = fragility.get("band")
+    state = {"brittle": "critical", "sturdy": "ok"}.get(band, "notice")
+    score = fragility.get("score")
+    return {"key": "fragility", "state": state, "label": "Fragility",
+            "text": f"{score} · {band}" if score is not None else str(band),
+            # The factors rule is absolute upstream; carry them, never drop them.
+            "detail": " · ".join(fragility.get("factors") or []) or None}
+
+
+def site_chips(status, open_incidents=0, fragility=None, now=None):
+    """The four chips for ONE site. Pure.
+
+    `status` is a sentinel_status row (or None), `open_incidents` a count,
+    `fragility` a stored fragility_scores row (or None).
+    """
+    from sentinel import days_until, escalation, indexability_verdict
+
+    status = status or {}
+    ssl_days = days_until(status.get("ssl_expiry"), now)
+    dom_days = days_until(status.get("domain_expiry"), now)
+    idx = indexability_verdict(status.get("robots_ok"), status.get("meta_noindex"),
+                               status.get("header_noindex"), status.get("sitemap_ok"))
+
+    def days_text(days):
+        if days is None:
+            return "unknown"
+        if days <= 0:
+            return "expired"
+        return f"{days} day{'' if days == 1 else 's'}"
+
+    # `sentinel` = worst(domain, search visibility) — NOT ssl, NOT uptime.
+    sentinel_state = worst_state([escalation(dom_days), idx["overall"]])
+    sentinel_text = "ok"
+    if sentinel_state != "ok":
+        worse_domain = _STATE_RANK.get(escalation(dom_days), 9) <= _STATE_RANK.get(idx["overall"], 9)
+        sentinel_text = f"domain {days_text(dom_days)}" if worse_domain else "search visibility"
+
+    n = int(open_incidents or 0)
+    return [
+        {"key": "ssl", "state": escalation(ssl_days), "label": "SSL",
+         "text": days_text(ssl_days), "detail": status.get("ssl_issuer")},
+        {"key": "sentinel", "state": sentinel_state, "label": "Sentinel",
+         "text": sentinel_text,
+         "detail": " · ".join(c["text"] for c in idx["checks"]) or None},
+        {"key": "incidents", "state": "critical" if n else "ok", "label": "Incidents",
+         "text": f"{n} open" if n else "none open", "detail": None},
+        _fragility_chip(fragility),
+    ]

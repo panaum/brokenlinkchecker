@@ -3295,6 +3295,80 @@ async def qa_bridge_presence(registry_site_id: str = Query(...),
             "signals": presence_signals(summary, incidents, site_path)}
 
 
+# Presence client-chips: 5-minute per-site memo. Presence is derived, disposable
+# state (never stored — see the design note), so an in-process dict is the whole
+# cache. A cold client page costs three bulk queries; the next five minutes cost
+# none.
+_PRESENCE_CHIP_TTL = 300.0
+_presence_chip_cache = {}          # site_id -> (expires_at, chips)
+_PRESENCE_MAX_SITES = 250
+
+
+@app.get("/api/qa-bridge/presence/sites")
+async def qa_bridge_presence_sites(registry_site_ids: str = Query(...),
+                                   authorization: str = Header(default=None),
+                                   x_api_key: str = Header(default=None)):
+    """CLIENT CHIPS — four honest signals per site: SSL, sentinel (domain +
+    search visibility), open incidents, fragility. Never a composite: the
+    Deliverables app aggregates each chip on its own axis and reduces only by
+    worst-of, which stays reversible.
+
+    Comma-separated site ids. Service-key auth, read-only, never probes. Reads
+    three tables in bulk, so cost is flat in the number of sites."""
+    from datetime import datetime, timezone
+    from database import sentinel_status_bulk, open_incident_counts, fragility_bulk
+    from presence import site_chips, worst_state, CHIP_KEYS
+    key = await _qa_authenticate(authorization, x_api_key)
+    if not key:
+        return JSONResponse({"error": "A valid QA-bridge service key is required."}, status_code=401)
+    if not _qa_rl.allow(key["id"], time.time()):
+        return JSONResponse({"error": "Rate limit exceeded. Try again shortly."}, status_code=429)
+
+    requested = [s.strip() for s in (registry_site_ids or "").split(",") if s.strip()]
+    # de-dupe, preserve order
+    ids, seen = [], set()
+    for s in requested:
+        if s not in seen:
+            seen.add(s)
+            ids.append(s)
+    # No silent caps: if we drop ids, the response says how many.
+    dropped = max(0, len(ids) - _PRESENCE_MAX_SITES)
+    ids = ids[:_PRESENCE_MAX_SITES]
+
+    now = time.time()
+    sites, cold = {}, []
+    for sid in ids:
+        hit = _presence_chip_cache.get(sid)
+        if hit and hit[0] > now:
+            sites[sid] = hit[1]
+        else:
+            cold.append(sid)
+
+    if cold:
+        try:
+            statuses = await sentinel_status_bulk(cold)
+            incidents = await open_incident_counts(cold)
+            fragilities = await fragility_bulk(cold)
+        except Exception as e:
+            print(f"[presence/sites] read failed: {e}")
+            return JSONResponse({"error": "presence_unavailable"}, status_code=503)
+        for sid in cold:
+            chips = site_chips(statuses.get(sid), incidents.get(sid, 0), fragilities.get(sid))
+            _presence_chip_cache[sid] = (now + _PRESENCE_CHIP_TTL, chips)
+            sites[sid] = chips
+
+    payload = {"as_of": datetime.now(timezone.utc).isoformat(),
+               "chip_keys": list(CHIP_KEYS),
+               "sites": {sid: {"site_path": f"/dashboard/{sid}",
+                               "chips": sites[sid],
+                               "worst": worst_state([c["state"] for c in sites[sid]])}
+                         for sid in ids}}
+    if dropped:
+        payload["truncated"] = True
+        payload["dropped"] = dropped
+    return JSONResponse(payload, headers={"Cache-Control": "private, max-age=300"})
+
+
 # ─── QA-bridge admin (agency-internal) — mapping + service keys ───────────────
 @app.get("/api/sites/{site_id}/qa-bridge/maps")
 async def qa_maps_list(site_id: str, _acc: dict = Depends(require_site_access("member"))):

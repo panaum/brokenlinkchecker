@@ -8,6 +8,7 @@ import { DashboardSite, DashboardScan } from "@/types";
 import NavBar from "@/components/NavBar";
 import MonitoringPanel from "@/components/MonitoringPanel";
 import DeliveryPanel from "@/components/DeliveryPanel";
+import DeliveryPresenceLine from "@/components/DeliveryPresenceLine";
 import ActiveTestingPanel from "@/components/ActiveTestingPanel";
 import BadgeEmbed from "@/components/BadgeEmbed";
 import TimeMachine from "@/components/TimeMachine";
@@ -114,6 +115,9 @@ export default function SiteDetailPage() {
                 <a href={site.url} target="_blank" rel="noopener noreferrer" className="ds-text-secondary" style={{ display: "inline-flex", alignItems: "center", gap: 6, fontSize: "var(--text-body)", textDecoration: "none", marginTop: 4 }}>
                   {domainOf(site.url)} <ExternalLink size={13} />
                 </a>
+                {/* Delivery presence — what the QA app is doing with this site
+                    right now. Renders nothing unless something is in QA. */}
+                <DeliveryPresenceLine siteId={site.id} />
               </div>
               <div style={{ display: "flex", alignItems: "center", gap: 24 }}>
                 {streak !== null && streak > 0 && (

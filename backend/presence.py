@@ -143,6 +143,60 @@ def _fragility_chip(fragility):
             "detail": " · ".join(fragility.get("factors") or []) or None}
 
 
+def aggregate_chip(key, per_site):
+    """Aggregate ONE chip across a client's sites. Pure.
+
+    `per_site` is [(site_id, site_path, chips)]. The worst state always wins —
+    a red on one site of thirty is still a red, and no count of greens outvotes
+    it. Mirrors the Dashboard's aggregateChip() rule for rule; the shared rules
+    are documented in docs/design-notes/presence-client-chips.md and asserted
+    identical by tests on both sides.
+    """
+    found = []
+    for site_id, site_path, chips in per_site:
+        chip = next((c for c in (chips or []) if c.get("key") == key), None)
+        if chip:
+            found.append((site_id, site_path, chip))
+    if not found:
+        return None
+
+    state = worst_state([c["state"] for _, _, c in found])
+    at_worst = [f for f in found if f[2]["state"] == state]
+    total = len(found)
+
+    if total == 1:
+        text = found[0][2]["text"]          # one site: state its own fact
+    elif state == "ok":
+        text = f"ok on {total} sites"
+    else:
+        text = f"⚠ on {len(at_worst)} of {total} sites"
+
+    return {"key": key, "label": found[0][2]["label"], "state": state, "text": text,
+            # One implicated site → carry its detail. Several → the detail would
+            # be ambiguous, so say nothing rather than something misleading.
+            "detail": at_worst[0][2].get("detail") if len(at_worst) == 1 else None,
+            "affected": len(at_worst), "total": total,
+            "site_path": at_worst[0][1] if len(at_worst) == 1 else None}
+
+
+def client_intelligence(per_site):
+    """The four aggregated chips for one client, plus its worst-of.
+
+    `per_site` is [(site_id, site_path, chips)]. Returns None when the client
+    has no sites — the consumer then renders nothing. The only reduction is
+    worst-of OVER THE AGGREGATED CHIPS, so the headline can never disagree with
+    the chips printed beside it.
+    """
+    if not per_site:
+        return None
+    chips = [c for c in (aggregate_chip(k, per_site) for k in CHIP_KEYS) if c]
+    if not chips:
+        return None
+    return {"chips": chips,
+            "worst": worst_state([c["state"] for c in chips]),
+            "site_count": len(per_site)}
+
+
 def site_chips(status, open_incidents=0, fragility=None, now=None):
     """The four chips for ONE site. Pure.
 

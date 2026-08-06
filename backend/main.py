@@ -3369,6 +3369,73 @@ async def qa_bridge_presence_sites(registry_site_ids: str = Query(...),
     return JSONResponse(payload, headers={"Cache-Control": "private, max-age=300"})
 
 
+@app.get("/api/qa-bridge/client-intelligence")
+async def qa_bridge_client_intelligence(registry_client_id: str = Query(...),
+                                        authorization: str = Header(default=None),
+                                        x_api_key: str = Header(default=None)):
+    """CLIENT INTELLIGENCE — the four chips aggregated across every site LinkSpy
+    holds for one registry client.
+
+    Sites resolve through the EXISTING `sites.client_id` FK (migration 007), via
+    the same registry_client_sites() helper the client portal and
+    /api/registry/clients/{id}/sites already use. No new table, no new mapping,
+    no second authority for a relationship that already has one.
+
+    Gated on CLIENT_INTELLIGENCE=1: off, the route answers 404 and is
+    indistinguishable from not existing. Service-key auth, read-only, never
+    probes. Three bulk reads regardless of how many sites the client has."""
+    from datetime import datetime, timezone
+    from database import (registry_client_sites, sentinel_status_bulk,
+                          open_incident_counts, fragility_bulk)
+    from presence import site_chips, client_intelligence, CHIP_KEYS
+    if os.getenv("CLIENT_INTELLIGENCE") != "1":
+        return JSONResponse({"error": "client_intelligence_disabled"}, status_code=404)
+
+    key = await _qa_authenticate(authorization, x_api_key)
+    if not key:
+        return JSONResponse({"error": "A valid QA-bridge service key is required."}, status_code=401)
+    if not _qa_rl.allow(key["id"], time.time()):
+        return JSONResponse({"error": "Rate limit exceeded. Try again shortly."}, status_code=429)
+
+    try:
+        sites = await registry_client_sites(registry_client_id)
+    except Exception as e:
+        print(f"[client-intelligence] site resolution failed for {registry_client_id}: {e}")
+        return JSONResponse({"error": "client_intelligence_unavailable"}, status_code=503)
+
+    site_ids = [s["id"] for s in sites if s.get("id")]
+    base = {"registry_client_id": registry_client_id,
+            "as_of": datetime.now(timezone.utc).isoformat(),
+            "chip_keys": list(CHIP_KEYS), "site_count": len(site_ids)}
+    # A client with no sites is a valid answer, not a 404. The consumer renders
+    # nothing — same as an unmapped client.
+    if not site_ids:
+        return JSONResponse({**base, "chips": [], "worst": "unknown", "sites": {}},
+                            headers={"Cache-Control": "private, max-age=300"})
+
+    try:
+        statuses = await sentinel_status_bulk(site_ids)
+        incidents = await open_incident_counts(site_ids)
+        fragilities = await fragility_bulk(site_ids)
+    except Exception as e:
+        print(f"[client-intelligence] read failed for {registry_client_id}: {e}")
+        return JSONResponse({"error": "client_intelligence_unavailable"}, status_code=503)
+
+    per_site = [(sid, f"/dashboard/{sid}",
+                 site_chips(statuses.get(sid), incidents.get(sid, 0), fragilities.get(sid)))
+                for sid in site_ids]
+    agg = client_intelligence(per_site) or {"chips": [], "worst": "unknown", "site_count": 0}
+
+    return JSONResponse(
+        {**base, **agg,
+         # Per-site detail travels too: the aggregate must always be auditable
+         # back to the sites that produced it.
+         "sites": {sid: {"name": next((s.get("name") for s in sites if s["id"] == sid), None),
+                         "site_path": path, "chips": chips}
+                   for sid, path, chips in per_site}},
+        headers={"Cache-Control": "private, max-age=300"})
+
+
 # ─── QA-bridge admin (agency-internal) — mapping + service keys ───────────────
 @app.get("/api/sites/{site_id}/qa-bridge/maps")
 async def qa_maps_list(site_id: str, _acc: dict = Depends(require_site_access("member"))):

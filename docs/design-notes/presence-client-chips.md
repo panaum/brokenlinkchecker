@@ -162,7 +162,40 @@ longer list is truncated *and says so* (`truncated: true` + the count dropped),
 which the Dashboard logs server-side. A cap that lies about coverage is worse
 than no cap.
 
-## 6. Tripwires
+## 6. Client linking — link 3–5 real clients, not all 89
+
+The chips only appear for a client whose `Client.registryClientId` is set. That
+annotation is created by a human pressing **"Link to LinkSpy"** on one client at
+a time. There is deliberately **no bulk linking path** — not in the endpoint,
+not in the action, not behind a flag — and a test on each side asserts one
+cannot appear by accident.
+
+**Link 3–5 real clients before rollout. Do not sweep all 89.** The reasons, in
+order of how much they will cost you:
+
+1. **Registry ids are eternal (§8.2).** Linking either claims an existing
+   registry client or mints a new one. A wrong link is not a display bug — it is
+   a permanent id that events, ledgers and the timeline will reference. Merging
+   two clients later means a `merged_into` pointer, never a delete.
+2. **A bulk sweep would create 89 registry clients by name-match**, and the
+   Dashboard's client list is known to be deliverable-shaped ("Build | Funnel 2
+   LP" — §2 Seam 1). Most of those entries are not clients at all. Sweeping them
+   would fill the registry with garbage that is expensive to remove and cheap to
+   avoid.
+3. **The chips need something to say.** A freshly linked client with no LinkSpy
+   sites renders four `unknown` chips, and one with new sites sits in Fresh Mode
+   for 60 days. Linking five clients that already have monitored, mature sites
+   is the only way to see whether the surface is actually useful.
+
+Pick clients that are (a) unambiguously real clients, (b) already have sites in
+LinkSpy, and (c) have been monitored long enough to be past the fragility gate —
+so at least one link shows a real fragility band rather than `settling`.
+
+Once those five have lived on the surface for a week, decide whether to keep
+linking by hand or to build a reviewed mapping UI (the §2 Seam 1 hygiene pass,
+which is exactly this problem at 89× scale and was deliberately deferred).
+
+## 7. Tripwires
 
 | Tripwire | Status |
 |---|---|

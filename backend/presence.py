@@ -226,7 +226,7 @@ def sites_summary(per_site):
             "by_label": {state_label(k): v for k, v in by_state.items()}}
 
 
-def client_intelligence(per_site):
+def client_presence_chips(per_site):
     """The four aggregated chips for one client, plus its worst-of.
 
     `per_site` is [(site_id, site_path, chips)]. Returns None when the client

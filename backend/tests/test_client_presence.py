@@ -6,7 +6,7 @@ aggregation matches the Dashboard's rule for rule.
 """
 import inspect
 
-from presence import aggregate_chip, client_intelligence, site_chips, worst_state, CHIP_KEYS
+from presence import aggregate_chip, client_presence_chips, site_chips, worst_state, CHIP_KEYS
 
 
 def _chips(**states):
@@ -23,17 +23,17 @@ def _site(sid, **states):
 
 # ── no sites ────────────────────────────────────────────────────────────────
 def test_a_client_with_no_sites_returns_none():
-    assert client_intelligence([]) is None
-    assert client_intelligence(None) is None
+    assert client_presence_chips([]) is None
+    assert client_presence_chips(None) is None
 
 
 def test_a_site_with_no_chips_contributes_nothing():
-    assert client_intelligence([("s1", "/dashboard/s1", [])]) is None
+    assert client_presence_chips([("s1", "/dashboard/s1", [])]) is None
 
 
 # ── single site ─────────────────────────────────────────────────────────────
 def test_single_site_states_its_own_fact_without_counting():
-    ci = client_intelligence([_site("s1", ssl="critical")])
+    ci = client_presence_chips([_site("s1", ssl="critical")])
     by = {c["key"]: c for c in ci["chips"]}
     assert by["ssl"]["text"] == "3 days", "one site: no '1 of 1' noise"
     assert by["ssl"]["total"] == 1
@@ -42,14 +42,14 @@ def test_single_site_states_its_own_fact_without_counting():
 
 
 def test_all_four_chips_are_always_present():
-    ci = client_intelligence([_site("s1")])
+    ci = client_presence_chips([_site("s1")])
     assert [c["key"] for c in ci["chips"]] == list(CHIP_KEYS)
     assert ci["worst"] == "ok"
 
 
 # ── multi-site aggregation, each chip on its own axis ───────────────────────
 def test_each_chip_aggregates_independently():
-    ci = client_intelligence([_site("a", ssl="warn"), _site("b", fragility="critical"), _site("c")])
+    ci = client_presence_chips([_site("a", ssl="warn"), _site("b", fragility="critical"), _site("c")])
     by = {c["key"]: c for c in ci["chips"]}
     assert by["ssl"]["state"] == "warn" and by["ssl"]["text"] == "⚠ on 1 of 3 sites"
     assert by["fragility"]["state"] == "critical" and by["fragility"]["text"] == "⚠ on 1 of 3 sites"
@@ -60,7 +60,7 @@ def test_each_chip_aggregates_independently():
 
 def test_one_red_among_twenty_nine_greens_survives():
     sites = [_site(f"s{i}") for i in range(29)] + [_site("bad", incidents="critical")]
-    ci = client_intelligence(sites)
+    ci = client_presence_chips(sites)
     inc = {c["key"]: c for c in ci["chips"]}["incidents"]
     assert inc["state"] == "critical", "greens must never outvote a red"
     assert inc["text"] == "⚠ on 1 of 30 sites"
@@ -86,19 +86,19 @@ def test_detail_and_link_only_when_a_single_site_is_implicated():
 
 # ── worst-of is over the AGGREGATED chips ──────────────────────────────────
 def test_headline_can_never_disagree_with_the_chips_it_shows():
-    ci = client_intelligence([_site("a", sentinel="warn"), _site("b", ssl="notice")])
+    ci = client_presence_chips([_site("a", sentinel="warn"), _site("b", ssl="notice")])
     assert ci["worst"] == worst_state([c["state"] for c in ci["chips"]])
 
 
 def test_settling_client_does_not_read_as_healthy():
-    ci = client_intelligence([_site("a", fragility="settling")])
+    ci = client_presence_chips([_site("a", fragility="settling")])
     assert ci["worst"] == "settling"
 
 
 # ── the endpoint: existing FK, no new mapping, read-only ───────────────────
 def test_endpoint_resolves_sites_through_the_existing_fk():
     import main
-    src = inspect.getsource(main.qa_bridge_client_intelligence)
+    src = inspect.getsource(main.registry_bridge_client_presence)
     assert "registry_client_sites" in src, "sites.client_id is the mapping — reuse it"
     for invented in ("client_sites_map", "client_site_map", "create table", "alter table"):
         assert invented not in src.lower(), f"no second mapping authority — found {invented!r}"
@@ -106,7 +106,7 @@ def test_endpoint_resolves_sites_through_the_existing_fk():
 
 def test_endpoint_is_read_only_and_bulk():
     import main
-    src = inspect.getsource(main.qa_bridge_client_intelligence)
+    src = inspect.getsource(main.registry_bridge_client_presence)
     for forbidden in ("upsert", "insert", "enqueue(", "run_sentinel_for_site", ".update("):
         assert forbidden not in src
     for expected in ("sentinel_status_bulk", "open_incident_counts", "fragility_bulk"):
@@ -115,10 +115,10 @@ def test_endpoint_is_read_only_and_bulk():
 
 def test_endpoint_is_flag_gated_before_any_work():
     import main
-    src = inspect.getsource(main.qa_bridge_client_intelligence)
+    src = inspect.getsource(main.registry_bridge_client_presence)
     # Anchor on the code expression — the docstring names the flag too, and the
     # deferred import sits above the gate. What matters is the CHECK vs the CALL.
-    gate = src.index('os.getenv("CLIENT_INTELLIGENCE")')
+    gate = src.index('os.getenv("PRESENCE_CHIPS")')
     assert gate < src.index("await registry_client_sites("), "flag is checked before the DB is touched"
     assert gate < src.index("await _qa_authenticate("), "…and before auth does any work"
     assert "status_code=404" in src[gate:gate + 200], "off ⇒ indistinguishable from not existing"
@@ -143,7 +143,7 @@ def _code_only(fn):
 
 # ── still no composite ──────────────────────────────────────────────────────
 def test_aggregation_blends_nothing():
-    src = inspect.getsource(aggregate_chip) + inspect.getsource(client_intelligence)
+    src = inspect.getsource(aggregate_chip) + inspect.getsource(client_presence_chips)
     for banned in ("weight", "* 0.", "/ len(", "mean(", "average", "composite", "score"):
         assert banned not in src, f"no composite may exist — found {banned!r}"
 
@@ -161,7 +161,7 @@ def test_site_chips_still_feed_the_aggregate_unchanged():
     """The client route reuses site_chips() — the per-site contract is the same
     one the presence/sites endpoint already serves."""
     chips = site_chips({"ssl_expiry": None}, 2, None)
-    ci = client_intelligence([("s1", "/dashboard/s1", chips)])
+    ci = client_presence_chips([("s1", "/dashboard/s1", chips)])
     by = {c["key"]: c for c in ci["chips"]}
     assert by["incidents"]["state"] == "critical"
     assert by["fragility"]["state"] == "settling"
@@ -188,7 +188,7 @@ def test_every_state_has_exactly_one_label():
 
 def test_worst_label_travels_with_worst():
     from presence import state_label
-    ci = client_intelligence([_site("a", incidents="critical")])
+    ci = client_presence_chips([_site("a", incidents="critical")])
     assert ci["worst"] == "critical"
     assert ci["worst_label"] == "brittle" == state_label(ci["worst"])
 
@@ -212,7 +212,7 @@ def test_sites_summary_leaks_no_identity():
 
 def test_endpoint_returns_summary_not_a_per_site_map():
     import main
-    src = inspect.getsource(main.qa_bridge_client_intelligence)
+    src = inspect.getsource(main.registry_bridge_client_presence)
     assert "sites_summary" in src
     assert '"sites": {' not in src, "per-site detail is reached by handoff, not smuggled in the payload"
 
@@ -252,7 +252,7 @@ def test_unknown_history_still_says_pattern_forming():
 def test_link_client_is_flag_gated_and_service_keyed():
     import main
     src = inspect.getsource(main.registry_bridge_link_client)
-    gate = src.index('os.getenv("CLIENT_INTELLIGENCE")')
+    gate = src.index('os.getenv("PRESENCE_CHIPS")')
     assert gate < src.index("await _qa_authenticate("), "flag precedes auth"
     assert "status_code=404" in src[gate:gate + 200]
 
@@ -284,7 +284,7 @@ def test_no_bulk_linking_path_exists():
 
 def test_link_client_is_the_only_write_in_the_feature():
     import main
-    for fn in (main.qa_bridge_client_intelligence, main.qa_bridge_presence_sites,
+    for fn in (main.registry_bridge_client_presence, main.qa_bridge_presence_sites,
                main.qa_bridge_presence):
         src = inspect.getsource(fn)
         for w in ("create_client", "insert", "upsert", ".update("):

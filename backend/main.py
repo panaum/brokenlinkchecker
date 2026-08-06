@@ -3369,11 +3369,11 @@ async def qa_bridge_presence_sites(registry_site_ids: str = Query(...),
     return JSONResponse(payload, headers={"Cache-Control": "private, max-age=300"})
 
 
-@app.get("/api/qa-bridge/client-intelligence")
-async def qa_bridge_client_intelligence(registry_client_id: str = Query(...),
+@app.get("/api/registry-bridge/client-presence")
+async def registry_bridge_client_presence(registry_client_id: str = Query(...),
                                         authorization: str = Header(default=None),
                                         x_api_key: str = Header(default=None)):
-    """CLIENT INTELLIGENCE — the four chips aggregated across every site LinkSpy
+    """CLIENT PRESENCE CHIPS — the four chips aggregated across every site LinkSpy
     holds for one registry client.
 
     Sites resolve through the EXISTING `sites.client_id` FK (migration 007), via
@@ -3381,15 +3381,15 @@ async def qa_bridge_client_intelligence(registry_client_id: str = Query(...),
     /api/registry/clients/{id}/sites already use. No new table, no new mapping,
     no second authority for a relationship that already has one.
 
-    Gated on CLIENT_INTELLIGENCE=1: off, the route answers 404 and is
+    Gated on PRESENCE_CHIPS=1: off, the route answers 404 and is
     indistinguishable from not existing. Service-key auth, read-only, never
     probes. Three bulk reads regardless of how many sites the client has."""
     from datetime import datetime, timezone
     from database import (registry_client_sites, sentinel_status_bulk,
                           open_incident_counts, fragility_bulk)
-    from presence import site_chips, client_intelligence, CHIP_KEYS
-    if os.getenv("CLIENT_INTELLIGENCE") != "1":
-        return JSONResponse({"error": "client_intelligence_disabled"}, status_code=404)
+    from presence import site_chips, client_presence_chips, CHIP_KEYS
+    if os.getenv("PRESENCE_CHIPS") != "1":
+        return JSONResponse({"error": "presence_chips_disabled"}, status_code=404)
 
     key = await _qa_authenticate(authorization, x_api_key)
     if not key:
@@ -3401,7 +3401,7 @@ async def qa_bridge_client_intelligence(registry_client_id: str = Query(...),
         sites = await registry_client_sites(registry_client_id)
     except Exception as e:
         print(f"[client-intelligence] site resolution failed for {registry_client_id}: {e}")
-        return JSONResponse({"error": "client_intelligence_unavailable"}, status_code=503)
+        return JSONResponse({"error": "presence_chips_unavailable"}, status_code=503)
 
     site_ids = [s["id"] for s in sites if s.get("id")]
     base = {"registry_client_id": registry_client_id,
@@ -3420,12 +3420,12 @@ async def qa_bridge_client_intelligence(registry_client_id: str = Query(...),
         fragilities = await fragility_bulk(site_ids)
     except Exception as e:
         print(f"[client-intelligence] read failed for {registry_client_id}: {e}")
-        return JSONResponse({"error": "client_intelligence_unavailable"}, status_code=503)
+        return JSONResponse({"error": "presence_chips_unavailable"}, status_code=503)
 
     per_site = [(sid, f"/dashboard/{sid}",
                  site_chips(statuses.get(sid), incidents.get(sid, 0), fragilities.get(sid)))
                 for sid in site_ids]
-    agg = client_intelligence(per_site) or {
+    agg = client_presence_chips(per_site) or {
         "chips": [], "worst": "unknown", "worst_label": "unknown", "site_count": 0,
         "sites_summary": {"total": 0, "by_state": {}, "by_label": {}}}
 
@@ -3455,8 +3455,8 @@ async def registry_bridge_link_client(request: Request,
     linking guidance: 3–5 real clients before rollout, not all 89 at once)."""
     from database import (registry_client_by_id, registry_client_by_name,
                           staff_workspace_id, create_client)
-    if os.getenv("CLIENT_INTELLIGENCE") != "1":
-        return JSONResponse({"error": "client_intelligence_disabled"}, status_code=404)
+    if os.getenv("PRESENCE_CHIPS") != "1":
+        return JSONResponse({"error": "presence_chips_disabled"}, status_code=404)
 
     key = await _qa_authenticate(authorization, x_api_key)
     if not key:

@@ -3369,6 +3369,141 @@ async def qa_bridge_presence_sites(registry_site_ids: str = Query(...),
     return JSONResponse(payload, headers={"Cache-Control": "private, max-age=300"})
 
 
+@app.get("/api/qa-bridge/client-intelligence")
+async def qa_bridge_client_intelligence(registry_client_id: str = Query(...),
+                                        authorization: str = Header(default=None),
+                                        x_api_key: str = Header(default=None)):
+    """CLIENT INTELLIGENCE — the four chips aggregated across every site LinkSpy
+    holds for one registry client.
+
+    Sites resolve through the EXISTING `sites.client_id` FK (migration 007), via
+    the same registry_client_sites() helper the client portal and
+    /api/registry/clients/{id}/sites already use. No new table, no new mapping,
+    no second authority for a relationship that already has one.
+
+    Gated on CLIENT_INTELLIGENCE=1: off, the route answers 404 and is
+    indistinguishable from not existing. Service-key auth, read-only, never
+    probes. Three bulk reads regardless of how many sites the client has."""
+    from datetime import datetime, timezone
+    from database import (registry_client_sites, sentinel_status_bulk,
+                          open_incident_counts, fragility_bulk)
+    from presence import site_chips, client_intelligence, CHIP_KEYS
+    if os.getenv("CLIENT_INTELLIGENCE") != "1":
+        return JSONResponse({"error": "client_intelligence_disabled"}, status_code=404)
+
+    key = await _qa_authenticate(authorization, x_api_key)
+    if not key:
+        return JSONResponse({"error": "A valid QA-bridge service key is required."}, status_code=401)
+    if not _qa_rl.allow(key["id"], time.time()):
+        return JSONResponse({"error": "Rate limit exceeded. Try again shortly."}, status_code=429)
+
+    try:
+        sites = await registry_client_sites(registry_client_id)
+    except Exception as e:
+        print(f"[client-intelligence] site resolution failed for {registry_client_id}: {e}")
+        return JSONResponse({"error": "client_intelligence_unavailable"}, status_code=503)
+
+    site_ids = [s["id"] for s in sites if s.get("id")]
+    base = {"registry_client_id": registry_client_id,
+            "as_of": datetime.now(timezone.utc).isoformat(),
+            "chip_keys": list(CHIP_KEYS), "site_count": len(site_ids)}
+    # A client with no sites is a valid answer, not a 404. The consumer renders
+    # nothing — same as an unmapped client.
+    if not site_ids:
+        return JSONResponse({**base, "chips": [], "worst": "unknown", "worst_label": "unknown",
+                             "sites_summary": {"total": 0, "by_state": {}, "by_label": {}}},
+                            headers={"Cache-Control": "private, max-age=300"})
+
+    try:
+        statuses = await sentinel_status_bulk(site_ids)
+        incidents = await open_incident_counts(site_ids)
+        fragilities = await fragility_bulk(site_ids)
+    except Exception as e:
+        print(f"[client-intelligence] read failed for {registry_client_id}: {e}")
+        return JSONResponse({"error": "client_intelligence_unavailable"}, status_code=503)
+
+    per_site = [(sid, f"/dashboard/{sid}",
+                 site_chips(statuses.get(sid), incidents.get(sid, 0), fragilities.get(sid)))
+                for sid in site_ids]
+    agg = client_intelligence(per_site) or {
+        "chips": [], "worst": "unknown", "worst_label": "unknown", "site_count": 0,
+        "sites_summary": {"total": 0, "by_state": {}, "by_label": {}}}
+
+    # Aggregate chips + a counts-only shape summary. No site names, no site ids:
+    # per-site detail is reached by clicking through to LinkSpy on a signed
+    # handoff, where the reader is authenticated.
+    return JSONResponse({**base, **agg},
+                        headers={"Cache-Control": "private, max-age=300"})
+
+
+@app.post("/api/registry-bridge/link-client")
+async def registry_bridge_link_client(request: Request,
+                                      authorization: str = Header(default=None),
+                                      x_api_key: str = Header(default=None)):
+    """Link a Dashboard client to a LinkSpy registry client, returning the UUID
+    the Dashboard stores in Client.registryClientId. The two are THE SAME id —
+    the registry is the system of record (Seam 1), the Dashboard annotates.
+
+    Body: {dashboard_client_id, name, linkspy_client_id?}
+      · linkspy_client_id given → verify it exists and return it (idempotent).
+      · absent → match an existing registry client by name, else CREATE one in
+        the staff workspace.
+
+    THE ONLY WRITE IN THIS FEATURE, and never automatic: a human presses "Link
+    to LinkSpy" on one client at a time. Nothing here is triggered by a scan, a
+    cron, or an event — no bulk sweep exists, on purpose (§ the design note's
+    linking guidance: 3–5 real clients before rollout, not all 89 at once)."""
+    from database import (registry_client_by_id, registry_client_by_name,
+                          staff_workspace_id, create_client)
+    if os.getenv("CLIENT_INTELLIGENCE") != "1":
+        return JSONResponse({"error": "client_intelligence_disabled"}, status_code=404)
+
+    key = await _qa_authenticate(authorization, x_api_key)
+    if not key:
+        return JSONResponse({"error": "A valid registry service key is required."}, status_code=401)
+    if not _qa_rl.allow(key["id"], time.time()):
+        return JSONResponse({"error": "Rate limit exceeded. Try again shortly."}, status_code=429)
+
+    body = await request.json()
+    dashboard_client_id = (body.get("dashboard_client_id") or "").strip()
+    name = (body.get("name") or "").strip()
+    explicit = (body.get("linkspy_client_id") or "").strip()
+    if not dashboard_client_id or not name:
+        return JSONResponse({"error": "dashboard_client_id and name are required."}, status_code=400)
+
+    # 1. Operator supplied an id — verify, never trust. A wrong paste must fail
+    #    loudly here rather than silently annotate the wrong client forever.
+    if explicit:
+        found = await registry_client_by_id(explicit)
+        if not found:
+            return JSONResponse({"error": "No LinkSpy client with that id.",
+                                 "linkspy_client_id": explicit}, status_code=404)
+        return {"linked": True, "created": False, "matched_by": "id",
+                "linkspy_client_id": found["id"], "name": found["name"],
+                "dashboard_client_id": dashboard_client_id}
+
+    # 2. Match an existing registry client by name before creating a duplicate.
+    existing = await registry_client_by_name(name)
+    if existing:
+        return {"linked": True, "created": False, "matched_by": "name",
+                "linkspy_client_id": existing["id"], "name": existing["name"],
+                "dashboard_client_id": dashboard_client_id}
+
+    # 3. Create. Registry IDs are eternal (§8.2) — this is the expensive kind of
+    #    write, which is exactly why it needs a human behind it.
+    ws = await staff_workspace_id()
+    if not ws:
+        return JSONResponse({"error": "No staff workspace — apply migration 007.",
+                             "setup_required": True}, status_code=503)
+    created = await create_client(ws, name)
+    if not created:
+        return JSONResponse({"error": "Registry storage unavailable — apply migration 007.",
+                             "setup_required": True}, status_code=503)
+    return {"linked": True, "created": True, "matched_by": "created",
+            "linkspy_client_id": created["id"], "name": created["name"],
+            "dashboard_client_id": dashboard_client_id}
+
+
 # ─── QA-bridge admin (agency-internal) — mapping + service keys ───────────────
 @app.get("/api/sites/{site_id}/qa-bridge/maps")
 async def qa_maps_list(site_id: str, _acc: dict = Depends(require_site_access("member"))):

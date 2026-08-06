@@ -99,13 +99,16 @@ def test_fresh_site_reads_settling_with_the_gates_own_reason():
                                            "gate": {"have_days": 34, "have_scans": 5}}))["fragility"]
     assert chip["state"] == "settling"
     assert chip["text"] == "settling", "a fresh site shows no score at all"
-    assert chip["detail"] == "Needs 60+ days and 8+ scans of history — 34 days, 5 scans so far"
+    # Fresh Mode (decision 4): days monitored only — never the gate's thresholds,
+    # never a partial score.
+    assert chip["detail"] == "34 days monitored · pattern still forming"
+    assert chip["fresh_mode"] is True
 
 
 def test_absent_fragility_row_is_settling_not_healthy():
     chip = _by_key(site_chips(HEALTHY, 0, None))["fragility"]
     assert chip["state"] == "settling"
-    assert "Needs 60+ days and 8+ scans" in chip["detail"]
+    assert chip["detail"] == "Pattern still forming"
 
 
 def test_fragility_bands_map_to_states_with_normal_as_notice():

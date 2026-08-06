@@ -3154,6 +3154,38 @@ async def registry_client_sites(client_id) -> list:
     return await asyncio.to_thread(_registry_client_sites_sync, client_id)
 
 
+def _registry_client_by_id_sync(client_id) -> Optional[dict]:
+    client = _get_client()
+    try:
+        rows = client.table("clients").select("id, name").eq("id", client_id).limit(1).execute().data or []
+        return rows[0] if rows else None
+    except Exception:
+        # A malformed uuid is "not found", not a 500 — the caller is an operator
+        # pasting an id, and a bad paste should read as "no such client".
+        return None
+
+
+async def registry_client_by_id(client_id) -> Optional[dict]:
+    import asyncio
+    return await asyncio.to_thread(_registry_client_by_id_sync, client_id)
+
+
+def _registry_client_by_name_sync(name) -> Optional[dict]:
+    client = _get_client()
+    try:
+        rows = client.table("clients").select("id, name").ilike("name", name).limit(1).execute().data or []
+        return rows[0] if rows else None
+    except Exception as e:
+        if _tables_missing(e):
+            return None
+        raise
+
+
+async def registry_client_by_name(name) -> Optional[dict]:
+    import asyncio
+    return await asyncio.to_thread(_registry_client_by_name_sync, name)
+
+
 def _registry_insert_deliverable_sync(site_id, kind, name, external_ref, url) -> dict:
     client = _get_client()
     row = {"site_id": site_id, "kind": kind, "name": name,

@@ -242,6 +242,7 @@ verified from source. There is no pydantic `Settings` class; every read is a bar
 | `SPINE_SECRET` | HMAC-SHA256 key for the spine bus, both directions (`main.py:3403`, `spine.py:98`) | secret | **Vercel dashboard, Vercel qa-ecosystem, Vercel brokenlinkchecker** | Yes for spine — inbox 503s without it |
 | `QA_APP_URL` | Dashboard base for outbox POST + reconcile GET (`spine.py:97,166`) | url | — | Yes for spine — drain returns `{"skipped":"not configured"}` |
 | `SPINE_CONSUME` | Whether inbound `deliverable.ready_for_qa` enqueues a `qa_battery` job (`main.py:3435`) | flag | — | No — off = record-only shadow |
+| `PRESENCE_CHIPS` | Gates the **client presence chips** read + link endpoints (`main.py` `registry_bridge_client_presence`, `registry_bridge_link_client`). Only the literal `1` enables them | flag | *(same name, set separately, on Vercel dashboard)* | No — unset ⇒ both routes answer `404 presence_chips_disabled` |
 | `FLYWHEEL` | Gap-analysis / candidate-drafting loop (`flywheel.py:88`) | flag | — | No — off = no-op |
 | `AUTO_ENROLL` | Auto-enrol a site into weekly monitoring on `qa.completed` (`spine.py:47`) | flag | — | No |
 | `JOBS_SHADOW` | Starts the asyncio jobs worker + 30-min shadow enqueue (`jobs.py:162`, `main.py:262`) | flag | — | **Effectively yes** — without it nothing drains (D7) |
@@ -300,6 +301,7 @@ Auth is a shared team password + signed cookie — **not** NextAuth.
 | `LINKSPY_API_KEY` | Bearer service key for those calls; **server-only, never reaches the browser** | secret | LinkSpy (validated backend-side) | No — `registryConfigured()` false ⇒ typed "unavailable" |
 | `LINKSPY_APP_URL` | LinkSpy dashboard base for operator deep links (`lib/linkspy/client.ts:24`) | url | — | No — falls back to `LINKSPY_API_URL`, then plain instructions |
 | `PRESENCE` | Gates the **production-presence strip** on the page checklist view (`lib/linkspy/presence-shape.ts:37` via `lib/linkspy/presence.ts:62`). Only the literal `1` enables it | flag | *(same name, set separately, on Vercel brokenlinkchecker)* | No — unset ⇒ the checklist view is byte-identical to pre-presence |
+| `PRESENCE_CHIPS` | Gates the **client presence chips** on client detail + list (`lib/linkspy/client-presence-chips-shape.ts` `presenceChipsEnabled()`) and the "Link to LinkSpy" action. Only the literal `1` enables it | flag | *(same name, set separately, on Railway)* | No — unset ⇒ client pages are byte-identical to pre-chips |
 | `ANTHROPIC_API_KEY` | Enables Claude judgment in the AI QA agent (`lib/ai/anthropic.ts:5`) | secret | — | No — deterministic checks still run |
 | `E2E_PASSWORD` | Playwright login; must equal the server's `APP_PASSWORD` (`e2e/auth.setup.ts:15`) | secret | — | Test-only |
 | `NODE_ENV` | Cookie `secure` flag, Prisma client caching | platform | — | Injected |
@@ -676,3 +678,85 @@ Re-derive after any change to deployment config by grepping all three repos:
 grep -rEn "process\.env\.[A-Z0-9_]+" --include=*.ts --include=*.tsx <repo>
 grep -rEn "os\.(environ|getenv)" --include=*.py <repo>
 ```
+
+---
+
+## Client presence chips — endpoints, auth, activation
+
+Merged: LinkSpy PRs #79/#80 (`feat/client-intelligence-linkspy`), Dashboard PR
+#8 (`feat/client-intelligence-dashboard`). Both on `main`. Deployed. **Dormant
+until `PRESENCE_CHIPS=1` is set on both surfaces.**
+
+### Endpoints (both served by LinkSpy on Railway)
+
+| Method | Path | Purpose |
+|---|---|---|
+| `GET` | `/api/registry-bridge/client-presence?registry_client_id=<uuid>` | Four chips aggregated over the client's sites, resolved via `sites.client_id` |
+| `POST` | `/api/registry-bridge/link-client` | Link a Dashboard client to a registry client. **The only write in this feature** |
+
+**Auth:** qa-bridge service key (`qab_…`), as `Authorization: Bearer <key>` or
+`X-Api-Key`. Same key pool as `/api/qa-bridge/status` — hashed at rest,
+rate-limited at 120 req/min per key. The Dashboard reads it from
+`LINKSPY_API_KEY`; it is server-side only and never reaches a browser.
+
+**The flag gate precedes auth**, so an unauthenticated request is a safe probe
+for whether the feature is live:
+
+```bash
+curl -s -w '\nHTTP %{http_code}\n' \
+  "$LINKSPY_API_URL/api/registry-bridge/client-presence?registry_client_id=test"
+```
+
+| Response | Means |
+|---|---|
+| `404 {"error":"presence_chips_disabled"}` | Deployed, flag **off** |
+| `401` | Deployed, flag **on** — auth now required, so supply the key |
+| `404 {"detail":"Not Found"}` | Route **not deployed** (different body — read it, don't just read the status) |
+| `200 {"chips":[],"site_count":0}` | Flag on, client unknown or has no sites. **A valid empty answer** |
+| `200` + `chips` + `sites_summary` | Flag on, client mapped |
+| `503 {"error":"presence_chips_unavailable"}` | **A real storage fault.** Never a dormant state — stop and diagnose |
+
+### Activation order
+
+1. **Railway `brokenlinkchecker`** → add `PRESENCE_CHIPS=1` → Deploy → Ready.
+   Verify with the unauthenticated probe above: it must flip from
+   `404 presence_chips_disabled` to `401`.
+2. **Vercel `dashboard`** → add `PRESENCE_CHIPS=1` → Redeploy → Ready.
+   Client pages now show four chips or the "Not linked to LinkSpy" strip.
+3. **Link one pilot client** (see below). Do not bulk-link — the design note
+   explains why 3–5 real clients first, never all 89.
+
+Rollback: unset `PRESENCE_CHIPS` on either surface and redeploy. Written
+`registryClientId` values persist deliberately — they are registry annotations,
+not feature state.
+
+### Linking a client
+
+**Simplest path — the UI.** Dashboard → client detail → **"Link to LinkSpy"**
+on the "Not linked" strip. Leave the id box blank to match by name. It calls the
+endpoint below, writes `Client.registryClientId`, and refreshes the page. Prefer
+this: it cannot mistype a UUID and it records the same result.
+
+**Manual equivalent:**
+
+```bash
+curl -X POST "$LINKSPY_API_URL/api/registry-bridge/link-client" \
+  -H "Authorization: Bearer $QAB_KEY" -H "Content-Type: application/json" \
+  -d '{"dashboard_client_id":"<dashboard cuid>","name":"<Client Name>"}'
+```
+
+| Field | Required | Behaviour |
+|---|---|---|
+| `dashboard_client_id` | yes | Echoed back; the Dashboard stores the result against it |
+| `name` | yes | Used to match an existing registry client |
+| `linkspy_client_id` | no | If given, it is **verified to exist** and returned; a bad id is a `404`, never a silent mislink |
+
+Resolution order: explicit id → name match → **create** in the staff workspace.
+The response names which happened via `matched_by` (`id` / `name` / `created`)
+and `created: true|false`.
+
+Verify a link took: re-run the presence probe with the returned
+`linkspy_client_id` — it should return `200` with `site_count > 0` if that
+registry client has sites. If it returns `site_count: 0`, the link is real but
+the registry client has no sites attached (`sites.client_id`), which is a
+registry-hygiene issue, not a linking failure.

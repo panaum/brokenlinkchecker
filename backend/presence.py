@@ -111,6 +111,29 @@ STATE_ORDER = ("critical", "warn", "notice", "settling", "unknown", "ok")
 _STATE_RANK = {s: i for i, s in enumerate(STATE_ORDER)}
 
 
+# ── Display vocabulary ───────────────────────────────────────────────────────
+# The operator-facing names for the severity ladder, best-first. This is a LABEL
+# layer, not a second status system: internally the states stay
+# ok/settling/notice/warn/critical, the same vocabulary sentinel and the ds-status
+# CSS classes already speak (constitution rule 8).
+#
+# NOTE the overload: 'brittle' is ALSO a fragility band (fragility.py:124, score
+# >= 60) and renders as "Brittle" in FragilityPanel. Here it means "worst chip
+# state". A client can therefore read `brittle` overall while its fragility chip
+# says `22 · sturdy` — different axes, same word. Flagged, not hidden.
+RANKING_BEST_FIRST = ("stable", "fresh", "drifting", "fragile", "brittle")
+
+_DISPLAY = {"ok": "stable", "settling": "fresh", "notice": "drifting",
+            "warn": "fragile", "critical": "brittle", "unknown": "unknown"}
+
+
+def state_label(state):
+    """Operator-facing name for an internal state. Unknown stays 'unknown' — it
+    is not on the stable→brittle ranking because 'we could not tell' is not a
+    point on a durability scale."""
+    return _DISPLAY.get(state, "unknown")
+
+
 def worst_state(states):
     """The most severe of a set of states. The ONLY reduction in this pipeline —
     reversible by construction, because the worst chip is still visible as
@@ -122,17 +145,22 @@ def worst_state(states):
 
 
 def _fragility_chip(fragility):
-    """Stored nightly score. Missing or gated → 'settling' with the gate's own
-    reason: fragility.history_gate refuses to score a site under 60 days / 8
-    scans, and presence honours that rather than working around it."""
+    """Stored nightly score, or FRESH MODE.
+
+    Fresh Mode is the window before fragility.history_gate is satisfied (60+
+    days AND 8+ scans). In it the chip reads 'settling' and carries ONLY how
+    long the site has been watched — never a partial score, never a provisional
+    band. A number computed from too little history is worse than no number,
+    because it will be quoted.
+    """
     if not fragility or fragility.get("insufficient"):
         gate = (fragility or {}).get("gate") or {}
-        have_days, have_scans = gate.get("have_days"), gate.get("have_scans")
-        detail = "Needs 60+ days and 8+ scans of history"
-        if have_days is not None or have_scans is not None:
-            detail += f" — {have_days or 0} days, {have_scans or 0} scans so far"
+        days = gate.get("have_days")
+        detail = (f"{days} day{'' if days == 1 else 's'} monitored · pattern still forming"
+                  if days is not None else "Pattern still forming")
         return {"key": "fragility", "state": "settling", "label": "Fragility",
-                "text": "settling", "detail": detail}
+                # No score, no band, no factors — Fresh Mode leaks nothing.
+                "text": "settling", "detail": detail, "fresh_mode": True}
 
     band = fragility.get("band")
     state = {"brittle": "critical", "sturdy": "ok"}.get(band, "notice")
@@ -179,6 +207,25 @@ def aggregate_chip(key, per_site):
             "site_path": at_worst[0][1] if len(at_worst) == 1 else None}
 
 
+def sites_summary(per_site):
+    """Shape counts only: how many sites, and how many at each state.
+
+    Deliberately carries NO site names and NO ids. Per-site detail is reached by
+    clicking through to LinkSpy on a signed handoff, where the reader is
+    authenticated — it is not smuggled into a Dashboard payload where it would
+    become a second, unauthenticated copy of the registry.
+    """
+    by_state = {}
+    for _sid, _path, chips in per_site or []:
+        w = worst_state([c["state"] for c in (chips or [])])
+        by_state[w] = by_state.get(w, 0) + 1
+    return {"total": len(per_site or []),
+            "by_state": by_state,
+            # Same counts under the operator-facing names, so a consumer never
+            # has to hardcode the internal vocabulary to render a breakdown.
+            "by_label": {state_label(k): v for k, v in by_state.items()}}
+
+
 def client_intelligence(per_site):
     """The four aggregated chips for one client, plus its worst-of.
 
@@ -192,9 +239,12 @@ def client_intelligence(per_site):
     chips = [c for c in (aggregate_chip(k, per_site) for k in CHIP_KEYS) if c]
     if not chips:
         return None
+    worst = worst_state([c["state"] for c in chips])
     return {"chips": chips,
-            "worst": worst_state([c["state"] for c in chips]),
-            "site_count": len(per_site)}
+            "worst": worst,
+            "worst_label": state_label(worst),
+            "site_count": len(per_site),
+            "sites_summary": sites_summary(per_site)}
 
 
 def site_chips(status, open_incidents=0, fragility=None, now=None):

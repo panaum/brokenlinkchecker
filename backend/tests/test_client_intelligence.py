@@ -124,10 +124,21 @@ def test_endpoint_is_flag_gated_before_any_work():
     assert "status_code=404" in src[gate:gate + 200], "off ⇒ indistinguishable from not existing"
 
 
-def test_aggregate_carries_per_site_detail_for_audit():
-    import main
-    src = inspect.getsource(main.qa_bridge_client_intelligence)
-    assert '"sites":' in src, "an aggregate must stay auditable back to its sites"
+def _code_only(fn):
+    """Function source with comments and docstring removed. These endpoints
+    explain themselves in prose that names the very things the code must not do."""
+    import io, tokenize
+    src = inspect.getsource(fn)
+    out, prev = [], tokenize.INDENT
+    for tok in tokenize.generate_tokens(io.StringIO(src).readline):
+        if tok.type == tokenize.COMMENT:
+            continue
+        if tok.type == tokenize.STRING and prev in (tokenize.INDENT, tokenize.NEWLINE, tokenize.NL):
+            continue
+        out.append(tok.string)
+        if tok.type not in (tokenize.NL, tokenize.NEWLINE):
+            prev = tok.type
+    return " ".join(out)
 
 
 # ── still no composite ──────────────────────────────────────────────────────
@@ -155,3 +166,126 @@ def test_site_chips_still_feed_the_aggregate_unchanged():
     assert by["incidents"]["state"] == "critical"
     assert by["fragility"]["state"] == "settling"
     assert ci["worst"] == "critical"
+
+
+# ═══ Decision 2 — the display ranking is pinned ══════════════════════════════
+def test_ranking_order_is_pinned_best_to_worst():
+    """If a future change reorders severity, this fails. That is the point."""
+    from presence import RANKING_BEST_FIRST, STATE_ORDER, state_label
+    assert RANKING_BEST_FIRST == ("stable", "fresh", "drifting", "fragile", "brittle")
+    # The display ranking IS the internal ladder, reversed. One order, two names.
+    internal_best_first = tuple(s for s in reversed(STATE_ORDER) if s != "unknown")
+    assert tuple(state_label(s) for s in internal_best_first) == RANKING_BEST_FIRST
+
+
+def test_every_state_has_exactly_one_label():
+    from presence import STATE_ORDER, state_label
+    labels = [state_label(s) for s in STATE_ORDER]
+    assert len(set(labels)) == len(labels), "no two states may share a label"
+    assert state_label("unknown") == "unknown", "'could not tell' is not on the ranking"
+    assert state_label("nonsense") == "unknown"
+
+
+def test_worst_label_travels_with_worst():
+    from presence import state_label
+    ci = client_intelligence([_site("a", incidents="critical")])
+    assert ci["worst"] == "critical"
+    assert ci["worst_label"] == "brittle" == state_label(ci["worst"])
+
+
+# ═══ Decision 3 — counts-only sites summary, no names, no ids ════════════════
+def test_sites_summary_counts_by_state_and_label():
+    from presence import sites_summary
+    s = sites_summary([_site("a"), _site("b", ssl="critical"), _site("c", fragility="settling")])
+    assert s["total"] == 3
+    assert s["by_state"] == {"ok": 1, "critical": 1, "settling": 1}
+    assert s["by_label"] == {"stable": 1, "brittle": 1, "fresh": 1}
+
+
+def test_sites_summary_leaks_no_identity():
+    from presence import sites_summary
+    s = sites_summary([_site("secret-site-id"), _site("another-id", ssl="warn")])
+    flat = repr(s)
+    assert "secret-site-id" not in flat and "another-id" not in flat
+    assert "/dashboard/" not in flat, "no site paths in the summary either"
+
+
+def test_endpoint_returns_summary_not_a_per_site_map():
+    import main
+    src = inspect.getsource(main.qa_bridge_client_intelligence)
+    assert "sites_summary" in src
+    assert '"sites": {' not in src, "per-site detail is reached by handoff, not smuggled in the payload"
+
+
+# ═══ Decision 4 — Fresh Mode leaks nothing ══════════════════════════════════
+def test_fresh_mode_tooltip_reports_days_monitored():
+    chip = {c["key"]: c for c in site_chips({}, 0, {"insufficient": True,
+                                                    "gate": {"have_days": 34, "have_scans": 5}})}["fragility"]
+    assert chip["state"] == "settling"
+    assert chip["text"] == "settling"
+    assert chip["detail"] == "34 days monitored · pattern still forming"
+    assert chip.get("fresh_mode") is True
+
+
+def test_fresh_mode_singular_day():
+    chip = {c["key"]: c for c in site_chips({}, 0, {"insufficient": True,
+                                                    "gate": {"have_days": 1}})}["fragility"]
+    assert chip["detail"] == "1 day monitored · pattern still forming"
+
+
+def test_fresh_mode_never_leaks_a_partial_score_or_band():
+    """Even if a gated row carries a provisional score, none of it may render."""
+    gated = {"insufficient": True, "score": 71, "band": "brittle",
+             "factors": ["9 breakages"], "gate": {"have_days": 12}}
+    chip = {c["key"]: c for c in site_chips({}, 0, gated)}["fragility"]
+    flat = repr(chip)
+    assert "71" not in flat and "brittle" not in flat and "breakages" not in flat
+    assert chip["text"] == "settling"
+
+
+def test_unknown_history_still_says_pattern_forming():
+    chip = {c["key"]: c for c in site_chips({}, 0, None)}["fragility"]
+    assert chip["detail"] == "Pattern still forming"
+
+
+# ═══ Decision 5 — the one deliberate write ══════════════════════════════════
+def test_link_client_is_flag_gated_and_service_keyed():
+    import main
+    src = inspect.getsource(main.registry_bridge_link_client)
+    gate = src.index('os.getenv("CLIENT_INTELLIGENCE")')
+    assert gate < src.index("await _qa_authenticate("), "flag precedes auth"
+    assert "status_code=404" in src[gate:gate + 200]
+
+
+def test_link_client_verifies_an_explicit_id_before_trusting_it():
+    import main
+    src = inspect.getsource(main.registry_bridge_link_client)
+    assert "registry_client_by_id" in src
+    assert "status_code=404" in src.split("if explicit:")[1][:400], \
+        "a wrong paste must fail loudly, not annotate the wrong client forever"
+
+
+def test_link_client_matches_by_name_before_creating_a_duplicate():
+    import main
+    src = inspect.getsource(main.registry_bridge_link_client)
+    assert src.index("registry_client_by_name") < src.index("await create_client("), \
+        "creating a duplicate registry client is the expensive mistake (§8.2: ids are eternal)"
+
+
+def test_no_bulk_linking_path_exists():
+    """Linking is one client, one human, one press — by construction."""
+    import main
+    code = _code_only(main.registry_bridge_link_client)
+    for bulk in ("for client in", "list_clients(", "all_clients", "for c in"):
+        assert bulk not in code, f"no sweep may exist — found {bulk!r}"
+    # Exactly one create call, reached only after the id and name lookups fail.
+    assert code.count("create_client") == 2, "one import, one call — no second creation path"
+
+
+def test_link_client_is_the_only_write_in_the_feature():
+    import main
+    for fn in (main.qa_bridge_client_intelligence, main.qa_bridge_presence_sites,
+               main.qa_bridge_presence):
+        src = inspect.getsource(fn)
+        for w in ("create_client", "insert", "upsert", ".update("):
+            assert w not in src, f"{fn.__name__} must stay read-only — found {w!r}"

@@ -3410,7 +3410,8 @@ async def qa_bridge_client_intelligence(registry_client_id: str = Query(...),
     # A client with no sites is a valid answer, not a 404. The consumer renders
     # nothing — same as an unmapped client.
     if not site_ids:
-        return JSONResponse({**base, "chips": [], "worst": "unknown", "sites": {}},
+        return JSONResponse({**base, "chips": [], "worst": "unknown", "worst_label": "unknown",
+                             "sites_summary": {"total": 0, "by_state": {}, "by_label": {}}},
                             headers={"Cache-Control": "private, max-age=300"})
 
     try:
@@ -3424,16 +3425,83 @@ async def qa_bridge_client_intelligence(registry_client_id: str = Query(...),
     per_site = [(sid, f"/dashboard/{sid}",
                  site_chips(statuses.get(sid), incidents.get(sid, 0), fragilities.get(sid)))
                 for sid in site_ids]
-    agg = client_intelligence(per_site) or {"chips": [], "worst": "unknown", "site_count": 0}
+    agg = client_intelligence(per_site) or {
+        "chips": [], "worst": "unknown", "worst_label": "unknown", "site_count": 0,
+        "sites_summary": {"total": 0, "by_state": {}, "by_label": {}}}
 
-    return JSONResponse(
-        {**base, **agg,
-         # Per-site detail travels too: the aggregate must always be auditable
-         # back to the sites that produced it.
-         "sites": {sid: {"name": next((s.get("name") for s in sites if s["id"] == sid), None),
-                         "site_path": path, "chips": chips}
-                   for sid, path, chips in per_site}},
-        headers={"Cache-Control": "private, max-age=300"})
+    # Aggregate chips + a counts-only shape summary. No site names, no site ids:
+    # per-site detail is reached by clicking through to LinkSpy on a signed
+    # handoff, where the reader is authenticated.
+    return JSONResponse({**base, **agg},
+                        headers={"Cache-Control": "private, max-age=300"})
+
+
+@app.post("/api/registry-bridge/link-client")
+async def registry_bridge_link_client(request: Request,
+                                      authorization: str = Header(default=None),
+                                      x_api_key: str = Header(default=None)):
+    """Link a Dashboard client to a LinkSpy registry client, returning the UUID
+    the Dashboard stores in Client.registryClientId. The two are THE SAME id —
+    the registry is the system of record (Seam 1), the Dashboard annotates.
+
+    Body: {dashboard_client_id, name, linkspy_client_id?}
+      · linkspy_client_id given → verify it exists and return it (idempotent).
+      · absent → match an existing registry client by name, else CREATE one in
+        the staff workspace.
+
+    THE ONLY WRITE IN THIS FEATURE, and never automatic: a human presses "Link
+    to LinkSpy" on one client at a time. Nothing here is triggered by a scan, a
+    cron, or an event — no bulk sweep exists, on purpose (§ the design note's
+    linking guidance: 3–5 real clients before rollout, not all 89 at once)."""
+    from database import (registry_client_by_id, registry_client_by_name,
+                          staff_workspace_id, create_client)
+    if os.getenv("CLIENT_INTELLIGENCE") != "1":
+        return JSONResponse({"error": "client_intelligence_disabled"}, status_code=404)
+
+    key = await _qa_authenticate(authorization, x_api_key)
+    if not key:
+        return JSONResponse({"error": "A valid registry service key is required."}, status_code=401)
+    if not _qa_rl.allow(key["id"], time.time()):
+        return JSONResponse({"error": "Rate limit exceeded. Try again shortly."}, status_code=429)
+
+    body = await request.json()
+    dashboard_client_id = (body.get("dashboard_client_id") or "").strip()
+    name = (body.get("name") or "").strip()
+    explicit = (body.get("linkspy_client_id") or "").strip()
+    if not dashboard_client_id or not name:
+        return JSONResponse({"error": "dashboard_client_id and name are required."}, status_code=400)
+
+    # 1. Operator supplied an id — verify, never trust. A wrong paste must fail
+    #    loudly here rather than silently annotate the wrong client forever.
+    if explicit:
+        found = await registry_client_by_id(explicit)
+        if not found:
+            return JSONResponse({"error": "No LinkSpy client with that id.",
+                                 "linkspy_client_id": explicit}, status_code=404)
+        return {"linked": True, "created": False, "matched_by": "id",
+                "linkspy_client_id": found["id"], "name": found["name"],
+                "dashboard_client_id": dashboard_client_id}
+
+    # 2. Match an existing registry client by name before creating a duplicate.
+    existing = await registry_client_by_name(name)
+    if existing:
+        return {"linked": True, "created": False, "matched_by": "name",
+                "linkspy_client_id": existing["id"], "name": existing["name"],
+                "dashboard_client_id": dashboard_client_id}
+
+    # 3. Create. Registry IDs are eternal (§8.2) — this is the expensive kind of
+    #    write, which is exactly why it needs a human behind it.
+    ws = await staff_workspace_id()
+    if not ws:
+        return JSONResponse({"error": "No staff workspace — apply migration 007.",
+                             "setup_required": True}, status_code=503)
+    created = await create_client(ws, name)
+    if not created:
+        return JSONResponse({"error": "Registry storage unavailable — apply migration 007.",
+                             "setup_required": True}, status_code=503)
+    return {"linked": True, "created": True, "matched_by": "created",
+            "linkspy_client_id": created["id"], "name": created["name"],
+            "dashboard_client_id": dashboard_client_id}
 
 
 # ─── QA-bridge admin (agency-internal) — mapping + service keys ───────────────

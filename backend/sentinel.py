@@ -333,8 +333,13 @@ async def run_uptime_for_site(site, notify=None, client=None):
     await add_uptime_ping(site["id"], up)
     pings = await recent_pings(site["id"], limit=3)
     if downtime_state(pings):
-        await open_incident(site["id"])
-        if notify:
+        # Change-only, like every other alert in this codebase: notify on the
+        # transition into the outage, not on every tick of it. open_incident
+        # already refuses to stack a second row, so its return value IS the
+        # transition. This job runs every 5 minutes, so alerting on state
+        # instead sends 12 messages an hour for the whole outage.
+        newly_down = await open_incident(site["id"])
+        if newly_down and notify:
             try:
                 await notify(f":rotating_light: *Site down* — {host} failed two consecutive checks")
             except Exception:
@@ -349,9 +354,12 @@ async def run_uptime_for_site(site, notify=None, client=None):
 
 
 async def run_sentinel_all(notify=None):
+    # Monitored sites only. These sweeps alert, so an operator who switched
+    # monitoring off for a site must stop hearing about it — see
+    # database.monitored_sites_min.
     import httpx
-    from database import all_sites_min
-    sites = await all_sites_min()
+    from database import monitored_sites_min
+    sites = await monitored_sites_min()
     n = 0
     async with httpx.AsyncClient(timeout=12, follow_redirects=True) as client:
         for s in sites:
@@ -364,9 +372,12 @@ async def run_sentinel_all(notify=None):
 
 
 async def run_uptime_all(notify=None):
+    # Monitored sites only — same reason as run_sentinel_all. This is the
+    # 5-minute job, so it is the one that turned an unmonitored dev site into
+    # 12 Slack messages an hour.
     import httpx
-    from database import all_sites_min
-    sites = await all_sites_min()
+    from database import monitored_sites_min
+    sites = await monitored_sites_min()
     n = 0
     async with httpx.AsyncClient(timeout=8, follow_redirects=True) as client:
         for s in sites:

@@ -2001,7 +2001,7 @@ async def recent_pings(site_id, limit=8640) -> list:
     return await asyncio.to_thread(_recent_pings_sync, site_id, limit)
 
 
-def _open_incident_sync(site_id) -> None:
+def _open_incident_sync(site_id) -> bool:
     from datetime import datetime, timezone
     client = _get_client()
     try:
@@ -2011,14 +2011,22 @@ def _open_incident_sync(site_id) -> None:
         if not openrows:
             client.table("sentinel_incidents").insert(
                 {"site_id": site_id, "down_at": datetime.now(timezone.utc).isoformat()}).execute()
+            return True
+        return False
     except Exception as e:
         if not _tables_missing(e):
             raise
+        return False
 
 
-async def open_incident(site_id) -> None:
+async def open_incident(site_id) -> bool:
+    """True only when this call OPENED a new incident, False when one was
+    already open. The caller alerts on the transition, not on the state —
+    mirrors close_incident. Without this signal the 5-minute uptime job has no
+    way to tell "went down" from "still down", and re-announces the same outage
+    every tick for as long as it lasts."""
     import asyncio
-    await asyncio.to_thread(_open_incident_sync, site_id)
+    return await asyncio.to_thread(_open_incident_sync, site_id)
 
 
 def _close_incident_sync(site_id) -> bool:
@@ -2136,6 +2144,34 @@ def _all_sites_min_sync() -> list:
 async def all_sites_min() -> list:
     import asyncio
     return await asyncio.to_thread(_all_sites_min_sync)
+
+
+def _monitored_sites_min_sync() -> list:
+    client = _get_client()
+    try:
+        return client.table("sites").select("id, url")\
+            .eq("monitoring_enabled", True).execute().data or []
+    except Exception as e:
+        # No monitoring_enabled column (migrations/002 not applied) → monitoring
+        # is off, same as _monitored_sites_sync decides for the scan scheduler.
+        # Returning [] rather than every site matters: this list drives ALERTS,
+        # and the failure mode must be silence, not a broadcast.
+        print(f"[Sentinel] could not load monitored sites: {e}")
+        return []
+
+
+async def monitored_sites_min() -> list:
+    """Sites the operator has actually switched monitoring ON for.
+
+    The alerting sentinel jobs use this, NOT all_sites_min. Those jobs run every
+    5 minutes and post to Slack, so running them over every row meant the
+    monitoring toggle did nothing for them: a site with monitoring explicitly
+    off was still pinged and still alerted. The derive-only recompute jobs
+    (fragility, perf) keep using all_sites_min — they write caches the dashboard
+    reads for every site and never notify anyone.
+    """
+    import asyncio
+    return await asyncio.to_thread(_monitored_sites_min_sync)
 
 
 def _site_url_sync(site_id) -> str:
